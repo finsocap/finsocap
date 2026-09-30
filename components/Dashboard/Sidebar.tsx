@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import Link from "next/link";
 import Image from "next/image";
+import { getAssetUrl } from "@/lib/brandConfig";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { 
   Home, 
@@ -98,13 +99,15 @@ export default function Sidebar({ userRole = "ADMIN" }: { userRole?: string }) {
         {isCollapsed ? (
           <Link href="/dashboard" className="flex items-center justify-center group" title="Finsocap Financial Services">
             <div className="w-10 h-10 rounded-xl overflow-hidden bg-white dark:bg-slate-800 border border-slate-200/80 dark:border-slate-700 shadow-xs flex items-center justify-center p-1 group-hover:scale-105 transition-transform">
-              <Image 
-                src="/apple-touch-icon.png" 
+              <img 
+                src={getAssetUrl("/apple-touch-icon.png")} 
                 alt="Finsocap Favicon" 
                 width={36} 
                 height={36} 
                 className="w-full h-full object-contain"
-                priority
+                onError={(e) => {
+                  (e.target as HTMLImageElement).src = getAssetUrl("/Finsocap_logo.png");
+                }}
               />
             </div>
           </Link>
@@ -112,13 +115,15 @@ export default function Sidebar({ userRole = "ADMIN" }: { userRole?: string }) {
           <Link href="/dashboard" className="flex items-center gap-3 overflow-hidden group">
             {/* Official Finsocap Favicon Logo */}
             <div className="w-9 h-9 rounded-xl overflow-hidden bg-white dark:bg-slate-800 border border-slate-200/80 dark:border-slate-700 shadow-xs flex items-center justify-center p-1 shrink-0 group-hover:scale-105 transition-transform">
-              <Image 
-                src="/apple-touch-icon.png" 
+              <img 
+                src={getAssetUrl("/apple-touch-icon.png")} 
                 alt="Finsocap Favicon" 
                 width={32} 
                 height={32} 
                 className="w-full h-full object-contain"
-                priority
+                onError={(e) => {
+                  (e.target as HTMLImageElement).src = getAssetUrl("/Finsocap_logo.png");
+                }}
               />
             </div>
             <div className="flex flex-col">

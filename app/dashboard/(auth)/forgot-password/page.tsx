@@ -6,6 +6,7 @@ import {
   ArrowRight, ArrowLeft, Globe, ShieldCheck, RefreshCw
 } from "lucide-react";
 import Link from "next/link";
+import { getAssetUrl } from "@/lib/brandConfig";
 
 export default function ForgotPasswordPage() {
   const [step, setStep] = useState<1 | 2 | 3>(1); // 1: Email, 2: OTP + New Password, 3: Success
@@ -117,9 +118,9 @@ export default function ForgotPasswordPage() {
           <div className="relative z-10 flex items-center justify-between">
             <Link href="/" className="inline-flex items-center gap-2.5 group transition-transform hover:opacity-90">
               <img 
-                src="/white_logo.png" 
+                src={getAssetUrl("/white_logo.png")} 
                 onError={(e: any) => {
-                  e.currentTarget.src = "/white_logo.svg";
+                  e.currentTarget.src = getAssetUrl("/white_logo.svg");
                 }}
                 alt="Finsocap" 
                 className="h-8 sm:h-9 w-auto object-contain drop-shadow-sm"
@@ -201,7 +202,7 @@ export default function ForgotPasswordPage() {
           <div className="lg:hidden flex items-center justify-between pb-6 mb-2 border-b border-slate-100">
             <Link href="/" className="inline-flex items-center gap-2">
               <img 
-                src="/Finsocap_logo.png" 
+                src={getAssetUrl("/Finsocap_logo.png")} 
                 alt="Finsocap Logo" 
                 className="h-8 w-auto object-contain"
               />

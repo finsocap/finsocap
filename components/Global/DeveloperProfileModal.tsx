@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import Image from "next/image";
+import { getAssetUrl } from "@/lib/brandConfig";
 import { createPortal } from "react-dom";
 
 export default function DeveloperProfileModal() {
@@ -216,13 +217,12 @@ export default function DeveloperProfileModal() {
                     className="w-16 h-16 sm:w-20 sm:h-20 rounded-2xl overflow-hidden bg-black/40 p-0.5 border-2 border-white/35"
                     style={{ boxShadow: "0 8px 24px rgba(0,0,0,0.35)" }}
                   >
-                    <Image
-                      src="/Aaravdp.png"
+                    <img
+                      src={getAssetUrl("/Aaravdp.png")}
                       alt="Aarav Jha"
                       width={80}
                       height={80}
                       className="object-cover object-top w-full h-full rounded-[14px]"
-                      priority
                     />
                   </div>
                   {/* Floating Gold Star Badge */}
