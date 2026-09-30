@@ -29,6 +29,13 @@ import { useTheme } from "@/components/Providers/ThemeProvider";
 
 import { useCrmStore } from "@/lib/crmStore";
 
+function normalizePath(rawPath?: string | null): string {
+  if (!rawPath) return "";
+  const noQuery = rawPath.split("?")[0];
+  const trimmed = noQuery.replace(/\/+$/, "");
+  return trimmed || "/";
+}
+
 export default function Sidebar({ userRole = "ADMIN" }: { userRole?: string }) {
   const pathname = usePathname();
   const searchParams = useSearchParams();
@@ -40,28 +47,89 @@ export default function Sidebar({ userRole = "ADMIN" }: { userRole?: string }) {
 
   const openTasksCount = tasks.filter(t => !["Completed", "Cancelled"].includes(t.status)).length;
   const unassignedTasksCount = tasks.filter(t => !t.assignee && t.status !== "Completed").length;
-  const currentTab = searchParams.get("tab");
+  
+  // Track active report tab with fallback to URL query param
+  const [activeReportTab, setActiveReportTab] = useState<string>(() => {
+    if (typeof window !== "undefined") {
+      const urlTab = new URLSearchParams(window.location.search).get("tab");
+      if (urlTab && ["service", "sales", "licence"].includes(urlTab)) return urlTab;
+    }
+    return searchParams.get("tab") || "service";
+  });
 
+  // Sync activeReportTab whenever pathname or searchParams change
   useEffect(() => {
     setOptimisticHref(null);
-  }, [pathname, currentTab]);
+    const paramTab = searchParams.get("tab");
+    if (paramTab && ["service", "sales", "licence"].includes(paramTab)) {
+      setActiveReportTab(paramTab);
+      return;
+    }
+    if (typeof window !== "undefined") {
+      const urlTab = new URLSearchParams(window.location.search).get("tab");
+      if (urlTab && ["service", "sales", "licence"].includes(urlTab)) {
+        setActiveReportTab(urlTab);
+        return;
+      }
+    }
+    if (normalizePath(pathname) === "/dashboard/reports") {
+      setActiveReportTab("service");
+    }
+  }, [pathname, searchParams]);
+
+  // Real-time synchronization when report tabs change (from page banner or sidebar)
+  useEffect(() => {
+    const handleSwitch = (e: Event) => {
+      const customEvent = e as CustomEvent<string>;
+      if (customEvent.detail && ["service", "sales", "licence"].includes(customEvent.detail)) {
+        setActiveReportTab(customEvent.detail);
+        setOptimisticHref(null);
+      }
+    };
+    window.addEventListener("finsocap-switch-report-tab", handleSwitch);
+    return () => window.removeEventListener("finsocap-switch-report-tab", handleSwitch);
+  }, []);
 
   const isItemActive = (href: string) => {
-    if (optimisticHref) return optimisticHref === href;
-    if (href === "/dashboard") return pathname === "/dashboard";
-    
-    // Explicit report tabs matching - only one active at a time
-    if (href === "/dashboard/reports?tab=service") {
-      return pathname === "/dashboard/reports" && (!currentTab || currentTab === "service");
+    const normalizedCurrent = normalizePath(pathname);
+    const [rawItemBase, itemQuery] = href.split("?");
+    const normalizedItemBase = normalizePath(rawItemBase);
+
+    // Optimistic fast UI feedback
+    if (optimisticHref) {
+      if (optimisticHref === href) return true;
+      const [optBase] = optimisticHref.split("?");
+      if (normalizePath(optBase) === normalizedCurrent && optimisticHref !== href) {
+        return false;
+      }
     }
-    if (href === "/dashboard/reports?tab=sales") {
-      return pathname === "/dashboard/reports" && currentTab === "sales";
+
+    // 1. Dashboard root item: must match ONLY /dashboard exactly
+    if (normalizedItemBase === "/dashboard") {
+      return normalizedCurrent === "/dashboard";
     }
-    if (href === "/dashboard/reports?tab=licence") {
-      return pathname === "/dashboard/reports" && currentTab === "licence";
+
+    // 2. Report tabs (/dashboard/reports?tab=...)
+    if (normalizedItemBase === "/dashboard/reports") {
+      const itemTab = (itemQuery ? new URLSearchParams(itemQuery).get("tab") : "service") || "service";
+
+      // If user is currently on the reports page
+      if (normalizedCurrent === "/dashboard/reports") {
+        return activeReportTab === itemTab;
+      }
+      // Also match standalone report routes if visited directly
+      if (itemTab === "service" && normalizedCurrent === "/dashboard/service-report") return true;
+      if (itemTab === "sales" && normalizedCurrent === "/dashboard/sales") return true;
+      if (itemTab === "licence" && normalizedCurrent === "/dashboard/licence") return true;
+
+      return false;
     }
-    
-    return pathname.startsWith(href);
+
+    // 3. Other core items: exact match OR nested route (e.g. /dashboard/tasks/T-1001)
+    return (
+      normalizedCurrent === normalizedItemBase ||
+      normalizedCurrent.startsWith(normalizedItemBase + "/")
+    );
   };
 
   const coreNavItems = [
@@ -203,16 +271,14 @@ export default function Sidebar({ userRole = "ADMIN" }: { userRole?: string }) {
               href={item.href}
               onClick={(e) => {
                 setOptimisticHref(item.href);
-                if (item.href.includes("tab=service")) {
-                  window.dispatchEvent(new CustomEvent("finsocap-switch-report-tab", { detail: "service" }));
-                } else if (item.href.includes("tab=sales")) {
-                  window.dispatchEvent(new CustomEvent("finsocap-switch-report-tab", { detail: "sales" }));
-                } else if (item.href.includes("tab=licence")) {
-                  window.dispatchEvent(new CustomEvent("finsocap-switch-report-tab", { detail: "licence" }));
-                } else if (item.href === "/dashboard/reports") {
-                  window.dispatchEvent(new CustomEvent("finsocap-switch-report-tab", { detail: "service" }));
-                }
-                if (pathname === "/dashboard/reports") {
+                const tab = item.href.includes("tab=sales") 
+                  ? "sales" 
+                  : item.href.includes("tab=licence") 
+                  ? "licence" 
+                  : "service";
+                setActiveReportTab(tab);
+                window.dispatchEvent(new CustomEvent("finsocap-switch-report-tab", { detail: tab }));
+                if (normalizePath(pathname) === "/dashboard/reports") {
                   e.preventDefault();
                   router.push(item.href);
                 }
@@ -281,7 +347,12 @@ export default function Sidebar({ userRole = "ADMIN" }: { userRole?: string }) {
         {!isCollapsed ? (
           <Link
             href="/dashboard/chat"
-            className="flex items-center justify-between p-3 rounded-2xl bg-slate-50/90 dark:bg-slate-900/80 hover:bg-blue-50/80 dark:hover:bg-blue-950/40 border border-slate-200/80 dark:border-slate-800 transition-all group cursor-pointer"
+            onClick={() => setOptimisticHref("/dashboard/chat")}
+            className={`flex items-center justify-between p-3 rounded-2xl border transition-all group cursor-pointer ${
+              normalizePath(pathname) === "/dashboard/chat"
+                ? "bg-blue-50/90 dark:bg-blue-950/40 border-blue-300 dark:border-blue-700/80 shadow-xs ring-1 ring-blue-500/20"
+                : "bg-slate-50/90 dark:bg-slate-900/80 hover:bg-blue-50/80 dark:hover:bg-blue-950/40 border border-slate-200/80 dark:border-slate-800"
+            }`}
           >
             <div className="flex items-center gap-3">
               <div className="w-8 h-8 rounded-xl bg-gradient-to-tr from-blue-600 to-indigo-600 text-white flex items-center justify-center shrink-0 shadow-sm group-hover:scale-105 transition-transform">
@@ -301,8 +372,13 @@ export default function Sidebar({ userRole = "ADMIN" }: { userRole?: string }) {
         ) : (
           <Link
             href="/dashboard/chat"
+            onClick={() => setOptimisticHref("/dashboard/chat")}
             title="Need Help? Contact Support"
-            className="w-10 h-10 mx-auto rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 flex items-center justify-center hover:bg-blue-50 hover:text-blue-600 cursor-pointer"
+            className={`w-10 h-10 mx-auto rounded-xl flex items-center justify-center cursor-pointer transition-all ${
+              normalizePath(pathname) === "/dashboard/chat"
+                ? "bg-blue-600 text-white shadow-md shadow-blue-500/20"
+                : "bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-blue-50 hover:text-blue-600"
+            }`}
           >
             <Headphones className="w-4 h-4" />
           </Link>
