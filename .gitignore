@@ -8,6 +8,7 @@ node_modules/
 out/
 build/
 dist/
+.vercel/
 
 # Environment files (Share .env.example instead)
 .env
