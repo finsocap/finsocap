@@ -1,0 +1,785 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=Outfit:wght@300;400;500;600;700;800;900&family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=Poppins:wght@300;400;500;600;700;800&family=Roboto:wght@300;400;500;700;900&display=swap');
+@import "tailwindcss";
+@plugin "@tailwindcss/typography";
+
+:root {
+  --background: #f4f6fa;
+  --foreground: #0b132b;
+  --surface: #ffffff;
+  --card: #ffffff;
+  --border: #e2e8f0;
+  --muted: #64748b;
+
+  --brand-primary: #0e1c44;
+  --brand-primary-hover: #1a2b5b;
+  --brand-accent: #2563eb;
+  --brand-accent-hover: #1d4ed8;
+  --brand-accent-subtle: rgba(37, 99, 235, 0.12);
+  --font-brand: "SF Pro Display", "SF Pro Text", "SF Pro", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+
+  /* Vibrant Palette Tokens */
+  --brand-blue: #2563eb;
+  --brand-blue-hover: #1d4ed8;
+  --brand-gold: #f59e0b;
+  --brand-gold-hover: #d97706;
+  --brand-emerald: #10b981;
+  --brand-purple: #8b5cf6;
+  --brand-rose: #f43f5e;
+  --brand-dark: #0e1c44;
+  --brand-light: #f4f6fa;
+}
+
+.dark {
+  --background: #090e1a;
+  --foreground: #f8fafc;
+  --surface: #0f172a;
+  --card: #0d1527;
+  --border: #1e293b;
+  --muted: #94a3b8;
+
+  --brand-primary: #0a1128;
+  --brand-primary-hover: #111e42;
+  --brand-accent: #3b82f6;
+  --brand-accent-hover: #60a5fa;
+  --brand-accent-subtle: rgba(59, 130, 246, 0.18);
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-surface: var(--surface);
+  --color-card: var(--card);
+  --color-border: var(--border);
+  --color-muted: var(--muted);
+
+  --color-brand-primary: var(--brand-primary);
+  --color-brand-primary-hover: var(--brand-primary-hover);
+  --color-brand-accent: var(--brand-accent);
+  --color-brand-accent-hover: var(--brand-accent-hover);
+  --color-brand-accent-subtle: var(--brand-accent-subtle);
+
+  --font-brand: "SF Pro Display", "SF Pro Text", "SF Pro", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  --font-sans: "SF Pro Display", "SF Pro Text", "SF Pro", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  --font-mono: var(--font-geist-mono), ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+
+  --color-brand-blue: var(--brand-blue);
+  --color-brand-blue-hover: var(--brand-blue-hover);
+  --color-brand-teal: var(--brand-teal);
+  --color-brand-teal-hover: var(--brand-teal-hover);
+  --color-brand-dark: var(--brand-dark);
+  --color-brand-light: var(--brand-light);
+}
+
+html, body {
+  background: var(--background);
+  color: var(--foreground);
+  font-family: "SF Pro Display", "SF Pro Text", "SF Pro", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  transition: background-color 0.2s ease, color 0.2s ease, border-color 0.2s ease;
+}
+
+/* Prevent unwanted automatic zoom-in when tapping input fields on iPhone / Mobile */
+@media screen and (max-width: 768px) {
+  input,
+  textarea,
+  select {
+    font-size: 16px !important;
+  }
+}
+
+/* Custom Scrollbar */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: #f1f5f9;
+}
+
+.dark ::-webkit-scrollbar-track {
+  background: #090d16;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #94a3b8;
+}
+
+.dark ::-webkit-scrollbar-thumb {
+  background: #334155;
+}
+
+.dark ::-webkit-scrollbar-thumb:hover {
+  background: #475569;
+}
+
+/* Hide scrollbar utility - robust across all viewports & nested elements */
+.no-scrollbar::-webkit-scrollbar,
+.no-scrollbar *::-webkit-scrollbar {
+  display: none !important;
+  width: 0 !important;
+  height: 0 !important;
+  background: transparent !important;
+}
+
+.no-scrollbar::-webkit-scrollbar-track,
+.no-scrollbar *::-webkit-scrollbar-track,
+.no-scrollbar::-webkit-scrollbar-thumb,
+.no-scrollbar *::-webkit-scrollbar-thumb {
+  display: none !important;
+  background: transparent !important;
+}
+
+.no-scrollbar {
+  -ms-overflow-style: none !important;
+  scrollbar-width: none !important;
+}
+
+/* Soft pulse keyframes */
+@keyframes pulse-slow {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.8;
+  }
+}
+
+.animate-pulse-slow {
+  animation: pulse-slow 3s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
+/* ============================================================
+   Finsocap Auth Panel — Fluid Animated Gradient Background
+   Used on: /dashboard/login, /dashboard/register, /dashboard/forgot-password
+   ============================================================ */
+@keyframes auth-gradient-flow {
+  0% {
+    background-position: 0% 50%;
+  }
+  25% {
+    background-position: 60% 30%;
+  }
+  50% {
+    background-position: 100% 50%;
+  }
+  75% {
+    background-position: 40% 80%;
+  }
+  100% {
+    background-position: 0% 50%;
+  }
+}
+
+.auth-gradient-panel {
+  background: linear-gradient(
+    135deg,
+    #0d1f45 0%,
+    #1b2b5a 15%,
+    #243b78 35%,
+    #0d6e8f 55%,
+    #0da687 70%,
+    #0b8c71 80%,
+    #1b2b5a 100%
+  );
+  background-size: 300% 300%;
+  animation: auth-gradient-flow 8s ease-in-out infinite;
+}
+
+
+/* Floating micro-animations for Hero elements */
+@keyframes float-slow {
+  0%, 100% {
+    transform: translateY(0px);
+  }
+  50% {
+    transform: translateY(-10px);
+  }
+}
+
+@keyframes float-alt {
+  0%, 100% {
+    transform: translateY(0px);
+  }
+  50% {
+    transform: translateY(-8px);
+  }
+}
+
+@keyframes float-reverse {
+  0%, 100% {
+    transform: translateY(0px);
+  }
+  50% {
+    transform: translateY(10px);
+  }
+}
+
+.animate-float-slow {
+  animation: float-slow 4s ease-in-out infinite;
+}
+
+.animate-float-delayed {
+  animation: float-slow 4.5s ease-in-out infinite 1.5s;
+}
+
+.animate-float-reverse {
+  animation: float-reverse 5s ease-in-out infinite 0.8s;
+}
+
+.animate-float-badge {
+  animation: float-slow 3.8s ease-in-out infinite 2s;
+}
+
+/* Continuous Stroke Drawing Animation for Success Checkmark */
+@keyframes draw-check {
+  0% {
+    stroke-dashoffset: 60;
+  }
+  45%, 75% {
+    stroke-dashoffset: 0;
+  }
+  100% {
+    stroke-dashoffset: -60;
+  }
+}
+
+.animate-draw-check {
+  stroke-dasharray: 60;
+  stroke-dashoffset: 60;
+  animation: draw-check 2.4s cubic-bezier(0.65, 0, 0.45, 1) infinite;
+}
+
+/* ============================================================
+   Modern Chart & Data Visualizer Animations
+   ============================================================ */
+@keyframes chart-bar-grow {
+  from {
+    transform: scaleY(0);
+    opacity: 0;
+  }
+  to {
+    transform: scaleY(1);
+    opacity: 1;
+  }
+}
+
+@keyframes chart-path-draw {
+  from {
+    stroke-dashoffset: 1000;
+  }
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+
+.animate-chart-grow {
+  transform-origin: bottom;
+  animation: chart-bar-grow 0.8s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+.animate-path-draw {
+  stroke-dasharray: 1000;
+  animation: chart-path-draw 1.4s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+.glow-card {
+  transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.glow-card:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 14px 35px -8px rgba(27, 43, 90, 0.12), 0 0 1px 1px rgba(27, 43, 90, 0.05);
+}
+
+.dark .glow-card:hover {
+  box-shadow: 0 14px 35px -8px rgba(0, 0, 0, 0.6), 0 0 1px 1px rgba(255, 255, 255, 0.08);
+}
+
+/* Finsocap Signature Brand Gradient Button Utilities */
+.btn-finsocap-gradient {
+  background: linear-gradient(135deg, #1b2b5a 0%, #243b78 50%, #0da687 100%);
+  color: #ffffff;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  box-shadow: 0 4px 14px 0 rgba(27, 43, 90, 0.25);
+}
+
+.btn-finsocap-gradient:hover {
+  background: linear-gradient(135deg, #243b78 0%, #1b2b5a 50%, #0b8c71 100%);
+  box-shadow: 0 6px 20px rgba(13, 166, 135, 0.35);
+  transform: translateY(-1px);
+}
+
+.btn-finsocap-gradient:active {
+  transform: scale(0.98);
+}
+
+/* ============================================================
+   Vibrant Modern UI Utilities (WowDash & Ultra-Modern SaaS Aesthetic)
+   ============================================================ */
+@keyframes shimmer-sweep {
+  0% { transform: translateX(-100%) rotate(25deg); }
+  100% { transform: translateX(200%) rotate(25deg); }
+}
+
+@keyframes pulse-radar {
+  0% { transform: scale(0.95); opacity: 0.8; box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.7); }
+  70% { transform: scale(1.05); opacity: 1; box-shadow: 0 0 0 8px rgba(16, 185, 129, 0); }
+  100% { transform: scale(0.95); opacity: 0.8; box-shadow: 0 0 0 0 rgba(16, 185, 129, 0); }
+}
+
+@keyframes progress-stripe {
+  0% { background-position: 0 0; }
+  100% { background-position: 30px 0; }
+}
+
+.radar-live-dot {
+  position: relative;
+}
+.radar-live-dot::after {
+  content: '';
+  position: absolute;
+  inset: -3px;
+  border-radius: 9999px;
+  border: 2px solid currentColor;
+  animation: pulse-radar 2s cubic-bezier(0.24, 0, 0.38, 1) infinite;
+  opacity: 0.75;
+}
+
+/* 1. Primary Vibrant Sapphire Button */
+.btn-primary-vibrant {
+  position: relative;
+  overflow: hidden;
+  background: linear-gradient(135deg, #1d4ed8 0%, #2563eb 50%, #3b82f6 100%);
+  color: #ffffff;
+  font-weight: 700;
+  border-radius: 14px;
+  padding: 10px 22px;
+  box-shadow: 0 8px 25px -4px rgba(37, 99, 235, 0.5), inset 0 1px 0 rgba(255, 255, 255, 0.25);
+  transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  letter-spacing: -0.01em;
+}
+
+.btn-primary-vibrant::after {
+  content: '';
+  position: absolute;
+  top: -50%;
+  left: -60%;
+  width: 30%;
+  height: 200%;
+  background: linear-gradient(to right, transparent, rgba(255, 255, 255, 0.4), transparent);
+  transform: rotate(25deg);
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.2s;
+}
+
+.btn-primary-vibrant:hover {
+  background: linear-gradient(135deg, #1e40af 0%, #1d4ed8 50%, #2563eb 100%);
+  box-shadow: 0 12px 30px -4px rgba(37, 99, 235, 0.65), 0 0 15px rgba(59, 130, 246, 0.4);
+  transform: translateY(-2px);
+}
+
+.btn-primary-vibrant:hover::after {
+  opacity: 1;
+  animation: shimmer-sweep 1.2s ease-in-out infinite;
+}
+
+.btn-primary-vibrant:active {
+  transform: scale(0.97) translateY(0);
+  box-shadow: 0 4px 12px -2px rgba(37, 99, 235, 0.4);
+}
+
+/* 2. Vibrant Luxury Gold / Amber Button */
+.btn-gold-vibrant {
+  position: relative;
+  overflow: hidden;
+  background: linear-gradient(135deg, #b45309 0%, #d97706 45%, #f59e0b 100%);
+  color: #ffffff;
+  font-weight: 700;
+  border-radius: 14px;
+  padding: 10px 22px;
+  box-shadow: 0 8px 25px -4px rgba(245, 158, 11, 0.5), inset 0 1px 0 rgba(255, 255, 255, 0.3);
+  transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+
+.btn-gold-vibrant::after {
+  content: '';
+  position: absolute;
+  top: -50%;
+  left: -60%;
+  width: 30%;
+  height: 200%;
+  background: linear-gradient(to right, transparent, rgba(255, 255, 255, 0.4), transparent);
+  transform: rotate(25deg);
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.2s;
+}
+
+.btn-gold-vibrant:hover {
+  background: linear-gradient(135deg, #92400e 0%, #b45309 45%, #d97706 100%);
+  box-shadow: 0 12px 30px -4px rgba(245, 158, 11, 0.65), 0 0 15px rgba(245, 158, 11, 0.4);
+  transform: translateY(-2px);
+}
+
+.btn-gold-vibrant:hover::after {
+  opacity: 1;
+  animation: shimmer-sweep 1.2s ease-in-out infinite;
+}
+
+.btn-gold-vibrant:active {
+  transform: scale(0.97) translateY(0);
+}
+
+/* 2B. Vibrant Neon Emerald Button */
+.btn-emerald-vibrant {
+  position: relative;
+  overflow: hidden;
+  background: linear-gradient(135deg, #047857 0%, #059669 45%, #10b981 100%);
+  color: #ffffff;
+  font-weight: 700;
+  border-radius: 14px;
+  padding: 10px 22px;
+  box-shadow: 0 8px 25px -4px rgba(16, 185, 129, 0.5), inset 0 1px 0 rgba(255, 255, 255, 0.3);
+  transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+
+.btn-emerald-vibrant:hover {
+  background: linear-gradient(135deg, #065f46 0%, #047857 45%, #059669 100%);
+  box-shadow: 0 12px 30px -4px rgba(16, 185, 129, 0.65), 0 0 15px rgba(16, 185, 129, 0.4);
+  transform: translateY(-2px);
+}
+
+.btn-emerald-vibrant:active {
+  transform: scale(0.97) translateY(0);
+}
+
+/* 2C. Vibrant Royal Violet Button */
+.btn-purple-vibrant {
+  position: relative;
+  overflow: hidden;
+  background: linear-gradient(135deg, #6d28d9 0%, #7c3aed 45%, #8b5cf6 100%);
+  color: #ffffff;
+  font-weight: 700;
+  border-radius: 14px;
+  padding: 10px 22px;
+  box-shadow: 0 8px 25px -4px rgba(139, 92, 246, 0.5), inset 0 1px 0 rgba(255, 255, 255, 0.3);
+  transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+
+.btn-purple-vibrant:hover {
+  background: linear-gradient(135deg, #5b21b6 0%, #6d28d9 45%, #7c3aed 100%);
+  box-shadow: 0 12px 30px -4px rgba(139, 92, 246, 0.65), 0 0 15px rgba(139, 92, 246, 0.4);
+  transform: translateY(-2px);
+}
+
+.btn-purple-vibrant:active {
+  transform: scale(0.97) translateY(0);
+}
+
+/* 2D. Vibrant Crimson Danger Button */
+.btn-danger-vibrant {
+  position: relative;
+  overflow: hidden;
+  background: linear-gradient(135deg, #be123c 0%, #e11d48 45%, #f43f5e 100%);
+  color: #ffffff;
+  font-weight: 700;
+  border-radius: 14px;
+  padding: 10px 22px;
+  box-shadow: 0 8px 25px -4px rgba(244, 63, 94, 0.5), inset 0 1px 0 rgba(255, 255, 255, 0.3);
+  transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+
+.btn-danger-vibrant:hover {
+  background: linear-gradient(135deg, #9f1239 0%, #be123c 45%, #e11d48 100%);
+  box-shadow: 0 12px 30px -4px rgba(244, 63, 94, 0.65), 0 0 15px rgba(244, 63, 94, 0.4);
+  transform: translateY(-2px);
+}
+
+.btn-danger-vibrant:active {
+  transform: scale(0.97) translateY(0);
+}
+
+/* 3. Modern Glassmorphic / Secondary Button */
+.btn-glass-modern {
+  background: rgba(255, 255, 255, 0.85);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgba(226, 232, 240, 0.9);
+  color: #1e293b;
+  font-weight: 700;
+  border-radius: 14px;
+  padding: 8px 18px;
+  box-shadow: 0 4px 14px -2px rgba(15, 23, 42, 0.05);
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+
+.dark .btn-glass-modern {
+  background: rgba(19, 29, 51, 0.75);
+  border: 1px solid rgba(51, 65, 85, 0.8);
+  color: #f1f5f9;
+  box-shadow: 0 4px 16px -2px rgba(0, 0, 0, 0.4);
+}
+
+.btn-glass-modern:hover {
+  background: #ffffff;
+  border-color: #cbd5e1;
+  box-shadow: 0 8px 20px -2px rgba(15, 23, 42, 0.1);
+  transform: translateY(-1.5px);
+  color: #0f172a;
+}
+
+.dark .btn-glass-modern:hover {
+  background: rgba(30, 41, 59, 0.95);
+  border-color: #475569;
+  box-shadow: 0 8px 24px -2px rgba(0, 0, 0, 0.6);
+  color: #ffffff;
+}
+
+.btn-glass-modern:active {
+  transform: scale(0.97);
+}
+
+/* 4. Action Icon Button (for Tables) */
+.btn-action-icon {
+  width: 34px;
+  height: 34px;
+  border-radius: 10px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  border: 1px solid transparent;
+}
+
+.btn-action-icon:hover {
+  transform: translateY(-2px) scale(1.08);
+}
+
+.btn-action-icon:active {
+  transform: scale(0.92);
+}
+
+/* 5. Luxury High-End Card with Dynamic Ambient Lighting */
+.card-luxury {
+  background: #ffffff;
+  border: 1px solid rgba(226, 232, 240, 0.85);
+  border-radius: 24px;
+  box-shadow: 0 6px 25px -4px rgba(15, 23, 42, 0.04), 0 1px 3px 0 rgba(15, 23, 42, 0.02);
+  transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+  position: relative;
+}
+
+.dark .card-luxury {
+  background: #0d1527;
+  border: 1px solid rgba(30, 41, 59, 0.9);
+  box-shadow: 0 10px 30px -6px rgba(0, 0, 0, 0.6);
+}
+
+.card-luxury:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 20px 40px -10px rgba(15, 23, 42, 0.12), 0 0 1px 1px rgba(37, 99, 235, 0.1);
+  border-color: rgba(148, 163, 184, 0.5);
+}
+
+.dark .card-luxury:hover {
+  box-shadow: 0 20px 40px -10px rgba(0, 0, 0, 0.85), 0 0 1px 1px rgba(56, 189, 248, 0.2);
+  border-color: rgba(71, 85, 105, 0.8);
+}
+
+/* Modern Input Style */
+.input-modern {
+  background: #f8fafc;
+  border: 1.5px solid #e2e8f0;
+  border-radius: 14px;
+  padding: 10px 14px;
+  font-size: 13px;
+  font-weight: 500;
+  color: #0f172a;
+  transition: all 0.2s ease;
+}
+
+.dark .input-modern {
+  background: #0f172a;
+  border: 1.5px solid #1e293b;
+  color: #f1f5f9;
+}
+
+.input-modern:focus {
+  outline: none;
+  background: #ffffff;
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 4px rgba(59, 130, 246, 0.15);
+}
+
+.dark .input-modern:focus {
+  background: #131d33;
+  border-color: #60a5fa;
+  box-shadow: 0 0 0 4px rgba(96, 165, 250, 0.2);
+}
+
+/* Finsocap AI Radiant Glowing Gradient Border Animation (White Theme with Finsocap Navy/Emerald/Indigo Gradient) */
+@keyframes finsocap-ai-border-flow {
+  0% {
+    background-position: 0% 50%;
+  }
+  50% {
+    background-position: 100% 50%;
+  }
+  100% {
+    background-position: 0% 50%;
+  }
+}
+
+.finsocap-ai-glow-border {
+  background: linear-gradient(
+    115deg, 
+    #1b2b5a 0%, 
+    #243b78 20%, 
+    #0da687 40%, 
+    #38ef7d 60%, 
+    #6366f1 80%, 
+    #0da687 100%
+  );
+  background-size: 250% 250%;
+  animation: finsocap-ai-border-flow 5s ease-in-out infinite;
+}
+
+.finsocap-ai-glow-aura {
+  background: linear-gradient(
+    115deg, 
+    rgba(27, 43, 90, 0.35) 0%, 
+    rgba(36, 59, 120, 0.4) 20%, 
+    rgba(13, 166, 135, 0.55) 40%, 
+    rgba(56, 239, 125, 0.45) 60%, 
+    rgba(99, 102, 241, 0.4) 80%, 
+    rgba(13, 166, 135, 0.5) 100%
+  );
+  background-size: 250% 250%;
+  animation: finsocap-ai-border-flow 5s ease-in-out infinite;
+  filter: blur(20px);
+}
+
+/* Vibrant Animated AI Voice Button Breathing Aura */
+@keyframes mic-vibrant-glow {
+  0%, 100% {
+    transform: scale(1);
+    opacity: 0.85;
+    filter: blur(4px);
+  }
+  50% {
+    transform: scale(1.15);
+    opacity: 1;
+    filter: blur(6px);
+  }
+}
+
+.mic-vibrant-glow {
+  animation: mic-vibrant-glow 2.4s ease-in-out infinite;
+}
+
+/* ChatGPT-style Fluid Organic Morphing Swirl Orb (Finsocap Navy & Emerald Theme) */
+@keyframes orb-spin-slow {
+  0% { transform: rotate(0deg) scale(1); }
+  50% { transform: rotate(180deg) scale(1.05); }
+  100% { transform: rotate(360deg) scale(1); }
+}
+
+@keyframes orb-spin-reverse {
+  0% { transform: rotate(360deg) scale(1.04); }
+  50% { transform: rotate(180deg) scale(0.96); }
+  100% { transform: rotate(0deg) scale(1.04); }
+}
+
+@keyframes orb-pulse-fluid {
+  0%, 100% {
+    transform: scale(1);
+    opacity: 0.88;
+  }
+  50% {
+    transform: scale(1.07);
+    opacity: 1;
+  }
+}
+
+@keyframes orb-wave-ripple {
+  0% {
+    transform: scale(0.9);
+    opacity: 0.7;
+  }
+  50% {
+    transform: scale(1.18);
+    opacity: 0.35;
+  }
+  100% {
+    transform: scale(1.4);
+    opacity: 0;
+  }
+}
+
+.animate-orb-spin-slow {
+  animation: orb-spin-slow 9s linear infinite;
+}
+
+.animate-orb-spin-fast {
+  animation: orb-spin-slow 3s linear infinite;
+}
+
+.animate-orb-spin-reverse {
+  animation: orb-spin-reverse 12s linear infinite;
+}
+
+.animate-orb-pulse-fluid {
+  animation: orb-pulse-fluid 3.2s ease-in-out infinite;
+}
+
+.animate-orb-ripple {
+  animation: orb-wave-ripple 2.2s cubic-bezier(0.25, 1, 0.5, 1) infinite;
+}
+
+/* Revolving Finsocap Halo Keyframes (Behind stationary black circle) */
+@keyframes spin-slow {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+.animate-spin-slow {
+  animation: spin-slow 10s linear infinite;
+}
+
+.animate-spin-fast {
+  animation: spin-slow 2.8s linear infinite;
+}
+
+
