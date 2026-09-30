@@ -1,7 +1,6 @@
 "use client";
 
 import React, { useState, useRef, useEffect, useMemo } from "react";
-import { createPortal } from "react-dom";
 import {
   Calendar,
   ChevronDown,
@@ -303,14 +302,13 @@ export default function DateRangeFilter({
 
   return (
     <>
-      {/* Background Overlay when dropdown is open - Portaled to document.body to cover the entire page */}
-      {isOpen && mounted && typeof document !== "undefined" && createPortal(
+      {/* Background Overlay when dropdown is open - Full screen overlay behind the dropdown */}
+      {isOpen && (
         <div
-          className="fixed inset-0 w-screen h-screen bg-slate-900/40 dark:bg-slate-950/70 backdrop-blur-[2px] z-40 transition-all duration-200 animate-in fade-in cursor-pointer"
+          className="fixed inset-0 w-screen h-screen bg-slate-950/30 dark:bg-slate-950/60 backdrop-blur-[1px] z-40 transition-all duration-150 animate-in fade-in cursor-pointer"
           onClick={() => setIsOpen(false)}
           aria-hidden="true"
-        />,
-        document.body
+        />
       )}
 
       <div

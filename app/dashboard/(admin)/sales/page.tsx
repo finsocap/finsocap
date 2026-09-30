@@ -1,7 +1,6 @@
 "use client";
 
 import { useState, useMemo } from "react";
-import { createPortal } from "react-dom";
 import { 
   Users, CheckSquare, IndianRupee, Download, Calendar, 
   TrendingUp, CheckCircle2, Clock, AlertTriangle, ArrowUp,
@@ -145,14 +144,11 @@ export default function SalesTeamReportPage() {
 
             {isPersonOpen && (
               <>
-                {typeof document !== "undefined" && createPortal(
-                  <div
-                    className="fixed inset-0 w-screen h-screen bg-slate-900/40 dark:bg-slate-950/70 backdrop-blur-[2px] z-40 transition-all duration-200 animate-in fade-in cursor-pointer"
-                    onClick={() => setIsPersonOpen(false)}
-                    aria-hidden="true"
-                  />,
-                  document.body
-                )}
+                <div
+                  className="fixed inset-0 z-40"
+                  onClick={() => setIsPersonOpen(false)}
+                  aria-hidden="true"
+                />
                 <div className="absolute right-0 mt-2 w-56 bg-white dark:bg-[#0c1427] rounded-2xl border border-slate-200 dark:border-slate-800 shadow-2xl z-50 py-2 animate-in fade-in zoom-in-95 duration-100">
                 <div className="px-3 py-1 text-[10px] font-black uppercase tracking-wider text-slate-400">
                   Select Sales Executive

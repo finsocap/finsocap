@@ -1,7 +1,6 @@
 "use client";
 
 import { useState, useMemo } from "react";
-import { createPortal } from "react-dom";
 import Link from "next/link";
 import {
   Users, CheckSquare, IndianRupee, Calendar,
@@ -470,14 +469,11 @@ export default function DashboardHome() {
 
               {isTaskFilterOpen && (
                 <>
-                  {typeof document !== "undefined" && createPortal(
-                    <div
-                      className="fixed inset-0 w-screen h-screen bg-slate-900/40 dark:bg-slate-950/70 backdrop-blur-[2px] z-40 transition-all duration-200 animate-in fade-in cursor-pointer"
-                      onClick={() => setIsTaskFilterOpen(false)}
-                      aria-hidden="true"
-                    />,
-                    document.body
-                  )}
+                  <div
+                    className="fixed inset-0 z-40"
+                    onClick={() => setIsTaskFilterOpen(false)}
+                    aria-hidden="true"
+                  />
                   <div className="absolute right-0 mt-1 w-28 bg-white dark:bg-[#0c1427] rounded-xl border border-slate-200 dark:border-slate-800 shadow-xl z-50 py-1 text-[11px] font-semibold animate-in fade-in zoom-in-95 duration-100">
                     {(["Today", "This Week", "This Month"] as const).map((opt) => (
                       <button
