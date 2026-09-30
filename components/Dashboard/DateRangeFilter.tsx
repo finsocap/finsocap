@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useRef, useEffect, useMemo } from "react";
+import { createPortal } from "react-dom";
 import {
   Calendar,
   ChevronDown,
@@ -136,7 +137,12 @@ export default function DateRangeFilter({
 
   const [errorMessage, setErrorMessage] = useState("");
   const [popoverAlign, setPopoverAlign] = useState<"right" | "left">("right");
+  const [mounted, setMounted] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   // Dynamically calculate alignment to prevent overflow or sticking to right screen edge
   useEffect(() => {
@@ -297,13 +303,14 @@ export default function DateRangeFilter({
 
   return (
     <>
-      {/* Background Overlay when dropdown is open */}
-      {isOpen && (
+      {/* Background Overlay when dropdown is open - Portaled to document.body to cover the entire page */}
+      {isOpen && mounted && typeof document !== "undefined" && createPortal(
         <div
-          className="fixed inset-0 bg-slate-900/30 dark:bg-slate-950/60 backdrop-blur-[2px] z-30 transition-all duration-200 animate-in fade-in"
+          className="fixed inset-0 w-screen h-screen bg-slate-900/40 dark:bg-slate-950/70 backdrop-blur-[2px] z-40 transition-all duration-200 animate-in fade-in cursor-pointer"
           onClick={() => setIsOpen(false)}
           aria-hidden="true"
-        />
+        />,
+        document.body
       )}
 
       <div

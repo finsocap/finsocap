@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useRef, useEffect, useMemo } from "react";
+import { createPortal } from "react-dom";
 import {
   Store,
   ChevronDown,
@@ -108,8 +109,13 @@ export default function BranchFilter({
 }: BranchFilterProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
+  const [mounted, setMounted] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
   const searchInputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   // Close when clicking outside or pressing ESC
   useEffect(() => {
@@ -162,13 +168,14 @@ export default function BranchFilter({
 
   return (
     <>
-      {/* Background Overlay when branch dropdown is open */}
-      {isOpen && (
+      {/* Background Overlay when branch dropdown is open - Portaled to document.body to cover the entire page */}
+      {isOpen && mounted && typeof document !== "undefined" && createPortal(
         <div
-          className="fixed inset-0 bg-slate-900/30 dark:bg-slate-950/60 backdrop-blur-[2px] z-30 transition-all duration-200 animate-in fade-in"
+          className="fixed inset-0 w-screen h-screen bg-slate-900/40 dark:bg-slate-950/70 backdrop-blur-[2px] z-40 transition-all duration-200 animate-in fade-in cursor-pointer"
           onClick={() => setIsOpen(false)}
           aria-hidden="true"
-        />
+        />,
+        document.body
       )}
 
       <div
