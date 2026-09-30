@@ -6,7 +6,8 @@
   "scripts": {
     "dev": "next dev",
     "build": "next build",
-    "start": "next start"
+    "start": "next start",
+    "deploy": "next build && cd out && touch .nojekyll && git init -b gh-pages && git config user.name \"httpsaarav\" && git config user.email \"httpsaarav@users.noreply.github.com\" && git remote add origin https://github.com/finsocap/finsocap.git && git add -A && git commit -m \"Deploy update to GitHub Pages\" && git push -f origin gh-pages && rm -rf .git"
   },
   "dependencies": {
     "@tailwindcss/typography": "^0.5.20",
