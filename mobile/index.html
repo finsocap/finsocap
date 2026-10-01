@@ -2141,7 +2141,7 @@
       <button class="nav-btn" onclick="prevScreen()">← Prev</button>
       <select class="screen-select" id="screenSelect" onchange="changeScreen(this.value)">
         <option value="screen-01">01. Partner Login (OTP & MPIN)</option>
-        <option value="screen-02">02. Partner Home Dashboard</option>
+        <option value="screen-02" selected>02. Partner Home Dashboard</option>
         <option value="screen-03">03. Services Catalog & Margins</option>
         <option value="screen-04">04. New Application (Step 1: Client Info)</option>
         <option value="screen-05">05. Document Upload (Step 2: Upload & Submit to Desk)</option>
@@ -2150,7 +2150,7 @@
         <option value="screen-08">08. Cases Tracking & Status List</option>
         <option value="screen-09">09. Case Detail & Query Resolution</option>
         <option value="screen-10">10. My Profit & Earnings Ledger</option>
-        <option value="screen-11" selected>11. Franchise Profile, Dues, Portfolio & Records</option>
+        <option value="screen-11">11. Franchise Profile, Dues, Portfolio & Records</option>
       </select>
       <button class="nav-btn" onclick="nextScreen()">Next →</button>
     </div>
@@ -2215,7 +2215,7 @@
       <!-- ========================================== -->
       <!-- SCREEN 02: HOME DASHBOARD -->
       <!-- ========================================== -->
-      <div class="app-screen" id="screen-02">
+      <div class="app-screen active" id="screen-02">
         <div class="screen-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px; padding-bottom: 8px; border-bottom: 1px solid rgba(226, 232, 240, 0.6);">
           <div style="display: flex; align-items: center; gap: 10px;">
             <img src="./Finsocap_logo.png" alt="FinSoCap" class="brand-logo-img" style="height: 28px; width: auto; object-fit: contain;" onerror="this.src='../public/Finsocap_logo.png'">
@@ -3515,7 +3515,7 @@
       <!-- ========================================== -->
       <!-- SCREEN 11: FRANCHISE EXECUTIVE PROFILE & PERFORMANCE HUB -->
       <!-- ========================================== -->
-      <div class="app-screen active" id="screen-11">
+      <div class="app-screen" id="screen-11">
         <div class="section-title" style="margin-top: 10px; margin-bottom: 12px;">
           <span>Franchise Partner Profile</span>
           <span class="badge-gold">
@@ -3776,7 +3776,7 @@
       <!-- ========================================== -->
       <div class="universal-dock">
         <!-- 1. Home -->
-        <div class="dock-item" id="dock-home" onclick="changeScreen('screen-02')">
+        <div class="dock-item active" id="dock-home" onclick="changeScreen('screen-02')">
           <svg fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path stroke-linecap="round" stroke-linejoin="round" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"/>
           </svg>
@@ -3804,7 +3804,7 @@
         </div>
 
         <!-- 5. Profile -->
-        <div class="dock-item active" id="dock-profile" onclick="changeScreen('screen-11')">
+        <div class="dock-item" id="dock-profile" onclick="changeScreen('screen-11')">
           <svg fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path stroke-linecap="round" stroke-linejoin="round" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/>
           </svg>
