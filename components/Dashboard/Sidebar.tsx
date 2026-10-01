@@ -151,13 +151,13 @@ export default function Sidebar({ userRole = "ADMIN" }: { userRole?: string }) {
     <aside 
       className={`${
         isCollapsed ? "w-20" : "w-64"
-      } bg-white dark:bg-[#0c1222] border-r border-slate-200/90 dark:border-slate-800/90 text-slate-700 dark:text-slate-300 flex flex-col h-screen sticky top-0 transition-all duration-300 relative z-40 shadow-xs`}
+      } bg-white dark:bg-[#0c1222] border-r border-slate-200/90 dark:border-slate-800/90 text-slate-700 dark:text-slate-300 flex flex-col h-screen sticky top-0 transition-all duration-300 relative z-50 shadow-xs`}
     >
-      {/* Collapse Toggle Button - Stacked above Topbar with z-50 */}
+      {/* Collapse Toggle Button - Elevated z-[60] so it sits cleanly on top of Topbar without clipping */}
       <button 
         onClick={() => setIsCollapsed(!isCollapsed)}
         aria-label="Toggle Sidebar"
-        className="absolute -right-3 top-[25px] w-6 h-6 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 shadow-md hover:bg-blue-50 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-200 rounded-full flex items-center justify-center transition-all z-50 cursor-pointer hover:scale-110 active:scale-95"
+        className="absolute -right-3 top-[25px] w-6 h-6 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 shadow-md hover:bg-blue-50 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-200 rounded-full flex items-center justify-center transition-all z-[60] cursor-pointer hover:scale-110 active:scale-95"
       >
         {isCollapsed ? <ChevronRight className="w-3.5 h-3.5 text-blue-600 dark:text-sky-400" /> : <ChevronLeft className="w-3.5 h-3.5 text-blue-600 dark:text-sky-400" />}
       </button>
@@ -207,102 +207,105 @@ export default function Sidebar({ userRole = "ADMIN" }: { userRole?: string }) {
       </div>
 
       {/* Navigation */}
-      <nav className={`flex-1 px-3 space-y-1 mt-3 overflow-y-auto no-scrollbar ${isCollapsed ? "px-2" : ""}`}>
-        {/* Core Operations Section */}
+      <nav className={`flex-1 px-3 flex flex-col justify-between overflow-y-auto no-scrollbar py-2 ${isCollapsed ? "px-2" : ""}`}>
+        {/* Top Section: Nav Items */}
+        <div className="space-y-1.5 2xl:space-y-2">
+          {/* Core Operations Section */}
+          {!isCollapsed && (
+            <div className="pt-1.5 pb-1 px-3.5">
+              <span className="text-[10px] font-black uppercase tracking-wider text-slate-400 dark:text-slate-500">
+                Core Operations
+              </span>
+            </div>
+          )}
+
+          {coreNavItems.map((item) => {
+            const Icon = item.icon;
+            const active = isItemActive(item.href);
+
+            return (
+              <Link
+                key={item.label}
+                href={item.href}
+                onClick={() => setOptimisticHref(item.href)}
+                title={isCollapsed ? item.label : ""}
+                className={`flex items-center justify-between py-3 2xl:py-3.5 rounded-xl transition-all duration-200 cursor-pointer ${
+                  isCollapsed ? "justify-center px-0" : "px-3.5"
+                } ${
+                  active
+                    ? "bg-gradient-to-r from-blue-600 via-indigo-600 to-blue-700 text-white font-bold shadow-lg shadow-blue-500/25 border border-blue-400/20 scale-[1.01]"
+                    : "text-slate-600 dark:text-slate-400 hover:bg-slate-100/80 dark:hover:bg-slate-800/60 hover:text-slate-900 dark:hover:text-white font-semibold"
+                }`}
+              >
+                <div className="flex items-center gap-3">
+                  <Icon className={`w-4 h-4 shrink-0 ${active ? "text-white" : "text-slate-500 dark:text-slate-400"}`} />
+                  {!isCollapsed && <span className="text-xs">{item.label}</span>}
+                </div>
+                {!isCollapsed && item.badge && (
+                  <span className={`text-[10px] font-black px-2 py-0.5 rounded-full ${
+                    active ? "bg-white/20 text-white" : "bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300"
+                  }`}>
+                    {item.badge}
+                  </span>
+                )}
+              </Link>
+            );
+          })}
+
+          {/* Reports Header */}
+          {!isCollapsed ? (
+            <div className="pt-5 2xl:pt-6 pb-1 px-3.5">
+              <span className="text-[10px] font-black uppercase tracking-wider text-slate-400 dark:text-slate-500">
+                Analytics & Reports
+              </span>
+            </div>
+          ) : (
+            <div className="my-2.5 border-t border-slate-200 dark:border-slate-800" />
+          )}
+
+          {reportNavItems.map((item) => {
+            const Icon = item.icon;
+            const active = isItemActive(item.href);
+
+            return (
+              <Link
+                key={item.label}
+                href={item.href}
+                onClick={(e) => {
+                  setOptimisticHref(item.href);
+                  const tab = item.href.includes("tab=sales") 
+                    ? "sales" 
+                    : item.href.includes("tab=licence") 
+                    ? "licence" 
+                    : "service";
+                  setActiveReportTab(tab);
+                  window.dispatchEvent(new CustomEvent("finsocap-switch-report-tab", { detail: tab }));
+                  if (normalizePath(pathname) === "/dashboard/reports") {
+                    e.preventDefault();
+                    router.push(item.href);
+                  }
+                }}
+                title={isCollapsed ? item.label : ""}
+                className={`flex items-center justify-between py-3 2xl:py-3.5 rounded-xl transition-all duration-200 cursor-pointer ${
+                  isCollapsed ? "justify-center px-0" : "px-3.5"
+                } ${
+                  active
+                    ? "bg-gradient-to-r from-blue-600 via-indigo-600 to-blue-700 text-white font-bold shadow-lg shadow-blue-500/25 border border-blue-400/20 scale-[1.01]"
+                    : "text-slate-600 dark:text-slate-400 hover:bg-slate-100/80 dark:hover:bg-slate-800/60 hover:text-slate-900 dark:hover:text-white font-semibold"
+                }`}
+              >
+                <div className="flex items-center gap-3">
+                  <Icon className={`w-4 h-4 shrink-0 ${active ? "text-white" : "text-slate-500 dark:text-slate-400"}`} />
+                  {!isCollapsed && <span className="text-xs">{item.label}</span>}
+                </div>
+              </Link>
+            );
+          })}
+        </div>
+
+        {/* Bottom Section: Operational SLA & Progress Widget - Anchored right above footer */}
         {!isCollapsed && (
-          <div className="pt-1 pb-1.5 px-3">
-            <span className="text-[10px] font-black uppercase tracking-wider text-slate-400 dark:text-slate-500">
-              Core Operations
-            </span>
-          </div>
-        )}
-
-        {coreNavItems.map((item) => {
-          const Icon = item.icon;
-          const active = isItemActive(item.href);
-
-          return (
-            <Link
-              key={item.label}
-              href={item.href}
-              onClick={() => setOptimisticHref(item.href)}
-              title={isCollapsed ? item.label : ""}
-              className={`flex items-center justify-between py-2.5 rounded-xl transition-all duration-200 cursor-pointer ${
-                isCollapsed ? "justify-center px-0" : "px-3.5"
-              } ${
-                active
-                  ? "bg-gradient-to-r from-blue-600 via-indigo-600 to-blue-700 text-white font-bold shadow-lg shadow-blue-500/25 border border-blue-400/20 scale-[1.01]"
-                  : "text-slate-600 dark:text-slate-400 hover:bg-slate-100/80 dark:hover:bg-slate-800/60 hover:text-slate-900 dark:hover:text-white font-semibold"
-              }`}
-            >
-              <div className="flex items-center gap-3">
-                <Icon className={`w-4 h-4 shrink-0 ${active ? "text-white" : "text-slate-500 dark:text-slate-400"}`} />
-                {!isCollapsed && <span className="text-xs">{item.label}</span>}
-              </div>
-              {!isCollapsed && item.badge && (
-                <span className={`text-[10px] font-black px-2 py-0.5 rounded-full ${
-                  active ? "bg-white/20 text-white" : "bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300"
-                }`}>
-                  {item.badge}
-                </span>
-              )}
-            </Link>
-          );
-        })}
-
-        {/* Reports Header */}
-        {!isCollapsed ? (
-          <div className="pt-4 pb-1.5 px-3">
-            <span className="text-[10px] font-black uppercase tracking-wider text-slate-400 dark:text-slate-500">
-              Analytics & Reports
-            </span>
-          </div>
-        ) : (
-          <div className="my-2 border-t border-slate-200 dark:border-slate-800" />
-        )}
-
-        {reportNavItems.map((item) => {
-          const Icon = item.icon;
-          const active = isItemActive(item.href);
-
-          return (
-            <Link
-              key={item.label}
-              href={item.href}
-              onClick={(e) => {
-                setOptimisticHref(item.href);
-                const tab = item.href.includes("tab=sales") 
-                  ? "sales" 
-                  : item.href.includes("tab=licence") 
-                  ? "licence" 
-                  : "service";
-                setActiveReportTab(tab);
-                window.dispatchEvent(new CustomEvent("finsocap-switch-report-tab", { detail: tab }));
-                if (normalizePath(pathname) === "/dashboard/reports") {
-                  e.preventDefault();
-                  router.push(item.href);
-                }
-              }}
-              title={isCollapsed ? item.label : ""}
-              className={`flex items-center justify-between py-2.5 rounded-xl transition-all duration-200 cursor-pointer ${
-                isCollapsed ? "justify-center px-0" : "px-3.5"
-              } ${
-                active
-                  ? "bg-gradient-to-r from-blue-600 via-indigo-600 to-blue-700 text-white font-bold shadow-lg shadow-blue-500/25 border border-blue-400/20 scale-[1.01]"
-                  : "text-slate-600 dark:text-slate-400 hover:bg-slate-100/80 dark:hover:bg-slate-800/60 hover:text-slate-900 dark:hover:text-white font-semibold"
-              }`}
-            >
-              <div className="flex items-center gap-3">
-                <Icon className={`w-4 h-4 shrink-0 ${active ? "text-white" : "text-slate-500 dark:text-slate-400"}`} />
-                {!isCollapsed && <span className="text-xs">{item.label}</span>}
-              </div>
-            </Link>
-          );
-        })}
-
-        {/* Operational SLA & Progress Widget (Fills empty space with valuable live data) */}
-        {!isCollapsed && (
-          <div className="pt-5 pb-2">
+          <div className="mt-auto pt-4 pb-1">
             <div className="p-3.5 rounded-2xl bg-gradient-to-b from-slate-50 to-blue-50/30 dark:from-slate-900/60 dark:to-blue-950/20 border border-slate-200/80 dark:border-slate-800/80 shadow-xs space-y-3">
               <div className="flex items-center justify-between">
                 <span className="text-[10px] font-black uppercase tracking-wider text-slate-500 dark:text-slate-400">
