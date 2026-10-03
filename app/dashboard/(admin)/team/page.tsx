@@ -4,15 +4,26 @@ import { useState, useMemo } from "react";
 import Link from "next/link";
 import { 
   ShieldCheck, UserPlus, Search, Phone, Mail, CheckCircle2, 
-  Clock, X, RotateCcw, Award, Briefcase, Filter
+  Clock, X, RotateCcw, Award, Briefcase, Filter, Eye, EyeOff, Plus, Check
 } from "lucide-react";
 import { useCrmStore, UserModel } from "@/lib/crmStore";
 import AnimatedCounter from "@/components/Global/AnimatedCounter";
 import TeamInfographic from "@/components/Charts/TeamInfographic";
 import PageBanner from "@/components/Dashboard/PageBanner";
 
-const departments = ["Operations", "Taxation", "Compliance", "Legal", "Sales"];
+const departments = ["Operations", "Taxation", "Compliance", "Legal", "Franchise Partner"];
 const roles = ["Executive", "CA", "CS", "Legal Executive", "Admin"];
+const serviceCategories = [
+  "Food & Beverage",
+  "Taxation",
+  "Intellectual Property",
+  "Business Compliance",
+  "Import Export",
+  "Digital Services",
+  "Business Growth",
+  "Compliance",
+  "Licensing"
+];
 
 export default function TeamPage() {
   const { users, tasks, addUser, toggleUserStatus } = useCrmStore();
@@ -24,13 +35,17 @@ export default function TeamPage() {
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [toastMsg, setToastMsg] = useState<string | null>(null);
 
-  // Form fields
+  // Form fields matching Screenshot 2
   const [formName, setFormName] = useState("");
-  const [formRole, setFormRole] = useState("Executive");
-  const [formDept, setFormDept] = useState("Operations");
+  const [formRole, setFormRole] = useState("");
+  const [formDept, setFormDept] = useState("");
+  const [selectedSkills, setSelectedSkills] = useState<string[]>(["Food & Beverage"]);
   const [formSkill, setFormSkill] = useState("");
   const [formPhone, setFormPhone] = useState("");
+  const [formPassword, setFormPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
   const [formAccess, setFormAccess] = useState<"Employee" | "Admin" | "Manager">("Employee");
+  const [isSkillPickerOpen, setIsSkillPickerOpen] = useState(false);
 
   const showToast = (msg: string) => {
     setToastMsg(msg);
@@ -63,30 +78,49 @@ export default function TeamPage() {
 
   const handleAddUserSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!formName.trim() || !formPhone.trim() || !formSkill.trim()) return;
+    if (!formName.trim() || !formPhone.trim() || selectedSkills.length === 0) {
+      showToast("Please enter name, phone number, and select at least one service skill.");
+      return;
+    }
 
     addUser({
       name: formName.trim(),
-      role: formRole,
-      dept: formDept,
-      skill: formSkill.trim(),
+      role: formRole.trim() || "Executive",
+      dept: formDept || "Operations",
+      skill: selectedSkills.join(", "),
+      skills: selectedSkills,
       phone: formPhone.trim(),
+      password: formPassword.trim() || "Password@123",
       access: formAccess,
     });
 
     setFormName("");
-    setFormRole("Executive");
-    setFormDept("Operations");
+    setFormRole("");
+    setFormDept("");
+    setSelectedSkills(["Food & Beverage"]);
     setFormSkill("");
     setFormPhone("");
+    setFormPassword("");
     setFormAccess("Employee");
     setIsAddModalOpen(false);
-    showToast(`Team member "${formName}" added successfully.`);
+    showToast(`User "${formName}" added successfully.`);
   };
 
   const handleToggle = (id: number, name: string, currentStatus: string) => {
     toggleUserStatus(id);
     showToast(`${name} is now ${currentStatus === "Active" ? "deactivated" : "reactivated"}.`);
+  };
+
+  const toggleSkill = (skill: string) => {
+    if (selectedSkills.includes(skill)) {
+      if (selectedSkills.length > 1) {
+        setSelectedSkills(selectedSkills.filter((s) => s !== skill));
+      } else {
+        showToast("At least one service skill is required.");
+      }
+    } else {
+      setSelectedSkills([...selectedSkills, skill]);
+    }
   };
 
   return (
@@ -265,8 +299,17 @@ export default function TeamPage() {
                     <td className="py-3.5 px-5 font-semibold text-slate-700 dark:text-slate-300">
                       {user.dept}
                     </td>
-                    <td className="py-3.5 px-5 text-slate-600 dark:text-slate-400 font-mono text-[11px]">
-                      {user.skill}
+                    <td className="py-3.5 px-5">
+                      <div className="flex flex-wrap gap-1 max-w-[220px]">
+                        {(user.skills && user.skills.length > 0 ? user.skills : user.skill.split(", ")).map((sk) => (
+                          <span
+                            key={sk}
+                            className="px-2 py-0.5 rounded-md font-bold text-[10px] bg-indigo-50 text-indigo-700 dark:bg-indigo-950/60 dark:text-indigo-300 border border-indigo-200/60 dark:border-indigo-800"
+                          >
+                            {sk}
+                          </span>
+                        ))}
+                      </div>
                     </td>
                     <td className="py-3.5 px-5 text-center">
                       <span className="inline-block px-2.5 py-0.5 rounded-full font-black text-xs bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300">
@@ -306,15 +349,21 @@ export default function TeamPage() {
         </div>
       </div>
 
-      {/* Modal: Add User */}
+      {/* Modal: Add User (Screenshot 2 Exact Match) */}
       {isAddModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-in fade-in">
           <div className="bg-white dark:bg-[#0c1427] border border-slate-200 dark:border-slate-800 rounded-3xl p-6 w-full max-w-lg shadow-2xl relative">
             <div className="flex items-center justify-between pb-4 border-b border-slate-100 dark:border-slate-800">
-              <h2 className="text-lg font-black text-slate-900 dark:text-white">
-                Add User
-              </h2>
+              <div className="flex items-center gap-2.5">
+                <div className="w-8 h-8 rounded-full bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400 flex items-center justify-center">
+                  <UserPlus className="w-4 h-4" />
+                </div>
+                <h2 className="text-lg font-black text-slate-900 dark:text-white">
+                  Add User
+                </h2>
+              </div>
               <button
+                type="button"
                 onClick={() => setIsAddModalOpen(false)}
                 className="w-8 h-8 rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-500 hover:text-slate-900 dark:hover:text-white flex items-center justify-center cursor-pointer"
               >
@@ -323,6 +372,7 @@ export default function TeamPage() {
             </div>
 
             <form onSubmit={handleAddUserSubmit} className="space-y-4 mt-5">
+              {/* Name * */}
               <div>
                 <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
                   Name *
@@ -333,101 +383,146 @@ export default function TeamPage() {
                   value={formName}
                   onChange={(e) => setFormName(e.target.value)}
                   placeholder="Enter full name"
-                  className="w-full px-3.5 py-2.5 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+                  className="w-full px-3.5 py-2.5 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
                 />
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
-                    Designation *
-                  </label>
-                  <input
-                    type="text"
-                    required
-                    value={formRole}
-                    onChange={(e) => setFormRole(e.target.value)}
-                    placeholder="e.g. Executive"
-                    className="w-full px-3.5 py-2.5 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-blue-500/20"
-                  />
-                </div>
-                <div>
-                  <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
-                    Department *
-                  </label>
-                  <select
-                    value={formDept}
-                    onChange={(e) => setFormDept(e.target.value)}
-                    className="w-full px-3.5 py-2.5 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-semibold focus:outline-none cursor-pointer"
-                  >
-                    {departments.map((d) => (
-                      <option key={d} value={d}>{d}</option>
-                    ))}
-                  </select>
-                </div>
-              </div>
-
+              {/* Designation * */}
               <div>
                 <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
-                  Service Skill *
+                  Designation *
                 </label>
                 <input
                   type="text"
                   required
-                  value={formSkill}
-                  onChange={(e) => setFormSkill(e.target.value)}
-                  placeholder="e.g. GST, ITR, FSSAI"
-                  className="w-full px-3.5 py-2.5 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+                  value={formRole}
+                  onChange={(e) => setFormRole(e.target.value)}
+                  placeholder="Enter designation"
+                  className="w-full px-3.5 py-2.5 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
                 />
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
-                    Phone Number *
+              {/* Department * */}
+              <div>
+                <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
+                  Department *
+                </label>
+                <select
+                  required
+                  value={formDept}
+                  onChange={(e) => setFormDept(e.target.value)}
+                  className="w-full px-3.5 py-2.5 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-semibold focus:outline-none cursor-pointer"
+                >
+                  <option value="">Select department</option>
+                  {departments.map((d) => (
+                    <option key={d} value={d}>{d}</option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Service Skill * (Multi-Service Skill Category Add Buttons) */}
+              <div>
+                <div className="flex items-center justify-between mb-1.5">
+                  <label className="text-xs font-bold text-slate-700 dark:text-slate-300">
+                    Service Skill *
                   </label>
-                  <input
-                    type="tel"
-                    required
-                    value={formPhone}
-                    onChange={(e) => setFormPhone(e.target.value)}
-                    placeholder="10-digit phone"
-                    className="w-full px-3.5 py-2.5 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-blue-500/20"
-                  />
+                  <span className="text-[10px] text-indigo-600 dark:text-sky-400 font-semibold">
+                    {selectedSkills.length} category skills assigned
+                  </span>
                 </div>
-                <div>
-                  <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
-                    Role Access
-                  </label>
-                  <select
-                    value={formAccess}
-                    onChange={(e) => setFormAccess(e.target.value as any)}
-                    className="w-full px-3.5 py-2.5 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-semibold focus:outline-none cursor-pointer"
-                  >
-                    <option value="Employee">Employee</option>
-                    <option value="Admin">Admin</option>
-                    <option value="Manager">Manager</option>
-                  </select>
+
+                {/* Selected Skills Chips */}
+                <div className="flex flex-wrap gap-1.5 p-2 bg-slate-50 dark:bg-slate-900/70 border border-slate-200 dark:border-slate-700 rounded-xl min-h-[38px] mb-2">
+                  {selectedSkills.map((sk) => (
+                    <span
+                      key={sk}
+                      className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-indigo-50 dark:bg-indigo-950/70 text-indigo-700 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800 text-[11px] font-bold"
+                    >
+                      <span>{sk}</span>
+                      <button
+                        type="button"
+                        onClick={() => toggleSkill(sk)}
+                        className="hover:text-red-500 cursor-pointer"
+                      >
+                        <X className="w-3 h-3" />
+                      </button>
+                    </span>
+                  ))}
+                </div>
+
+                {/* Quick Add Buttons for Service Catalog Categories */}
+                <div className="space-y-1">
+                  <p className="text-[10px] font-bold text-slate-400">
+                    + Click category to add/remove as per employee knowledge:
+                  </p>
+                  <div className="flex flex-wrap gap-1">
+                    {serviceCategories.map((cat) => {
+                      const isSelected = selectedSkills.includes(cat);
+                      return (
+                        <button
+                          key={cat}
+                          type="button"
+                          onClick={() => toggleSkill(cat)}
+                          className={`px-2 py-0.5 rounded-lg text-[10px] font-bold transition-all cursor-pointer ${
+                            isSelected
+                              ? "bg-indigo-600 text-white shadow-2xs"
+                              : "bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700"
+                          }`}
+                        >
+                          {isSelected ? `✓ ${cat}` : `+ ${cat}`}
+                        </button>
+                      );
+                    })}
+                  </div>
                 </div>
               </div>
 
-              <p className="text-[11px] text-slate-400 italic">
-                A secure account setup invitation should be sent in production. This demo immediately adds the member to the store.
-              </p>
+              {/* Phone Number * */}
+              <div>
+                <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
+                  Phone Number *
+                </label>
+                <input
+                  type="tel"
+                  required
+                  value={formPhone}
+                  onChange={(e) => setFormPhone(e.target.value)}
+                  placeholder="Enter phone number"
+                  className="w-full px-3.5 py-2.5 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
+                />
+              </div>
 
-              <div className="flex justify-end gap-2.5 pt-4 border-t border-slate-100 dark:border-slate-800">
-                <button
-                  type="button"
-                  onClick={() => setIsAddModalOpen(false)}
-                  className="px-4 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 text-xs font-bold text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 cursor-pointer"
-                >
-                  Cancel
-                </button>
+              {/* Password * (Screenshot 2: 'panel mai password nahi available hai banane ke liye') */}
+              <div>
+                <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
+                  Password *
+                </label>
+                <div className="relative">
+                  <input
+                    type={showPassword ? "text" : "password"}
+                    required
+                    value={formPassword}
+                    onChange={(e) => setFormPassword(e.target.value)}
+                    placeholder="Enter password"
+                    className="w-full pl-3.5 pr-10 py-2.5 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword(!showPassword)}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 cursor-pointer p-0.5"
+                  >
+                    {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                  </button>
+                </div>
+              </div>
+
+              {/* Save Button (Full-width Screenshot 2 Exact Match) */}
+              <div className="pt-2">
                 <button
                   type="submit"
-                  className="btn-primary-vibrant text-xs py-2.5 px-5 cursor-pointer"
+                  className="w-full py-3 rounded-2xl bg-[#5252f6] hover:bg-[#4343e0] text-white font-bold text-xs sm:text-sm shadow-md shadow-indigo-500/25 cursor-pointer transition-all active:scale-[0.99]"
                 >
-                  Save User
+                  Save
                 </button>
               </div>
             </form>

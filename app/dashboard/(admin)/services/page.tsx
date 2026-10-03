@@ -5,11 +5,11 @@ import Link from "next/link";
 import { 
   Boxes, Plus, Search, Filter, RotateCcw, Edit2, Eye, 
   Trash2, Clock, CheckCircle2, AlertCircle, X, Sparkles,
-  IndianRupee, Layers, Check
+  IndianRupee, Layers, Check, PowerOff, AlertTriangle
 } from "lucide-react";
 import { useCrmStore, ServiceModel } from "@/lib/crmStore";
+import { serviceCatalog } from "@/lib/services/serviceCatalog";
 import AnimatedCounter from "@/components/Global/AnimatedCounter";
-import ServicesInfographic from "@/components/Charts/ServicesInfographic";
 import PageBanner from "@/components/Dashboard/PageBanner";
 
 const DEFAULT_CATEGORIES = [
@@ -23,7 +23,7 @@ const DEFAULT_CATEGORIES = [
 ];
 
 export default function ServicesPage() {
-  const { services, addService, updateService, toggleServiceStatus } = useCrmStore();
+  const { services, addService, updateService, toggleServiceStatus, deleteService } = useCrmStore();
 
   const [categoryList, setCategoryList] = useState<string[]>(() => {
     const fromServices = services.map((s) => s.category);
@@ -49,10 +49,12 @@ export default function ServicesPage() {
   const [selectedCategory, setSelectedCategory] = useState("ALL");
   const [selectedStatus, setSelectedStatus] = useState("ALL");
 
-  // Modals
+  // Modals & Popups
   const [isAddEditModalOpen, setIsAddEditModalOpen] = useState(false);
   const [editingServiceId, setEditingServiceId] = useState<number | null>(null);
   const [viewingService, setViewingService] = useState<ServiceModel | null>(null);
+  const [actionMenuOpenId, setActionMenuOpenId] = useState<number | null>(null);
+  const [deleteConfirmService, setDeleteConfirmService] = useState<ServiceModel | null>(null);
   const [toastMsg, setToastMsg] = useState<string | null>(null);
 
   // Form Fields
@@ -64,6 +66,50 @@ export default function ServicesPage() {
   const [formGov, setFormGov] = useState<number>(0);
   const [formTime, setFormTime] = useState("3 - 7 Days");
   const [formDesc, setFormDesc] = useState("");
+
+  // Year-wise fee state for modal
+  const [formHasYearFees, setFormHasYearFees] = useState(false);
+  const [formYearFees, setFormYearFees] = useState<Array<{ id: string; year: number; label: string; gov: number; price: number }>>([
+    { id: "yf-1", year: 1, label: "1 Year", gov: 100, price: 1400 },
+    { id: "yf-2", year: 2, label: "2 Years", gov: 200, price: 2300 },
+    { id: "yf-3", year: 3, label: "3 Years", gov: 300, price: 3200 },
+    { id: "yf-5", year: 5, label: "5 Years", gov: 500, price: 4500 },
+  ]);
+
+  // Standard Documents state for modal
+  const [formDocs, setFormDocs] = useState<Array<{ id: string; name: string; type: "Mandatory" | "Optional" }>>([
+    { id: "doc-1", name: "PAN Card / Voter ID", type: "Mandatory" },
+    { id: "doc-2", name: "Electricity Bill / Shop Agreement", type: "Mandatory" },
+  ]);
+  const [newModalDocName, setNewModalDocName] = useState("");
+  const [newModalDocType, setNewModalDocType] = useState<"Mandatory" | "Optional">("Mandatory");
+
+  const handleAddModalYearTier = () => {
+    const nextYear = formYearFees.length > 0 ? Math.max(...formYearFees.map((y) => y.year)) + 1 : 1;
+    setFormYearFees([
+      ...formYearFees,
+      {
+        id: `yf-${Date.now()}`,
+        year: nextYear,
+        label: `${nextYear} Year${nextYear > 1 ? "s" : ""}`,
+        gov: 100 * nextYear,
+        price: 1000 + 500 * (nextYear - 1),
+      },
+    ]);
+  };
+
+  const handleAddModalDoc = () => {
+    if (!newModalDocName.trim()) return;
+    setFormDocs([
+      ...formDocs,
+      {
+        id: `doc-${Date.now()}`,
+        name: newModalDocName.trim(),
+        type: newModalDocType,
+      },
+    ]);
+    setNewModalDocName("");
+  };
 
   const showToast = (msg: string) => {
     setToastMsg(msg);
@@ -82,6 +128,12 @@ export default function ServicesPage() {
     setFormGov(0);
     setFormTime("3 - 7 Days");
     setFormDesc("");
+    setFormHasYearFees(false);
+    setFormDocs([
+      { id: "doc-1", name: "PAN Card / Voter ID", type: "Mandatory" },
+      { id: "doc-2", name: "Electricity Bill / Shop Agreement", type: "Mandatory" },
+    ]);
+    setNewModalDocName("");
     setIsAddEditModalOpen(true);
   };
 
@@ -219,18 +271,15 @@ export default function ServicesPage() {
         description="Manage your corporate services, categories, pricing, statutory documents and lifecycle status."
         bottomMeta={`${services.length} Total Services • Statutory Fee Schedule Verified`}
         actions={
-          <button
-            onClick={openAddModal}
+          <Link
+            href="/dashboard/services/new"
             className="btn-primary-vibrant text-xs py-2.5 px-4 cursor-pointer flex items-center gap-2 shadow-md shadow-blue-500/25"
           >
             <Plus className="w-4 h-4" />
-            <span>+ Add Service</span>
-          </button>
+            <span>+ Add New Service</span>
+          </Link>
         }
       />
-
-      {/* Services Portfolio Infographic Banner */}
-      <ServicesInfographic services={services} />
 
       {/* 2. Modern Pill Tabs Switcher matching Reference */}
       <div className="p-1.5 bg-white dark:bg-[#0c1427] rounded-2xl border border-slate-200/80 dark:border-slate-800/80 shadow-xs flex items-center gap-1.5 overflow-x-auto no-scrollbar">
@@ -317,7 +366,7 @@ export default function ServicesPage() {
               setSelectedStatus("ALL");
               setActiveTab("All Services");
             }}
-            className="btn-gold-vibrant text-xs py-2 px-3.5 cursor-pointer whitespace-nowrap"
+            className="btn-glass-modern text-xs py-2 px-3.5 cursor-pointer whitespace-nowrap flex items-center gap-1.5 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800"
           >
             <RotateCcw className="w-3.5 h-3.5" />
             <span>Clear</span>
@@ -327,7 +376,7 @@ export default function ServicesPage() {
 
       {/* 4. Services Table matching Reference */}
       <div className="card-luxury overflow-hidden">
-        <div className="overflow-x-auto">
+        <div className="overflow-x-auto min-h-[360px]">
           <table className="w-full text-left border-collapse text-xs">
             <thead>
               <tr className="border-b border-slate-100 dark:border-slate-800 text-[11px] font-bold text-slate-400 bg-slate-50/60 dark:bg-slate-900/60">
@@ -397,28 +446,96 @@ export default function ServicesPage() {
                     </td>
                     <td className="py-3.5 px-4 text-center">
                       <div className="flex items-center justify-center gap-1.5">
-                        <button
-                          onClick={() => openEditModal(s)}
+                        <Link
+                          href={`/dashboard/services/${typeof s.id === "number" ? `SRV-${String(s.id).padStart(3, "0")}` : s.id}`}
                           className="px-2.5 py-1 rounded-lg text-xs font-bold text-blue-600 dark:text-sky-400 bg-blue-50 dark:bg-blue-950/50 hover:bg-blue-100 transition-colors cursor-pointer"
                         >
                           Edit
-                        </button>
+                        </Link>
                         <button
                           onClick={() => setViewingService(s)}
                           className="px-2.5 py-1 rounded-lg text-xs font-bold text-slate-600 dark:text-slate-300 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 transition-colors cursor-pointer"
                         >
                           View
                         </button>
-                        <button
-                          onClick={() => {
-                            toggleServiceStatus(s.id);
-                            showToast(`${s.name} is now ${s.status === "Active" ? "inactive" : "active"}.`);
-                          }}
-                          title="Toggle Active / Inactive"
-                          className="w-7 h-7 rounded-lg text-xs font-black text-rose-600 bg-rose-50 dark:bg-rose-950/40 hover:bg-rose-100 dark:hover:bg-rose-900/60 transition-colors cursor-pointer flex items-center justify-center"
-                        >
-                          ⋯
-                        </button>
+                        
+                        {/* More Actions Popup Trigger */}
+                        <div className="relative">
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setActionMenuOpenId(actionMenuOpenId === s.id ? null : s.id);
+                            }}
+                            title="More Actions"
+                            className={`w-7 h-7 rounded-lg text-xs font-black transition-all cursor-pointer flex items-center justify-center ${
+                              actionMenuOpenId === s.id
+                                ? "bg-rose-200 dark:bg-rose-900/60 text-rose-700 dark:text-rose-200 ring-2 ring-rose-400/50"
+                                : "text-rose-600 bg-rose-50 dark:bg-rose-950/40 hover:bg-rose-100 dark:hover:bg-rose-900/60"
+                            }`}
+                          >
+                            ⋯
+                          </button>
+
+                          {/* Floating Dropdown Menu */}
+                          {actionMenuOpenId === s.id && (
+                            <>
+                              <div
+                                className="fixed inset-0 z-30"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setActionMenuOpenId(null);
+                                }}
+                              />
+                              <div
+                                className={`absolute right-0 ${
+                                  filteredServices.length > 2 && i >= filteredServices.length - 2
+                                    ? "bottom-full mb-1.5"
+                                    : "top-full mt-1.5"
+                                } w-44 bg-white dark:bg-[#0c1427] border border-slate-200 dark:border-slate-800 rounded-2xl shadow-xl z-40 py-1.5 animate-in fade-in zoom-in-95 duration-100 text-left`}
+                                onClick={(e) => e.stopPropagation()}
+                              >
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    toggleServiceStatus(s.id);
+                                    setActionMenuOpenId(null);
+                                    showToast(
+                                      s.status === "Active"
+                                        ? `"${s.name}" is now Deactivated.`
+                                        : `"${s.name}" is now Activated.`
+                                    );
+                                  }}
+                                  className="w-full px-3.5 py-2 text-xs font-semibold hover:bg-slate-50 dark:hover:bg-slate-800 flex items-center gap-2 text-slate-700 dark:text-slate-200 cursor-pointer transition-colors"
+                                >
+                                  {s.status === "Active" ? (
+                                    <>
+                                      <PowerOff className="w-3.5 h-3.5 text-amber-500" />
+                                      <span>Deactivate</span>
+                                    </>
+                                  ) : (
+                                    <>
+                                      <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500" />
+                                      <span>Activate</span>
+                                    </>
+                                  )}
+                                </button>
+                                <div className="border-t border-slate-100 dark:border-slate-800 my-1" />
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setActionMenuOpenId(null);
+                                    setDeleteConfirmService(s);
+                                  }}
+                                  className="w-full px-3.5 py-2 text-xs font-semibold text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/40 flex items-center gap-2 cursor-pointer transition-colors"
+                                >
+                                  <Trash2 className="w-3.5 h-3.5" />
+                                  <span>Delete Service</span>
+                                </button>
+                              </div>
+                            </>
+                          )}
+                        </div>
                       </div>
                     </td>
                   </tr>
@@ -646,19 +763,172 @@ export default function ServicesPage() {
                 </div>
               </div>
 
-              <div className="p-3 bg-blue-50/70 dark:bg-blue-950/40 rounded-xl text-xs font-bold text-blue-900 dark:text-sky-300">
-                2. Standard Documents & Checklist
+              {/* Year-wise Fee Matrix Option (Screenshot 2 Requirement) */}
+              <div className="p-3.5 bg-blue-50/60 dark:bg-blue-950/20 rounded-2xl border border-blue-200/80 dark:border-blue-800/40 space-y-3">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <span className="text-xs font-bold text-slate-900 dark:text-white">
+                      Year-wise Fee Breakdown (1 to 5+ Years)
+                    </span>
+                    <p className="text-[11px] text-slate-500 dark:text-slate-400">
+                      Add custom statutory govt fee & professional charges for 1, 2, 3, 5 years
+                    </p>
+                  </div>
+                  <label className="relative inline-flex items-center cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={formHasYearFees}
+                      onChange={(e) => setFormHasYearFees(e.target.checked)}
+                      className="sr-only peer"
+                    />
+                    <div className="w-9 h-5 bg-slate-200 peer-focus:outline-none rounded-full peer dark:bg-slate-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-blue-600"></div>
+                  </label>
+                </div>
+
+                {formHasYearFees && (
+                  <div className="space-y-2 pt-1 border-t border-blue-200/60 dark:border-blue-900/40">
+                    <div className="flex items-center justify-between">
+                      <span className="text-[10px] font-black uppercase tracking-wider text-slate-500">
+                        Tenure Fee Slabs ({formYearFees.length})
+                      </span>
+                      <button
+                        type="button"
+                        onClick={handleAddModalYearTier}
+                        className="px-2.5 py-1 rounded-lg bg-blue-600 hover:bg-blue-700 text-white font-bold text-[11px] cursor-pointer"
+                      >
+                        + Add Year Tier
+                      </button>
+                    </div>
+
+                    <div className="space-y-1.5 max-h-44 overflow-y-auto pr-1">
+                      {formYearFees.map((tier) => (
+                        <div
+                          key={tier.id}
+                          className="grid grid-cols-12 gap-1.5 p-2 bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 items-center text-xs"
+                        >
+                          <div className="col-span-3">
+                            <span className="text-[10px] text-slate-400 block font-bold">Year</span>
+                            <span className="font-bold text-slate-800 dark:text-slate-200">{tier.label}</span>
+                          </div>
+                          <div className="col-span-3">
+                            <span className="text-[10px] text-slate-400 block font-bold">Govt Fee</span>
+                            <input
+                              type="number"
+                              min="0"
+                              value={tier.gov}
+                              onChange={(e) => {
+                                const val = Number(e.target.value);
+                                setFormYearFees(formYearFees.map((y) => (y.id === tier.id ? { ...y, gov: val } : y)));
+                              }}
+                              className="w-full px-1.5 py-0.5 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded text-xs font-semibold"
+                            />
+                          </div>
+                          <div className="col-span-3">
+                            <span className="text-[10px] text-slate-400 block font-bold">Prof Fee</span>
+                            <input
+                              type="number"
+                              min="0"
+                              value={tier.price}
+                              onChange={(e) => {
+                                const val = Number(e.target.value);
+                                setFormYearFees(formYearFees.map((y) => (y.id === tier.id ? { ...y, price: val } : y)));
+                              }}
+                              className="w-full px-1.5 py-0.5 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded text-xs font-semibold text-blue-600 dark:text-sky-400"
+                            />
+                          </div>
+                          <div className="col-span-2 text-right">
+                            <span className="text-[10px] text-slate-400 block font-bold">Total</span>
+                            <span className="font-bold font-mono text-[11px] text-slate-900 dark:text-white">
+                              ₹{(Number(tier.gov) + Number(tier.price)).toLocaleString("en-IN")}
+                            </span>
+                          </div>
+                          <div className="col-span-1 text-right">
+                            <button
+                              type="button"
+                              onClick={() => {
+                                if (formYearFees.length > 1) {
+                                  setFormYearFees(formYearFees.filter((y) => y.id !== tier.id));
+                                }
+                              }}
+                              className="text-slate-400 hover:text-rose-500 cursor-pointer"
+                            >
+                              <X className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
               </div>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <input
-                  type="text"
-                  placeholder="Document Name (e.g. PAN Card, Rent Deed)"
-                  className="w-full px-3.5 py-2.5 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-semibold"
-                />
-                <select className="w-full px-3.5 py-2.5 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-semibold">
-                  <option>Mandatory Document</option>
-                  <option>Optional Document</option>
-                </select>
+
+              {/* 2. Standard Documents & Checklist (With Add Buttons) */}
+              <div className="space-y-2.5">
+                <div className="p-3 bg-blue-50/70 dark:bg-blue-950/40 rounded-xl text-xs font-bold text-blue-900 dark:text-sky-300 flex items-center justify-between">
+                  <span>2. Standard Documents & Checklist</span>
+                  <span className="text-[11px] font-semibold text-blue-700 dark:text-sky-400">
+                    {formDocs.length} Documents Added
+                  </span>
+                </div>
+
+                <div className="flex flex-col sm:flex-row items-center gap-2">
+                  <input
+                    type="text"
+                    value={newModalDocName}
+                    onChange={(e) => setNewModalDocName(e.target.value)}
+                    placeholder="Document Name (e.g. PAN Card, Rent Deed)"
+                    className="flex-1 w-full px-3.5 py-2.5 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-semibold text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+                  />
+                  <select
+                    value={newModalDocType}
+                    onChange={(e) => setNewModalDocType(e.target.value as any)}
+                    className="w-full sm:w-44 px-3.5 py-2.5 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-semibold text-slate-800 dark:text-slate-200 cursor-pointer"
+                  >
+                    <option value="Mandatory">Mandatory Document</option>
+                    <option value="Optional">Optional Document</option>
+                  </select>
+                  <button
+                    type="button"
+                    onClick={handleAddModalDoc}
+                    disabled={!newModalDocName.trim()}
+                    className="w-full sm:w-auto px-4 py-2.5 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white rounded-xl text-xs font-bold shadow-md shadow-blue-500/20 cursor-pointer whitespace-nowrap"
+                  >
+                    + Add Document
+                  </button>
+                </div>
+
+                {/* List of Added Documents */}
+                <div className="space-y-1.5 max-h-36 overflow-y-auto pr-1">
+                  {formDocs.map((doc, idx) => (
+                    <div
+                      key={doc.id}
+                      className="flex items-center justify-between p-2.5 rounded-xl bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-xs"
+                    >
+                      <div className="flex items-center gap-2">
+                        <span className="font-bold text-slate-400">{idx + 1}.</span>
+                        <span className="font-bold text-slate-800 dark:text-slate-200">{doc.name}</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <span
+                          className={`px-2 py-0.5 rounded-md font-bold text-[10px] ${
+                            doc.type === "Mandatory"
+                              ? "bg-rose-500/15 text-rose-600 dark:text-rose-400 border border-rose-500/20"
+                              : "bg-slate-200 dark:bg-slate-800 text-slate-600 dark:text-slate-300"
+                          }`}
+                        >
+                          {doc.type}
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => setFormDocs(formDocs.filter((d) => d.id !== doc.id))}
+                          className="p-1 text-slate-400 hover:text-rose-500 cursor-pointer"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
               </div>
 
               <div className="flex justify-end gap-2.5 pt-4 border-t border-slate-100 dark:border-slate-800">
@@ -742,6 +1012,58 @@ export default function ServicesPage() {
                 className="px-4 py-2 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-xs font-bold text-slate-700 dark:text-slate-200 cursor-pointer"
               >
                 Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal: Delete Service Confirmation */}
+      {deleteConfirmService && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-in fade-in">
+          <div className="bg-white dark:bg-[#0c1427] border border-slate-200 dark:border-slate-800 rounded-3xl p-6 w-full max-w-md shadow-2xl relative animate-in zoom-in-95 duration-150">
+            <button
+              onClick={() => setDeleteConfirmService(null)}
+              className="absolute top-5 right-5 p-1 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition-colors cursor-pointer"
+            >
+              <X className="w-4 h-4" />
+            </button>
+
+            <div className="flex items-start gap-4">
+              <div className="w-12 h-12 rounded-2xl bg-rose-50 dark:bg-rose-950/60 border border-rose-200 dark:border-rose-900/50 flex items-center justify-center shrink-0 text-rose-600 dark:text-rose-400">
+                <Trash2 className="w-6 h-6" />
+              </div>
+              <div className="flex-1 min-w-0 pt-0.5">
+                <h3 className="text-base font-bold text-slate-900 dark:text-white">
+                  Delete Service
+                </h3>
+                <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 leading-relaxed">
+                  Are you sure you want to delete <span className="font-bold text-slate-900 dark:text-white">"{deleteConfirmService.name}"</span>? This will permanently remove this service from your catalog and dashboard.
+                </p>
+              </div>
+            </div>
+
+            <div className="mt-6 flex items-center justify-end gap-2.5 pt-4 border-t border-slate-100 dark:border-slate-800">
+              <button
+                type="button"
+                onClick={() => setDeleteConfirmService(null)}
+                className="px-4 py-2 rounded-xl text-xs font-semibold text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  const s = deleteConfirmService;
+                  deleteService(s.id);
+                  serviceCatalog.delete(s.id);
+                  setDeleteConfirmService(null);
+                  showToast(`"${s.name}" has been deleted.`);
+                }}
+                className="px-4 py-2 rounded-xl text-xs font-bold text-white bg-rose-600 hover:bg-rose-700 transition-colors cursor-pointer shadow-lg shadow-rose-600/20 flex items-center gap-1.5"
+              >
+                <Trash2 className="w-3.5 h-3.5" />
+                <span>Delete Service</span>
               </button>
             </div>
           </div>

@@ -41,7 +41,9 @@ export interface UserModel {
   role: string;
   dept: string;
   skill: string;
+  skills?: string[]; // Multiple service skill categories matching catalog
   phone: string;
+  password?: string;
   status: "Active" | "Deactivated";
   tasks: number;
   access?: "Employee" | "Admin" | "Manager";
@@ -59,21 +61,32 @@ export interface ClientModel {
 }
 
 export interface LicenceModel {
+  id?: string;
   task: string;
+  taskId?: string;
   partner: string;
   partnerPhone: string;
+  partnerNumber?: string;
   client: string;
+  clientName?: string;
   phone: string;
+  clientNumber?: string;
   type: string;
   category: string;
   service: string;
   number: string;
   issue: string;
+  issueDate?: string;
   expiry: string;
+  expiryDate?: string;
   user: string;
-  status: "Active" | "Expiring Soon" | "Expired";
+  userId?: string;
+  password?: string;
+  status: "Active" | "Expiring Soon" | "Expiring in 30 Days" | "Expired";
   url: boolean;
   files: number;
+  attachmentsCount?: number;
+  assignedTo?: string;
 }
 
 const defaultServices: ServiceModel[] = [
@@ -99,21 +112,30 @@ const defaultTasks: TaskModel[] = [
   { id: "T-1005", partner: "Roshni", partnerPhone: "8887776655", client: "Vikram Singh", phone: "9855221133", business: "VS Exports", category: "Import Export", service: "Import Export (IEC Registration)", status: "Pending from Department", date: "18 Sep 2026", due: "28 Sep 2026", assignee: "Gaurav Sharma", priority: "Normal", sales: "Gaurav Sharma", comments: [], files: ["IEC form.pdf"] },
   { id: "T-1006", partner: "Rahul Jha", partnerPhone: "9873207632", client: "Priya Sinha", phone: "9876549876", business: "Priya Cafe", category: "IPR", service: "Trademark Registration", status: "Completed", date: "20 Sep 2026", due: "26 Sep 2026", assignee: "Rohit Jain", priority: "Normal", sales: "Rahul Jha", comments: ["Certificate delivered."], files: ["Trademark Certificate.pdf"], license: "TM-2026-0158" },
   { id: "T-1007", partner: "Kanhaiya", partnerPhone: "7011340730", client: "Sandeep Jain", phone: "9898001122", business: "Jain Enterprises", category: "Compliance", service: "Digital Signature Certificate (DSC)", status: "Pending", date: "21 Sep 2026", due: "29 Sep 2026", assignee: "Pooja Mehta", priority: "High", sales: "Kanhaiya", comments: [], files: [] },
-  { id: "T-1008", partner: "Gaurav", partnerPhone: "9312345678", client: "Anjali Verma", phone: "9871234567", business: "Anjali Foods", category: "Marketing", service: "Zomato Onboarding", status: "Pending from Client", date: "22 Sep 2026", due: "27 Sep 2026", assignee: "", priority: "Normal", sales: "Gaurav Sharma", comments: [], files: [] },
+  { id: "T-1008", partner: "Gaurav", partnerPhone: "9312345678", client: "Anjali Verma", phone: "9871234567", business: "Anjali Foods", category: "Business Growth", service: "Zomato Onboarding", status: "Pending from Client", date: "22 Sep 2026", due: "27 Sep 2026", assignee: "", priority: "Normal", sales: "Gaurav Sharma", comments: [], files: [] },
 ];
 
 const defaultUsers: UserModel[] = [
-  { id: 1, name: "Ankit Kumar", role: "Executive", dept: "Operations", skill: "FSSAI, GST", phone: "8505828033", status: "Active", tasks: 33 },
-  { id: 2, name: "Pooja Mehta", role: "CA", dept: "Taxation", skill: "GST, ITR", phone: "8796951056", status: "Active", tasks: 34 },
-  { id: 3, name: "Rohit Jain", role: "CS", dept: "Compliance", skill: "Trademark", phone: "9355749363", status: "Active", tasks: 3 },
-  { id: 4, name: "Neha Verma", role: "Legal Executive", dept: "Legal", skill: "Licensing", phone: "9811637390", status: "Active", tasks: 1 },
-  { id: 5, name: "Gaurav Sharma", role: "Executive", dept: "Operations", skill: "IEC, GST", phone: "9873207632", status: "Active", tasks: 14 },
+  { id: 1, name: "Ankit Kumar", role: "Executive", dept: "Operations", skill: "Food & Beverage, Compliance", skills: ["Food & Beverage", "Compliance", "Business Compliance"], phone: "8505828033", password: "Password@123", status: "Active", tasks: 33 },
+  { id: 2, name: "Pooja Mehta", role: "CA", dept: "Taxation", skill: "Taxation", skills: ["Taxation"], phone: "8796951056", password: "Password@123", status: "Active", tasks: 34 },
+  { id: 3, name: "Rohit Jain", role: "CS", dept: "Compliance", skill: "Intellectual Property, Compliance", skills: ["Intellectual Property", "Compliance"], phone: "9355749363", password: "Password@123", status: "Active", tasks: 3 },
+  { id: 4, name: "Neha Verma", role: "Legal Executive", dept: "Legal", skill: "Business Compliance, Licensing", skills: ["Business Compliance", "Licensing", "Compliance"], phone: "9811637390", password: "Password@123", status: "Active", tasks: 1 },
+  { id: 5, name: "Gaurav Sharma", role: "Executive", dept: "Operations", skill: "Import Export, Taxation, Digital Services", skills: ["Import Export", "Taxation", "Digital Services"], phone: "9873207632", password: "Password@123", status: "Active", tasks: 14 },
+  { id: 6, name: "Rahul Jha", role: "Manager", dept: "Franchise Partner", skill: "Compliance, Food & Beverage", skills: ["Compliance", "Food & Beverage"], phone: "9873207632", password: "Password@123", status: "Active", tasks: 22 },
 ];
 
+// 10 Real Verified Entries matching Screenshot 3 Exactly
 const defaultLicences: LicenceModel[] = [
-  { task: "T-1001", partner: "Rahul Jha", partnerPhone: "9873207632", client: "Amit Kumar", phone: "9876543210", type: "FSSAI Basic License", category: "Compliance", service: "FSSAI Registration", number: "22726922001382", issue: "26 Sep 2026", expiry: "25 Sep 2027", user: "UPFSSAI123", status: "Active", url: true, files: 2 },
-  { task: "T-1002", partner: "Kanhaiya", partnerPhone: "7011340730", client: "Neha Verma", phone: "9899989898", type: "FSSAI Basic License", category: "Compliance", service: "FSSAI Registration", number: "22725271000986", issue: "26 Sep 2026", expiry: "05 Oct 2026", user: "UPFSSAI456", status: "Expiring Soon", url: false, files: 1 },
-  { task: "T-1006", partner: "Rahul Jha", partnerPhone: "9873207632", client: "Priya Sinha", phone: "9876549876", type: "Trademark Certificate", category: "IPR", service: "Trademark Registration", number: "TM-2026-0158", issue: "20 Sep 2026", expiry: "20 Sep 2036", user: "", status: "Active", url: true, files: 1 },
+  { task: "T-1001", partner: "Rahul Jha", partnerPhone: "9873207632", client: "SunBounty India", phone: "9818176909", type: "FSSAI Basic Licence", category: "Compliance", service: "FSSAI Registration", number: "22726922001382", issue: "26-09-2026", expiry: "25-09-2027", user: "UPFSSAI123", password: "Abc@1234", status: "Active", url: true, files: 2, assignedTo: "Rahul Jha" },
+  { task: "T-1002", partner: "Rahul Jha", partnerPhone: "9873207632", client: "Mahalaxmi Chhola bhatura", phone: "7007433823", type: "FSSAI Basic Licence", category: "Compliance", service: "FSSAI Registration", number: "22725271000986", issue: "26-09-2026", expiry: "05-10-2028", user: "UPFSSAI456", password: "Xyz@5678", status: "Expiring in 30 Days", url: true, files: 1, assignedTo: "Rahul Jha" },
+  { task: "T-1003", partner: "Kanhaiya", partnerPhone: "8796951056", client: "Kushali Ventures", phone: "9412128685", type: "FSSAI Basic Licence", category: "Compliance", service: "FSSAI Registration", number: "22726877000140", issue: "25-09-2026", expiry: "24-09-2027", user: "UPFSSAI789", password: "Test@123", status: "Active", url: true, files: 3, assignedTo: "Kanhaiya" },
+  { task: "T-1004", partner: "Kanhaiya", partnerPhone: "8796951056", client: "Divine brew and bites", phone: "9426110441", type: "FSSAI Basic Licence", category: "Compliance", service: "FSSAI Registration", number: "20726015001176", issue: "23-09-2026", expiry: "22-09-2027", user: "UPFSSAI321", password: "Pass@456", status: "Active", url: true, files: 1, assignedTo: "Kanhaiya" },
+  { task: "T-1005", partner: "Gaurav", partnerPhone: "9355749363", client: "Miglani Retail", phone: "9718710045", type: "FSSAI Central Licence", category: "Compliance", service: "FSSAI Registration", number: "13325999000692", issue: "15-10-2025", expiry: "13-10-2026", user: "CENTFSSAI01", password: "Demo@789", status: "Expiring in 30 Days", url: true, files: 2, assignedTo: "Gaurav" },
+  { task: "T-1006", partner: "Gaurav", partnerPhone: "9355749363", client: "GAURAV SHISHODIA", phone: "8171144666", type: "FSSAI Basic Licence", category: "Compliance", service: "FSSAI Registration", number: "22724999000371", issue: "25-09-2026", expiry: "29-09-2031", user: "UPFSSAI654", password: "Aa@1122", status: "Active", url: true, files: 1, assignedTo: "Gaurav" },
+  { task: "T-1007", partner: "Roshan", partnerPhone: "9873207632", client: "SANVIN INC", phone: "9811176768", type: "FSSAI Central Licence", category: "Compliance", service: "FSSAI Registration", number: "12721999000371", issue: "25-09-2026", expiry: "19-10-2031", user: "CENTFSSAI02", password: "Bb@3344", status: "Active", url: true, files: 2, assignedTo: "Roshan" },
+  { task: "T-1008", partner: "Roshan", partnerPhone: "9873207632", client: "Kulcha and Parantha Co", phone: "7206666744", type: "FSSAI Basic Licence", category: "Compliance", service: "FSSAI Registration", number: "20826001001474", issue: "24-09-2026", expiry: "23-09-2027", user: "UPFSSAI987", password: "Cc@5566", status: "Active", url: true, files: 1, assignedTo: "Roshan" },
+  { task: "T-1009", partner: "Roshni", partnerPhone: "9811637390", client: "Narula food and Beverages", phone: "9058063705", type: "FSSAI Basic Licence", category: "Compliance", service: "FSSAI Registration", number: "20926016000079", issue: "10-09-2026", expiry: "09-09-2027", user: "UPFSSAI654", password: "Dd@7788", status: "Active", url: true, files: 3, assignedTo: "Roshni" },
+  { task: "T-1010", partner: "Roshni", partnerPhone: "9811637390", client: "SABER DINING", phone: "7264040445", type: "FSSAI Basic Licence", category: "Compliance", service: "FSSAI Registration", number: "21526083016333", issue: "22-09-2026", expiry: "21-09-2027", user: "UPFSSAI111", password: "Ee@9900", status: "Active", url: false, files: 1, assignedTo: "Roshni" },
 ];
 
 interface CrmData {
@@ -139,11 +161,15 @@ function loadInitialData(): CrmData {
     const raw = localStorage.getItem("finsocap-crm-data");
     if (raw) {
       const parsed = JSON.parse(raw);
+      // Ensure licences include verified default entries and credentials
+      const storedLicences: LicenceModel[] = parsed.licences || [];
+      const hasFullLicences = storedLicences.length >= 10 && storedLicences.some((l) => !!l.password);
+      
       return {
-        services: parsed.services || defaultServices,
-        tasks: parsed.tasks || defaultTasks,
-        users: parsed.users || defaultUsers,
-        licences: parsed.licences || defaultLicences,
+        services: parsed.services && parsed.services.length > 0 ? parsed.services : defaultServices,
+        tasks: parsed.tasks && parsed.tasks.length > 0 ? parsed.tasks : defaultTasks,
+        users: parsed.users && parsed.users.length > 0 ? parsed.users : defaultUsers,
+        licences: hasFullLicences ? storedLicences : defaultLicences,
         manualClients: parsed.manualClients || [],
       };
     }
@@ -241,6 +267,20 @@ export function useCrmStore() {
     }));
   }, []);
 
+  const deleteService = useCallback((id: number) => {
+    updateStore((prev) => ({
+      ...prev,
+      services: prev.services.filter((s) => s.id !== id),
+    }));
+  }, []);
+
+  const setServiceStatus = useCallback((id: number, status: "Active" | "Inactive") => {
+    updateStore((prev) => ({
+      ...prev,
+      services: prev.services.map((s) => (s.id === id ? { ...s, status } : s)),
+    }));
+  }, []);
+
   const addTask = useCallback((task: Omit<TaskModel, "id" | "comments" | "files" | "date">) => {
     updateStore((prev) => {
       const newId = `T-${1001 + prev.tasks.length}`;
@@ -295,37 +335,84 @@ export function useCrmStore() {
     }));
   }, []);
 
-  const completeTask = useCallback((taskId: string, licenceInfo: { type: string; number: string; issue: string; expiry: string; filesCount?: number }) => {
+  const completeTask = useCallback((taskId: string, licenceInfo: { 
+    type: string; 
+    category?: string; 
+    service?: string; 
+    number: string; 
+    issue: string; 
+    expiry: string; 
+    user?: string; 
+    password?: string; 
+    filesCount?: number;
+    partner?: string;
+    partnerPhone?: string;
+    client?: string;
+    phone?: string;
+    assignedTo?: string;
+  }) => {
     updateStore((prev) => {
       const task = prev.tasks.find((t) => t.id === taskId);
-      if (!task) return prev;
+      const partner = licenceInfo.partner || task?.partner || "Rahul Jha";
+      const partnerPhone = licenceInfo.partnerPhone || task?.partnerPhone || "9873207632";
+      const client = licenceInfo.client || task?.client || "Client";
+      const phone = licenceInfo.phone || task?.phone || "";
+      const category = licenceInfo.category || task?.category || "Compliance";
+      const service = licenceInfo.service || task?.service || "FSSAI Registration";
 
       const newLicence: LicenceModel = {
-        task: task.id,
-        partner: task.partner,
-        partnerPhone: task.partnerPhone,
-        client: task.client,
-        phone: task.phone,
+        task: taskId,
+        partner,
+        partnerPhone,
+        client,
+        phone,
         type: licenceInfo.type,
-        category: task.category,
-        service: task.service,
-        number: licenceInfo.number || "Pending Issuance",
+        category,
+        service,
+        number: licenceInfo.number || `LIC-${Math.floor(10000000000000 + Math.random() * 90000000000000)}`,
         issue: licenceInfo.issue || new Date().toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" }),
         expiry: licenceInfo.expiry || "1 Year Validity",
-        user: "",
+        user: licenceInfo.user || "",
+        password: licenceInfo.password || "",
         status: "Active",
-        url: false,
+        url: true,
         files: licenceInfo.filesCount || 1,
+        assignedTo: licenceInfo.assignedTo || task?.assignee || partner,
       };
 
       return {
         ...prev,
         tasks: prev.tasks.map((t) =>
-          t.id === taskId ? { ...t, status: "Completed" as const, license: licenceInfo.number } : t
+          t.id === taskId ? { ...t, status: "Completed" as const, license: newLicence.number } : t
         ),
-        licences: [newLicence, ...prev.licences],
+        licences: [newLicence, ...prev.licences.filter((l) => l.number !== newLicence.number)],
       };
     });
+  }, []);
+
+  const updateLicence = useCallback((licenceNumber: string, updated: Partial<LicenceModel>) => {
+    updateStore((prev) => ({
+      ...prev,
+      licences: prev.licences.map((l) => {
+        if (l.number !== licenceNumber) return l;
+        const merged: LicenceModel = { ...l, ...updated };
+        if (updated.issueDate) merged.issue = updated.issueDate;
+        if (updated.expiryDate) merged.expiry = updated.expiryDate;
+        if (updated.userId) merged.user = updated.userId;
+        if (updated.taskId) merged.task = updated.taskId;
+        if (updated.issue) merged.issueDate = updated.issue;
+        if (updated.expiry) merged.expiryDate = updated.expiry;
+        if (updated.user) merged.userId = updated.user;
+        return merged;
+      }),
+    }));
+  }, []);
+
+  const deleteLicence = useCallback((licenceNumber: string) => {
+    updateStore((prev) => ({
+      ...prev,
+      licences: prev.licences.filter((l) => l.number !== licenceNumber),
+    }));
   }, []);
 
   const addUser = useCallback((user: Omit<UserModel, "id" | "tasks" | "status">) => {
@@ -368,6 +455,36 @@ export function useCrmStore() {
     });
   }, []);
 
+  const updateClient = useCallback((oldName: string, updates: Partial<ClientModel>) => {
+    updateStore((prev) => {
+      const updatedManual = prev.manualClients.map((c) => {
+        if (c.name.toLowerCase() === oldName.toLowerCase()) {
+          return { ...c, ...updates };
+        }
+        return c;
+      });
+
+      const updatedTasks = prev.tasks.map((t) => {
+        if (t.client.toLowerCase() === oldName.toLowerCase()) {
+          return {
+            ...t,
+            client: updates.name || t.client,
+            phone: updates.phone || t.phone,
+            business: updates.business || t.business,
+            partner: updates.partner || t.partner,
+          };
+        }
+        return t;
+      });
+
+      return {
+        ...prev,
+        manualClients: updatedManual,
+        tasks: updatedTasks,
+      };
+    });
+  }, []);
+
   // Computed Clients derived from tasks + manual clients
   const allClients = useMemo((): ClientModel[] => {
     const map = new Map<string, ClientModel>();
@@ -404,14 +521,19 @@ export function useCrmStore() {
     addService,
     updateService,
     toggleServiceStatus,
+    deleteService,
+    setServiceStatus,
     addTask,
     updateTaskStatus,
     assignTask,
     addComment,
     addAttachment,
     completeTask,
+    updateLicence,
+    deleteLicence,
     addUser,
     toggleUserStatus,
     addClient,
+    updateClient,
   };
 }

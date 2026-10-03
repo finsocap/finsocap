@@ -1,10 +1,10 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useMemo, useEffect } from "react";
 import Link from "next/link";
 import { 
   ArrowRight, CheckSquare, Clock, UserCheck, 
-  AlertCircle, CheckCircle2, User, Calendar, FileText
+  AlertCircle, CheckCircle2, User, Calendar, FileText, Sparkles
 } from "lucide-react";
 import { useCrmStore } from "@/lib/crmStore";
 import AnimatedCounter from "@/components/Global/AnimatedCounter";
@@ -26,6 +26,33 @@ export default function TaskAllocationPage() {
   const [toastMsg, setToastMsg] = useState<string | null>(null);
 
   const selectedTask = tasks.find((t) => t.id === selectedTaskId);
+
+  // Filter employees according to knowledge/skills matching the selected task category (Requirement: Only qualified visible)
+  const qualifiedUsers = useMemo(() => {
+    if (!selectedTask) return activeUsers;
+    const taskCat = (selectedTask.category || "").toLowerCase();
+    const taskServ = (selectedTask.service || "").toLowerCase();
+
+    const matches = activeUsers.filter((u) => {
+      const skillsArr = (u.skills || []).map((s) => s.toLowerCase());
+      const rawSkill = (u.skill || "").toLowerCase();
+
+      return (
+        skillsArr.some((s) => taskCat.includes(s) || s.includes(taskCat) || taskServ.includes(s) || s.includes(taskServ)) ||
+        rawSkill.includes(taskCat) ||
+        taskCat.includes(rawSkill)
+      );
+    });
+
+    return matches.length > 0 ? matches : activeUsers;
+  }, [activeUsers, selectedTask]);
+
+  // Keep selected assignee synced with qualified employees
+  useEffect(() => {
+    if (qualifiedUsers.length > 0 && !qualifiedUsers.some((u) => u.name === selectedAssignee)) {
+      setSelectedAssignee(qualifiedUsers[0].name);
+    }
+  }, [qualifiedUsers, selectedAssignee]);
 
   const showToast = (msg: string) => {
     setToastMsg(msg);
@@ -186,25 +213,34 @@ export default function TaskAllocationPage() {
                   <span className="font-bold text-blue-600 dark:text-sky-400">{selectedTask.service}</span>
                 </div>
                 <div className="flex items-center justify-between text-xs">
-                  <span className="font-bold text-slate-500">Partner:</span>
+                  <span className="font-bold text-slate-500">Franchise Partner:</span>
                   <span className="font-semibold text-slate-700 dark:text-slate-300">{selectedTask.partner}</span>
                 </div>
               </div>
             )}
 
-            {/* Assign To Employee */}
-            <div className="space-y-1">
-              <label className="text-xs font-bold text-slate-700 dark:text-slate-300">
-                Assign to Employee *
-              </label>
+            {/* Assign To Employee with Skill Matching (Requirement: Only employee with knowledge is visible) */}
+            <div className="space-y-1.5">
+              <div className="flex items-center justify-between">
+                <label className="text-xs font-bold text-slate-700 dark:text-slate-300">
+                  Assign to Employee *
+                </label>
+                {selectedTask && (
+                  <span className="inline-flex items-center gap-1 text-[10px] font-bold text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/60 px-2 py-0.5 rounded-full border border-emerald-200 dark:border-emerald-800">
+                    <Sparkles className="w-3 h-3 text-emerald-500" />
+                    <span>Skill Matched: {selectedTask.category} ({qualifiedUsers.length})</span>
+                  </span>
+                )}
+              </div>
+
               <select
                 value={selectedAssignee}
                 onChange={(e) => setSelectedAssignee(e.target.value)}
-                className="w-full px-3.5 py-2.5 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-semibold"
+                className="w-full px-3.5 py-2.5 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-blue-500/20"
               >
-                {activeUsers.map((u) => (
+                {qualifiedUsers.map((u) => (
                   <option key={u.id} value={u.name}>
-                    {u.name} ({u.role} - {u.dept})
+                    {u.name} ({u.role} — Knowledge: {u.skills?.join(", ") || u.skill})
                   </option>
                 ))}
               </select>
@@ -285,7 +321,7 @@ export default function TaskAllocationPage() {
                     <th className="py-3 px-3">Task ID</th>
                     <th className="py-3 px-3">Client</th>
                     <th className="py-3 px-3">Service</th>
-                    <th className="py-3 px-3">Partner / Cafe</th>
+                    <th className="py-3 px-3">Franchise Partner</th>
                     <th className="py-3 px-3">Due Date</th>
                     <th className="py-3 px-3 text-right">Action</th>
                   </tr>

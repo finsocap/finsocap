@@ -11,6 +11,7 @@ import AnimatedCounter from "@/components/Global/AnimatedCounter";
 import ConversionFunnelStream from "@/components/Charts/ConversionFunnelStream";
 import DateRangeFilter from "@/components/Dashboard/DateRangeFilter";
 import BranchFilter from "@/components/Dashboard/BranchFilter";
+import PageBanner from "@/components/Dashboard/PageBanner";
 
 interface SalesPersonPerf {
   id: string;
@@ -93,133 +94,126 @@ export default function SalesTeamReportPage() {
     setIsExporting(true);
     setTimeout(() => {
       setIsExporting(false);
-      alert("Sales Team Performance Report exported successfully!");
+      alert("Franchise Partner Performance Report exported successfully!");
     }, 800);
   };
 
   return (
     <div className="space-y-6 pb-16 animate-in fade-in duration-300">
       
-      {/* 1. Header with Full Operational Controls */}
-      <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
-        <div>
-          <div className="flex items-center gap-3">
-            <h1 className="text-2xl sm:text-3xl font-black text-slate-900 dark:text-white tracking-tight">
-              Sales Team Report
-            </h1>
-            <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black bg-blue-50 dark:bg-blue-950/60 text-blue-600 dark:text-sky-400 border border-blue-200/60 dark:border-blue-800/60 uppercase tracking-wider">
-              Funnel Analytics
-            </span>
-          </div>
-          <p className="text-xs sm:text-sm text-slate-500 dark:text-slate-400 font-medium mt-0.5">
-            Sales person-wise client conversion, task pipeline status and collections report.
-          </p>
-        </div>
+      {/* 1. Header with Full Operational Controls (Official Finsocap Theme) */}
+      <PageBanner
+        icon={TrendingUp}
+        badge="Franchise Operations"
+        badgeMeta="Partner Analytics & Conversion Telemetry"
+        title="Franchise Partner Report"
+        description="Franchise partner-wise client conversion, task pipeline status and collections report."
+        bottomMeta={`Partner: ${selectedPerson === "ALL" ? "All Franchise Partners" : selectedPerson} • Branch: ${selectedBranch}`}
+        actions={
+          <div className="flex flex-wrap items-center gap-2.5">
+            {/* Date Range Selector */}
+            <DateRangeFilter
+              value={dateRange}
+              onChange={(preset) => setDateRange(preset.label)}
+            />
 
-        {/* Global Filter Bar */}
-        <div className="flex flex-wrap items-center gap-2.5">
-          {/* Date Range Selector */}
-          <DateRangeFilter
-            value={dateRange}
-            onChange={(preset) => setDateRange(preset.label)}
-          />
+            {/* Branch Selector */}
+            <BranchFilter
+              value={selectedBranch}
+              onChange={(b) => setSelectedBranch(b.name)}
+            />
 
-          {/* Branch Selector */}
-          <BranchFilter
-            value={selectedBranch}
-            onChange={(b) => setSelectedBranch(b.name)}
-          />
+            {/* Sleek Custom Franchise Partner Dropdown */}
+            <div className="relative">
+              <button
+                type="button"
+                onClick={() => setIsPersonOpen(!isPersonOpen)}
+                className="flex items-center gap-2 px-3 py-2 rounded-xl bg-white dark:bg-[#0c1427] border border-slate-200/90 dark:border-slate-800 text-xs font-semibold text-slate-700 dark:text-slate-200 shadow-xs hover:border-slate-300 transition-colors cursor-pointer"
+              >
+                <User className="w-3.5 h-3.5 text-blue-500" />
+                <span>{selectedPerson === "ALL" ? "All Franchise Partners" : selectedPerson}</span>
+                <ChevronDown className={`w-3 h-3 text-slate-400 transition-transform ${isPersonOpen ? "rotate-180" : ""}`} />
+              </button>
 
-          {/* Sleek Custom Sales Person Dropdown */}
-          <div className="relative">
-            <button
-              type="button"
-              onClick={() => setIsPersonOpen(!isPersonOpen)}
-              className="flex items-center gap-2 px-3 py-2 rounded-xl bg-white dark:bg-[#0c1427] border border-slate-200/90 dark:border-slate-800 text-xs font-semibold text-slate-700 dark:text-slate-200 shadow-xs hover:border-slate-300 transition-colors cursor-pointer"
-            >
-              <User className="w-3.5 h-3.5 text-blue-500" />
-              <span>{selectedPerson === "ALL" ? "All Sales Persons" : selectedPerson}</span>
-              <ChevronDown className={`w-3 h-3 text-slate-400 transition-transform ${isPersonOpen ? "rotate-180" : ""}`} />
-            </button>
-
-            {isPersonOpen && (
-              <>
-                <div
-                  className="fixed inset-0 z-40"
-                  onClick={() => setIsPersonOpen(false)}
-                  aria-hidden="true"
-                />
-                <div className="absolute right-0 mt-2 w-56 bg-white dark:bg-[#0c1427] rounded-2xl border border-slate-200 dark:border-slate-800 shadow-2xl z-50 py-2 animate-in fade-in zoom-in-95 duration-100">
-                <div className="px-3 py-1 text-[10px] font-black uppercase tracking-wider text-slate-400">
-                  Select Sales Executive
-                </div>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setSelectedPerson("ALL");
-                    setIsPersonOpen(false);
-                  }}
-                  className={`w-full flex items-center justify-between px-3 py-2 text-xs transition-colors cursor-pointer ${
-                    selectedPerson === "ALL"
-                      ? "bg-blue-50 dark:bg-blue-950/70 text-blue-700 dark:text-sky-300 font-bold"
-                      : "text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800/70"
-                  }`}
-                >
-                  <div className="flex items-center gap-2">
-                    <span className="w-6 h-6 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 flex items-center justify-center font-bold text-[10px]">
-                      ALL
-                    </span>
-                    <span>All Sales Persons</span>
+              {isPersonOpen && (
+                <>
+                  <div
+                    className="fixed inset-0 z-40"
+                    onClick={() => setIsPersonOpen(false)}
+                    aria-hidden="true"
+                  />
+                  <div className="absolute right-0 mt-2 w-56 bg-white dark:bg-[#0c1427] rounded-2xl border border-slate-200 dark:border-slate-800 shadow-2xl z-50 py-2 animate-in fade-in zoom-in-95 duration-100">
+                  <div className="px-3 py-1 text-[10px] font-black uppercase tracking-wider text-slate-400">
+                    Select Franchise Partner
                   </div>
-                  {selectedPerson === "ALL" && <Check className="w-3.5 h-3.5 text-blue-600" />}
-                </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setSelectedPerson("ALL");
+                      setIsPersonOpen(false);
+                    }}
+                    className={`w-full flex items-center justify-between px-3 py-2 text-xs transition-colors cursor-pointer ${
+                      selectedPerson === "ALL"
+                        ? "bg-blue-50 dark:bg-blue-950/70 text-blue-700 dark:text-sky-300 font-bold"
+                        : "text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800/70"
+                    }`}
+                  >
+                    <div className="flex items-center gap-2">
+                      <span className="w-6 h-6 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 flex items-center justify-center font-bold text-[10px]">
+                        ALL
+                      </span>
+                      <span>All Franchise Partners</span>
+                    </div>
+                    {selectedPerson === "ALL" && <Check className="w-3.5 h-3.5 text-blue-600" />}
+                  </button>
 
-                {salesData.map((s) => {
-                  const isSelected = selectedPerson === s.name;
-                  return (
-                    <button
-                      key={s.id}
-                      type="button"
-                      onClick={() => {
-                        setSelectedPerson(s.name);
-                        setIsPersonOpen(false);
-                      }}
-                      className={`w-full flex items-center justify-between px-3 py-2 text-xs transition-colors cursor-pointer ${
-                        isSelected
-                          ? "bg-blue-50 dark:bg-blue-950/70 text-blue-700 dark:text-sky-300 font-bold"
-                          : "text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800/70"
-                      }`}
-                    >
-                      <div className="flex items-center gap-2">
-                        <span className={`w-6 h-6 rounded-full flex items-center justify-center font-bold text-[10px] ${s.avatarColor}`}>
-                          {s.initials}
-                        </span>
-                        <span>{s.name}</span>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <span className="text-[10px] text-slate-400">{s.clients} clients</span>
-                        {isSelected && <Check className="w-3.5 h-3.5 text-blue-600" />}
-                      </div>
-                    </button>
-                  );
-                })}
-                </div>
-              </>
-            )}
+                  {salesData.map((s) => {
+                    const isSelected = selectedPerson === s.name;
+                    return (
+                      <button
+                        key={s.id}
+                        type="button"
+                        onClick={() => {
+                          setSelectedPerson(s.name);
+                          setIsPersonOpen(false);
+                        }}
+                        className={`w-full flex items-center justify-between px-3 py-2 text-xs transition-colors cursor-pointer ${
+                          isSelected
+                            ? "bg-blue-50 dark:bg-blue-950/70 text-blue-700 dark:text-sky-300 font-bold"
+                            : "text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800/70"
+                        }`}
+                      >
+                        <div className="flex items-center gap-2">
+                          <span className={`w-6 h-6 rounded-full flex items-center justify-center font-bold text-[10px] ${s.avatarColor}`}>
+                            {s.initials}
+                          </span>
+                          <span>{s.name}</span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <span className="text-[10px] text-slate-400">{s.clients} clients</span>
+                          {isSelected && <Check className="w-3.5 h-3.5 text-blue-600" />}
+                        </div>
+                      </button>
+                    );
+                  })}
+                  </div>
+                </>
+              )}
+            </div>
+
+            {/* Export Report Button */}
+            <button 
+              type="button"
+              onClick={handleExport}
+              disabled={isExporting}
+              className="btn-primary-vibrant text-xs py-2 px-3.5 shadow-md shadow-blue-500/25 flex items-center gap-2 cursor-pointer disabled:opacity-70"
+            >
+              <Download className="w-3.5 h-3.5" />
+              <span>{isExporting ? "Exporting..." : "Export Report"}</span>
+            </button>
           </div>
-
-          {/* Export Report Button */}
-          <button 
-            type="button"
-            onClick={handleExport}
-            disabled={isExporting}
-            className="flex items-center gap-2 px-3.5 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold shadow-sm transition-all cursor-pointer disabled:opacity-70"
-          >
-            <Download className="w-3.5 h-3.5" />
-            <span>{isExporting ? "Exporting..." : "Export Report"}</span>
-          </button>
-        </div>
-      </div>
+        }
+      />
 
       {/* Active Filter Notice if non-default */}
       {(selectedPerson !== "ALL" || selectedBranch !== "All Branches") && (
@@ -227,7 +221,7 @@ export default function SalesTeamReportPage() {
           <div className="flex items-center gap-2">
             <span className="w-2 h-2 rounded-full bg-blue-500 animate-pulse" />
             <span className="text-slate-700 dark:text-slate-300">
-              Active Filter: <strong>{selectedPerson === "ALL" ? "All Executives" : selectedPerson}</strong> &bull; <strong>{selectedBranch}</strong>
+              Active Filter: <strong>{selectedPerson === "ALL" ? "All Franchise Partners" : selectedPerson}</strong> &bull; <strong>{selectedBranch}</strong>
             </span>
           </div>
           <button
@@ -250,7 +244,7 @@ export default function SalesTeamReportPage() {
       {/* 3. 8 Responsive KPI Cards - Dynamically calculated */}
       <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 gap-3.5">
         <div className="bg-white dark:bg-[#0c1427] rounded-2xl border border-slate-200/90 dark:border-slate-800 p-4 shadow-2xs">
-          <p className="text-[10px] font-black text-slate-400 uppercase tracking-wider">Executives</p>
+          <p className="text-[10px] font-black text-slate-400 uppercase tracking-wider">Franchise Partners</p>
           <p className="text-2xl font-black text-slate-900 dark:text-white mt-1">{kpiStats.peopleCount}</p>
           <span className="text-[10px] text-slate-400 font-medium">Active team</span>
         </div>
@@ -357,7 +351,7 @@ export default function SalesTeamReportPage() {
           <div className="border-b border-slate-100 dark:border-slate-800 pb-3 flex items-center justify-between">
             <div>
               <h2 className="font-black text-slate-900 dark:text-white text-base tracking-tight">
-                Sales Leaderboard (By Collections)
+                Franchise Partner Leaderboard (By Collections)
               </h2>
               <p className="text-[11px] text-slate-400">Ranked by verified client collections received</p>
             </div>
@@ -421,10 +415,10 @@ export default function SalesTeamReportPage() {
         <div className="p-5 border-b border-slate-100 dark:border-slate-800 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
           <div>
             <h2 className="font-black text-slate-900 dark:text-white text-base tracking-tight">
-              Sales Person Performance & Collection
+              Franchise Partner Performance & Collection
             </h2>
             <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-              Individual executive breakdown of client workload and collection rates.
+              Individual franchise partner breakdown of client workload and collection rates.
             </p>
           </div>
 
@@ -434,7 +428,7 @@ export default function SalesTeamReportPage() {
               type="text"
               value={tableSearch}
               onChange={(e) => setTableSearch(e.target.value)}
-              placeholder="Search executive or ID..."
+              placeholder="Search partner or ID..."
               className="w-full pl-8 pr-3 py-1.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-xs text-slate-800 dark:text-slate-200 placeholder:text-slate-400 focus:outline-none focus:border-blue-500"
             />
           </div>
@@ -444,8 +438,8 @@ export default function SalesTeamReportPage() {
           <table className="w-full text-left border-collapse text-xs">
             <thead>
               <tr className="border-b border-slate-100 dark:border-slate-800 text-[11px] font-bold text-slate-400 bg-slate-50/60 dark:bg-slate-900/60">
-                <th className="py-3.5 px-4">Sales ID</th>
-                <th className="py-3.5 px-4">Executive Name</th>
+                <th className="py-3.5 px-4">Partner ID</th>
+                <th className="py-3.5 px-4">Partner Name</th>
                 <th className="py-3.5 px-4 text-center">Clients</th>
                 <th className="py-3.5 px-4 text-center">Tasks</th>
                 <th className="py-3.5 px-4 text-center">Completed</th>

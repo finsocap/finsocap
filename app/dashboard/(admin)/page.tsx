@@ -14,7 +14,7 @@ import LeadsRevenueChart from "@/components/Charts/LeadsRevenueChart";
 import ServiceDistributionDonut from "@/components/Charts/ServiceDistributionDonut";
 import BotrixSparklineCard from "@/components/Charts/BotrixSparklineCard";
 import DateRangeFilter from "@/components/Dashboard/DateRangeFilter";
-import BranchFilter from "@/components/Dashboard/BranchFilter";
+import PartnerFilter from "@/components/Dashboard/PartnerFilter";
 import PageBanner from "@/components/Dashboard/PageBanner";
 
 interface BranchStats {
@@ -162,39 +162,46 @@ const BRANCH_DATA_MAP: Record<string, BranchStats> = {
 
 export default function DashboardHome() {
   const [dateRange, setDateRange] = useState("01 Sep 2026 - 30 Sep 2026");
-  const [selectedBranch, setSelectedBranch] = useState("All Branches");
+  const [selectedPartner, setSelectedPartner] = useState("All Partners");
   const [taskSummaryFilter, setTaskSummaryFilter] = useState<"Today" | "This Week" | "This Month">("Today");
   const [isTaskFilterOpen, setIsTaskFilterOpen] = useState(false);
 
   // Recent Leads Data matching Screenshot with branch assignment
   const allRecentLeads = [
-    { id: "L-1001", name: "Rahul Sharma", service: "FSSAI Registration", source: "Website", status: "New", date: "26 Sep 2026", branch: "Delhi HQ" },
-    { id: "L-1002", name: "Priya Verma", service: "GST Registration", source: "Phone", status: "Follow Up", date: "26 Sep 2026", branch: "Mumbai Regional" },
-    { id: "L-1003", name: "Aman Gupta", service: "Trademark", source: "Google Ads", status: "In Progress", date: "25 Sep 2026", branch: "Delhi HQ" },
-    { id: "L-1004", name: "Neha Singh", service: "ITR Filing", source: "Referral", status: "Converted", date: "25 Sep 2026", branch: "Noida Branch" },
-    { id: "L-1005", name: "Vikram Patel", service: "Shop Act License", source: "Direct Visit", status: "New", date: "24 Sep 2026", branch: "Mumbai Regional" },
-    { id: "L-1006", name: "Meera Kapoor", service: "GST Registration", source: "Website", status: "Follow Up", date: "24 Sep 2026", branch: "Delhi HQ" },
-    { id: "L-1007", name: "Suresh Yadav", service: "FSSAI + GST", source: "Phone", status: "In Progress", date: "23 Sep 2026", branch: "Noida Branch" },
-    { id: "L-1008", name: "Anjali Singh", service: "Trademark", source: "Google Ads", status: "Converted", date: "22 Sep 2026", branch: "Bengaluru Tech Hub" },
-    { id: "L-1009", name: "Debabrata Roy", service: "Trade License", source: "Referral", status: "New", date: "21 Sep 2026", branch: "Kolkata Hub" },
-    { id: "L-1010", name: "Tanvi Deshmukh", service: "FSSAI Central", source: "Website", status: "In Progress", date: "20 Sep 2026", branch: "Mumbai Regional" },
+    { id: "L-1001", name: "Rahul Sharma", service: "FSSAI Registration", source: "Website", status: "New", date: "26 Sep 2026", branch: "Delhi HQ", partner: "P-101 • Rahul Jha" },
+    { id: "L-1002", name: "Priya Verma", service: "GST Registration", source: "Phone", status: "Follow Up", date: "26 Sep 2026", branch: "Mumbai Regional", partner: "P-103 • Gaurav" },
+    { id: "L-1003", name: "Aman Gupta", service: "Trademark", source: "Google Ads", status: "In Progress", date: "25 Sep 2026", branch: "Delhi HQ", partner: "P-101 • Rahul Jha" },
+    { id: "L-1004", name: "Neha Singh", service: "ITR Filing", source: "Referral", status: "Converted", date: "25 Sep 2026", branch: "Noida Branch", partner: "P-102 • Kanhaiya" },
+    { id: "L-1005", name: "Vikram Patel", service: "Shop Act License", source: "Direct Visit", status: "New", date: "24 Sep 2026", branch: "Mumbai Regional", partner: "P-103 • Gaurav" },
+    { id: "L-1006", name: "Meera Kapoor", service: "GST Registration", source: "Website", status: "Follow Up", date: "24 Sep 2026", branch: "Delhi HQ", partner: "P-101 • Rahul Jha" },
+    { id: "L-1007", name: "Suresh Yadav", service: "FSSAI + GST", source: "Phone", status: "In Progress", date: "23 Sep 2026", branch: "Noida Branch", partner: "P-102 • Kanhaiya" },
+    { id: "L-1008", name: "Anjali Singh", service: "Trademark", source: "Google Ads", status: "Converted", date: "22 Sep 2026", branch: "Bengaluru Tech Hub", partner: "P-104 • Roshan" },
+    { id: "L-1009", name: "Debabrata Roy", service: "Trade License", source: "Referral", status: "New", date: "21 Sep 2026", branch: "Kolkata Hub", partner: "P-105 • Roshni" },
+    { id: "L-1010", name: "Tanvi Deshmukh", service: "FSSAI Central", source: "Website", status: "In Progress", date: "20 Sep 2026", branch: "Mumbai Regional", partner: "P-103 • Gaurav" },
   ];
 
-  // Team Activity with branch assignment
+  // Team Activity with partner assignment
   const allTeamActivities = [
-    { id: "act-1", initials: "AK", name: "Ankit Kumar", role: "Executive", text: "Added new lead - Rahul Sharma", time: "10:24 AM", color: "bg-sky-500 text-white", branch: "Delhi HQ" },
-    { id: "act-2", initials: "PM", name: "Pooja Mehta", role: "CA", text: "Updated GST filing documents", time: "09:45 AM", color: "bg-purple-600 text-white", branch: "Mumbai Regional" },
-    { id: "act-3", initials: "RJ", name: "Rohit Jain", role: "CS", text: "Marked Trademark application as submitted", time: "09:20 AM", color: "bg-indigo-500 text-white", branch: "Delhi HQ" },
-    { id: "act-4", initials: "NV", name: "Neha Verma", role: "Legal Executive", text: "Added task for document verification", time: "08:50 AM", color: "bg-slate-800 text-white", branch: "Noida Branch" },
-    { id: "act-5", initials: "VS", name: "Vikram Singh", role: "Executive", text: "Uploaded client agreement", time: "08:30 AM", color: "bg-blue-600 text-white", branch: "Mumbai Regional" },
-    { id: "act-6", initials: "MK", name: "Meera Kapoor", role: "CA", text: "Completed ITR filing for client", time: "08:15 AM", color: "bg-amber-600 text-white", branch: "Delhi HQ" },
-    { id: "act-7", initials: "SS", name: "Suresh Sharma", role: "CS", text: "Added note in client profile", time: "07:45 AM", color: "bg-purple-500 text-white", branch: "Bengaluru Tech Hub" },
-    { id: "act-8", initials: "PR", name: "Priya Rathi", role: "Executive", text: "Updated FSSAI application status", time: "07:20 AM", color: "bg-pink-500 text-white", branch: "Kolkata Hub" },
+    { id: "act-1", initials: "AK", name: "Ankit Kumar", role: "Executive", text: "Added new lead - Rahul Sharma", time: "10:24 AM", color: "bg-sky-500 text-white", branch: "Delhi HQ", partner: "P-101 • Rahul Jha" },
+    { id: "act-2", initials: "PM", name: "Pooja Mehta", role: "CA", text: "Updated GST filing documents", time: "09:45 AM", color: "bg-purple-600 text-white", branch: "Mumbai Regional", partner: "P-103 • Gaurav" },
+    { id: "act-3", initials: "RJ", name: "Rohit Jain", role: "CS", text: "Marked Trademark application as submitted", time: "09:20 AM", color: "bg-indigo-500 text-white", branch: "Delhi HQ", partner: "P-101 • Rahul Jha" },
+    { id: "act-4", initials: "NV", name: "Neha Verma", role: "Legal Executive", text: "Added task for document verification", time: "08:50 AM", color: "bg-slate-800 text-white", branch: "Noida Branch", partner: "P-102 • Kanhaiya" },
+    { id: "act-5", initials: "VS", name: "Vikram Singh", role: "Executive", text: "Uploaded client agreement", time: "08:30 AM", color: "bg-blue-600 text-white", branch: "Mumbai Regional", partner: "P-103 • Gaurav" },
+    { id: "act-6", initials: "MK", name: "Meera Kapoor", role: "CA", text: "Completed ITR filing for client", time: "08:15 AM", color: "bg-amber-600 text-white", branch: "Delhi HQ", partner: "P-101 • Rahul Jha" },
+    { id: "act-7", initials: "SS", name: "Suresh Sharma", role: "CS", text: "Added note in client profile", time: "07:45 AM", color: "bg-purple-500 text-white", branch: "Bengaluru Tech Hub", partner: "P-104 • Roshan" },
+    { id: "act-8", initials: "PR", name: "Priya Rathi", role: "Executive", text: "Updated FSSAI application status", time: "07:20 AM", color: "bg-pink-500 text-white", branch: "Kolkata Hub", partner: "P-105 • Roshni" },
   ];
 
-  // Dynamically compute stats according to selectedBranch and dateRange
+  // Dynamically compute stats according to selectedPartner and dateRange
   const activeStats = useMemo(() => {
-    const base = BRANCH_DATA_MAP[selectedBranch] || BRANCH_DATA_MAP["All Branches"];
+    let mappedKey = "All Branches";
+    if (selectedPartner.includes("P-101") || selectedPartner.includes("Rahul")) mappedKey = "Delhi HQ";
+    else if (selectedPartner.includes("P-102") || selectedPartner.includes("Kanhaiya")) mappedKey = "Noida Branch";
+    else if (selectedPartner.includes("P-103") || selectedPartner.includes("Gaurav")) mappedKey = "Mumbai Regional";
+    else if (selectedPartner.includes("P-104") || selectedPartner.includes("Roshan")) mappedKey = "Bengaluru Tech Hub";
+    else if (selectedPartner.includes("P-105") || selectedPartner.includes("Roshni")) mappedKey = "Kolkata Hub";
+
+    const base = BRANCH_DATA_MAP[mappedKey] || BRANCH_DATA_MAP["All Branches"];
 
     // Date range multiplier
     let dateMultiplier = 1.0;
@@ -248,7 +255,7 @@ export default function DashboardHome() {
       barHeightsRevenue: base.barHeightsRevenue,
       taskSummary: base.taskSummary,
     };
-  }, [selectedBranch, dateRange]);
+  }, [selectedPartner, dateRange]);
 
   // Compute Task Summary according to taskSummaryFilter
   const activeTaskCounts = useMemo(() => {
@@ -276,38 +283,37 @@ export default function DashboardHome() {
 
   // Filtered Leads
   const filteredLeads = useMemo(() => {
-    if (selectedBranch === "All Branches") {
+    if (selectedPartner === "All Partners") {
       return allRecentLeads.slice(0, 8);
     }
-    const branchSpecific = allRecentLeads.filter((l) => l.branch === selectedBranch);
-    if (branchSpecific.length < 4) {
-      // Pad with others so table remains rich
-      const others = allRecentLeads.filter((l) => l.branch !== selectedBranch);
-      return [...branchSpecific, ...others.slice(0, 8 - branchSpecific.length)];
+    const partnerSpecific = allRecentLeads.filter((l) => l.partner.includes(selectedPartner) || selectedPartner.includes(l.partner));
+    if (partnerSpecific.length < 4) {
+      const others = allRecentLeads.filter((l) => !l.partner.includes(selectedPartner));
+      return [...partnerSpecific, ...others.slice(0, 8 - partnerSpecific.length)];
     }
-    return branchSpecific.slice(0, 8);
-  }, [selectedBranch]);
+    return partnerSpecific.slice(0, 8);
+  }, [selectedPartner]);
 
   // Filtered Activities
   const filteredActivities = useMemo(() => {
-    if (selectedBranch === "All Branches") {
+    if (selectedPartner === "All Partners") {
       return allTeamActivities.slice(0, 8);
     }
-    const branchSpecific = allTeamActivities.filter((a) => a.branch === selectedBranch);
-    if (branchSpecific.length < 4) {
-      const others = allTeamActivities.filter((a) => a.branch !== selectedBranch);
-      return [...branchSpecific, ...others.slice(0, 8 - branchSpecific.length)];
+    const partnerSpecific = allTeamActivities.filter((a) => a.partner?.includes(selectedPartner) || selectedPartner.includes(a.partner || ""));
+    if (partnerSpecific.length < 4) {
+      const others = allTeamActivities.filter((a) => !a.partner?.includes(selectedPartner));
+      return [...partnerSpecific, ...others.slice(0, 8 - partnerSpecific.length)];
     }
-    return branchSpecific.slice(0, 8);
-  }, [selectedBranch]);
+    return partnerSpecific.slice(0, 8);
+  }, [selectedPartner]);
 
   const handleResetFilters = () => {
     setDateRange("01 Sep 2026 - 30 Sep 2026");
-    setSelectedBranch("All Branches");
+    setSelectedPartner("All Partners");
   };
 
   const isFilteringActive =
-    selectedBranch !== "All Branches" ||
+    selectedPartner !== "All Partners" ||
     dateRange !== "01 Sep 2026 - 30 Sep 2026";
 
   const getStatusBadge = (status: string) => {
@@ -332,19 +338,19 @@ export default function DashboardHome() {
       <PageBanner
         icon={LayoutDashboard}
         badge="Finsocap Intelligence Suite"
-        badgeMeta="Enterprise Multi-Branch Operations"
+        badgeMeta="Enterprise Multi-Partner Operations"
         title="Executive Dashboard"
         description="Manage your team, leads, clients, tasks and overall business operations in real-time."
-        bottomMeta={`Branch: ${selectedBranch} • Cycle: ${dateRange}`}
+        bottomMeta={`Partner: ${selectedPartner} • Cycle: ${dateRange}`}
         actions={
           <>
             <DateRangeFilter
               value={dateRange}
               onChange={(preset) => setDateRange(preset.label)}
             />
-            <BranchFilter
-              value={selectedBranch}
-              onChange={(b) => setSelectedBranch(b.name)}
+            <PartnerFilter
+              value={selectedPartner}
+              onChange={(p) => setSelectedPartner(p.shortName)}
             />
           </>
         }
@@ -356,10 +362,10 @@ export default function DashboardHome() {
           <div className="flex items-center gap-2 flex-wrap">
             <span className="w-2 h-2 rounded-full bg-blue-500 animate-pulse" />
             <span className="text-blue-900 dark:text-sky-200 font-medium">
-              Filtered by:
+              Filtered by Partner:
             </span>
             <span className="px-2 py-0.5 rounded-md bg-white dark:bg-slate-900 font-bold text-blue-700 dark:text-sky-300 border border-blue-200 dark:border-blue-800 shadow-2xs">
-              {selectedBranch}
+              {selectedPartner}
             </span>
             <span className="px-2 py-0.5 rounded-md bg-white dark:bg-slate-900 font-bold text-blue-700 dark:text-sky-300 border border-blue-200 dark:border-blue-800 shadow-2xs">
               {dateRange}
@@ -411,7 +417,7 @@ export default function DashboardHome() {
           value={activeStats.tasks}
           delta={activeStats.tasksDelta}
           deltaPositive={activeStats.tasksPositive}
-          subtitle={`Pending team tasks (${selectedBranch === "All Branches" ? "all hubs" : selectedBranch})`}
+          subtitle={`Pending team tasks (${selectedPartner === "All Partners" ? "all hubs" : selectedPartner})`}
           icon={<CheckSquare className="w-5 h-5 text-amber-600 dark:text-amber-400" />}
           iconBg="bg-amber-50 dark:bg-amber-950/60"
           barColor="bg-amber-500"
@@ -437,7 +443,7 @@ export default function DashboardHome() {
         {/* Col 1: Leads & Revenue Overview (5 cols) */}
         <div className="lg:col-span-5 h-[300px]">
           <LeadsRevenueChart
-            selectedBranch={selectedBranch}
+            selectedBranch={selectedPartner}
             dateRange={dateRange}
           />
         </div>
@@ -445,7 +451,7 @@ export default function DashboardHome() {
         {/* Col 2: Service-wise Distribution (4 cols) */}
         <div className="lg:col-span-4 h-[300px]">
           <ServiceDistributionDonut
-            selectedBranch={selectedBranch}
+            selectedBranch={selectedPartner}
           />
         </div>
 
@@ -592,9 +598,9 @@ export default function DashboardHome() {
               <h3 className="font-black text-slate-900 dark:text-white text-sm sm:text-base tracking-tight">
                 Recent Leads / Clients
               </h3>
-              {selectedBranch !== "All Branches" && (
+              {selectedPartner !== "All Partners" && (
                 <span className="text-[10px] font-bold text-blue-600 dark:text-sky-400 px-2 py-0.5 rounded-full bg-blue-50 dark:bg-blue-950/70 border border-blue-200 dark:border-blue-800">
-                  {selectedBranch}
+                  {selectedPartner}
                 </span>
               )}
             </div>
@@ -614,7 +620,7 @@ export default function DashboardHome() {
                   <th className="py-2.5 px-4">#</th>
                   <th className="py-2.5 px-4">Name</th>
                   <th className="py-2.5 px-4">Service</th>
-                  <th className="py-2.5 px-4">Branch</th>
+                  <th className="py-2.5 px-4">Partner ID &amp; Hub</th>
                   <th className="py-2.5 px-4">Status</th>
                   <th className="py-2.5 px-4 text-right">Date</th>
                 </tr>
@@ -635,9 +641,8 @@ export default function DashboardHome() {
                       {lead.service}
                     </td>
                     <td className="py-2.5 px-4">
-                      <span className="text-[10px] font-semibold text-slate-500 dark:text-slate-400 flex items-center gap-1">
-                        <MapPin className="w-2.5 h-2.5 text-slate-400" />
-                        {lead.branch}
+                      <span className="text-[10px] font-bold text-amber-700 dark:text-amber-400 bg-amber-500/10 px-2 py-0.5 rounded-md border border-amber-500/20">
+                        {lead.partner}
                       </span>
                     </td>
                     <td className="py-2.5 px-4">
@@ -662,9 +667,9 @@ export default function DashboardHome() {
               <h3 className="font-black text-slate-900 dark:text-white text-sm sm:text-base tracking-tight">
                 Team Activity
               </h3>
-              {selectedBranch !== "All Branches" && (
+              {selectedPartner !== "All Partners" && (
                 <span className="text-[10px] font-bold text-blue-600 dark:text-sky-400 px-2 py-0.5 rounded-full bg-blue-50 dark:bg-blue-950/70 border border-blue-200 dark:border-blue-800">
-                  {selectedBranch}
+                  {selectedPartner}
                 </span>
               )}
             </div>

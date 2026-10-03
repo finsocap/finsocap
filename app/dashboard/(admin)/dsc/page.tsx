@@ -6,6 +6,7 @@ import {
   AlertTriangle, CheckCircle2, Usb, ArrowRight, UserCheck
 } from "lucide-react";
 import AnimatedCounter from "@/components/Global/AnimatedCounter";
+import PageBanner from "@/components/Dashboard/PageBanner";
 
 interface DscItem {
   id: string;
@@ -49,22 +50,21 @@ export default function DscPage() {
   return (
     <div className="space-y-6 pb-16">
       
-      {/* 1. Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-        <div>
-          <h1 className="text-2xl sm:text-3xl font-black text-slate-900 dark:text-white tracking-tight">
-            Digital Signature Certificate (DSC) Hub
-          </h1>
-          <p className="text-xs sm:text-sm text-slate-500 dark:text-slate-400 font-medium mt-0.5">
-            Class 3 USB cryptotokens (ePass2003 / HYP2003), paperless video KYC, and certificate issuance.
-          </p>
-        </div>
-
-        <button className="btn-primary-vibrant text-xs py-2.5 px-4 cursor-pointer">
-          <KeyRound className="w-4 h-4" />
-          <span>Issue New DSC</span>
-        </button>
-      </div>
+      {/* 1. Header (Official Finsocap Theme) */}
+      <PageBanner
+        icon={KeyRound}
+        badge="Cryptographic Security"
+        badgeMeta="Class 3 Digital Signatures"
+        title="Digital Signature Certificate (DSC) Hub"
+        description="Class 3 USB cryptotokens (ePass2003 / HYP2003), paperless video KYC, and certificate issuance."
+        bottomMeta="Real-Time Hardware & Expiry Telemetry Active"
+        actions={
+          <button className="btn-primary-vibrant text-xs py-2.5 px-4 cursor-pointer flex items-center gap-1.5 shadow-md shadow-blue-500/25">
+            <KeyRound className="w-4 h-4" />
+            <span>Issue New DSC</span>
+          </button>
+        }
+      />
 
       {/* 2. Stat Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">

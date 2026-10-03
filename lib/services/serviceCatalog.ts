@@ -35,7 +35,18 @@ export const serviceCatalog = {
   // Get service by ID
   getById: async (id: string): Promise<ServiceItem | null> => {
     const services = getStoredServices();
-    return services.find((s) => s.id === id) || null;
+    const cleanId = String(id).trim();
+    const num = parseInt(cleanId.replace(/\D/g, ""), 10);
+    const padded = !isNaN(num) ? `SRV-${String(num).padStart(3, "0")}` : "";
+
+    return (
+      services.find(
+        (s) =>
+          s.id.toLowerCase() === cleanId.toLowerCase() ||
+          (padded && s.id.toLowerCase() === padded.toLowerCase()) ||
+          s.name.toLowerCase() === cleanId.toLowerCase()
+      ) || null
+    );
   },
 
   // Save (Create or Update) service
@@ -58,6 +69,8 @@ export const serviceCatalog = {
       frequency: service.frequency || "One Time",
       price: service.price || 0,
       governmentFee: service.governmentFee || 0,
+      hasYearFees: service.hasYearFees ?? false,
+      yearFees: service.yearFees || [],
       processingTime: service.processingTime || "3 - 7 Days",
       status: service.status || "Active",
       isPopular: service.isPopular ?? false,
@@ -95,9 +108,16 @@ export const serviceCatalog = {
   },
 
   // Delete service
-  delete: async (id: string): Promise<boolean> => {
+  delete: async (id: string | number): Promise<boolean> => {
     const services = getStoredServices();
-    const filtered = services.filter((s) => s.id !== id);
+    const cleanId = String(id).trim();
+    const num = parseInt(cleanId.replace(/\D/g, ""), 10);
+    const padded = !isNaN(num) ? `SRV-${String(num).padStart(3, "0")}` : "";
+    const filtered = services.filter(
+      (s) =>
+        s.id.toLowerCase() !== cleanId.toLowerCase() &&
+        (padded ? s.id.toLowerCase() !== padded.toLowerCase() : true)
+    );
     setStoredServices(filtered);
     return true;
   },

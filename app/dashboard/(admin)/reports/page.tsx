@@ -8,9 +8,10 @@ import {
   Award, BarChart3, KeyRound, Search, Filter, RotateCcw,
   Check, ChevronDown, ChevronLeft, ChevronRight, Eye, EyeOff, MoreVertical,
   Paperclip, ExternalLink, Link2, ShieldAlert, ArrowUpRight,
-  UserCheck, Briefcase, X, Copy, Sparkles, ShieldCheck
+  UserCheck, Briefcase, X, Copy, Sparkles, ShieldCheck, Edit3, Trash2
 } from "lucide-react";
 import DateRangeFilter from "@/components/Dashboard/DateRangeFilter";
+import { useCrmStore, LicenceModel } from "@/lib/crmStore";
 
 // ============================================================================
 // DATA MODELS & MOCK DATA (100% Exact Match with User Screenshots)
@@ -156,7 +157,8 @@ function ReportsPageContent() {
   const [salesServiceFilter, setSalesServiceFilter] = useState("ALL");
   const [salesChartMetric, setSalesChartMetric] = useState<"received" | "total">("received");
 
-  // --- Licence Report Filters ---
+  // --- Licence Report Filters & Store ---
+  const { licences, updateLicence, deleteLicence } = useCrmStore();
   const [licenceSearch, setLicenceSearch] = useState("");
   const [licenceTypeFilter, setLicenceTypeFilter] = useState("ALL");
   const [licenceCategoryFilter, setLicenceCategoryFilter] = useState("ALL");
@@ -164,7 +166,66 @@ function ReportsPageContent() {
   const [licenceEmployeeFilter, setLicenceEmployeeFilter] = useState("ALL");
   const [showPasswordMap, setShowPasswordMap] = useState<Record<string, boolean>>({});
   const [selectedLicenceModal, setSelectedLicenceModal] = useState<LicenceRow | null>(null);
+  const [modifyModalLicence, setModifyModalLicence] = useState<LicenceRow | null>(null);
+  const [deleteConfirmLicence, setDeleteConfirmLicence] = useState<LicenceRow | null>(null);
   const [copiedKey, setCopiedKey] = useState<string | null>(null);
+  const [toastMsg, setToastMsg] = useState<string | null>(null);
+
+  // Modify form states
+  const [editNumber, setEditNumber] = useState("");
+  const [editType, setEditType] = useState("");
+  const [editCategory, setEditCategory] = useState("");
+  const [editService, setEditService] = useState("");
+  const [editIssue, setEditIssue] = useState("");
+  const [editExpiry, setEditExpiry] = useState("");
+  const [editUser, setEditUser] = useState("");
+  const [editPassword, setEditPassword] = useState("");
+  const [editStatus, setEditStatus] = useState<string>("Active");
+  const [showEditPassword, setShowEditPassword] = useState(false);
+
+  const showToast = (msg: string) => {
+    setToastMsg(msg);
+    setTimeout(() => setToastMsg(null), 3000);
+  };
+
+  const handleOpenModify = (lic: LicenceRow) => {
+    setModifyModalLicence(lic);
+    setEditNumber(lic.licenceNumber);
+    setEditType(lic.licenceType);
+    setEditCategory(lic.taskCategory);
+    setEditService(lic.serviceName);
+    setEditIssue(lic.issueDate);
+    setEditExpiry(lic.expiryDate);
+    setEditUser(lic.userId);
+    setEditPassword(lic.passwordMasked);
+    setEditStatus(lic.status);
+    setShowEditPassword(false);
+  };
+
+  const handleSaveModify = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!modifyModalLicence) return;
+    updateLicence(modifyModalLicence.licenceNumber, {
+      number: editNumber,
+      type: editType,
+      category: editCategory,
+      service: editService,
+      issueDate: editIssue,
+      expiryDate: editExpiry,
+      userId: editUser,
+      password: editPassword,
+      status: editStatus as any,
+    });
+    setModifyModalLicence(null);
+    showToast("Licence updated successfully!");
+  };
+
+  const handleDelete = () => {
+    if (!deleteConfirmLicence) return;
+    deleteLicence(deleteConfirmLicence.licenceNumber);
+    setDeleteConfirmLicence(null);
+    showToast(`Licence ${deleteConfirmLicence.licenceNumber} deleted.`);
+  };
 
   // Toggle Password Mask
   const togglePassword = (taskId: string) => {
@@ -205,8 +266,8 @@ function ReportsPageContent() {
       } else if (activeTab === "sales") {
         exportData = filteredSalesRows.map((s, i) => ({
           "#": i + 1,
-          "Sales Person ID": s.id,
-          "Sales Person Name": s.name,
+          "Partner ID": s.id,
+          "Partner Name": s.name,
           "Total Clients": s.clients,
           "Total Tasks": s.tasks,
           "Completed Tasks": s.completed,
@@ -300,9 +361,32 @@ function ReportsPageContent() {
     });
   }, [salesPersonFilter]);
 
+  // Dynamic Licence Rows mapped from store
+  const dynamicLicenceRows: LicenceRow[] = useMemo(() => {
+    if (!licences || licences.length === 0) return licenceData;
+    return licences.map((l) => ({
+      taskId: l.taskId || l.id || "T-1001",
+      partnerName: l.partner || "Rahul Jha",
+      partnerNumber: l.partnerNumber || "9873207632",
+      clientName: l.clientName || l.client || "Client",
+      clientNumber: l.clientNumber || "9818176909",
+      licenceType: l.type || "FSSAI Basic Licence",
+      taskCategory: l.category || "Compliance",
+      serviceName: l.service || "FSSAI Registration",
+      licenceNumber: l.number,
+      issueDate: l.issueDate || "26-09-2026",
+      expiryDate: l.expiryDate || "25-09-2027",
+      userId: l.userId || "UPFSSAI123",
+      passwordMasked: l.password || "Abc@1234",
+      attachmentsCount: l.attachmentsCount ?? 1,
+      status: (l.status === "Expiring Soon" ? "Expiring in 30 Days" : l.status) as any,
+      urlLinked: !!l.url,
+    }));
+  }, [licences]);
+
   // Filtered Licence Rows
   const filteredLicences = useMemo(() => {
-    return licenceData.filter((row) => {
+    return dynamicLicenceRows.filter((row) => {
       if (licenceTypeFilter !== "ALL" && row.licenceType !== licenceTypeFilter) return false;
       if (licenceCategoryFilter !== "ALL" && row.taskCategory !== licenceCategoryFilter) return false;
       if (licenceStatusFilter !== "ALL" && row.status !== licenceStatusFilter) return false;
@@ -318,7 +402,17 @@ function ReportsPageContent() {
       }
       return true;
     });
-  }, [licenceTypeFilter, licenceCategoryFilter, licenceStatusFilter, licenceEmployeeFilter, licenceSearch]);
+  }, [dynamicLicenceRows, licenceTypeFilter, licenceCategoryFilter, licenceStatusFilter, licenceEmployeeFilter, licenceSearch]);
+
+  const licenceKpiStats = useMemo(() => {
+    const total = dynamicLicenceRows.length;
+    const active = dynamicLicenceRows.filter(l => l.status === "Active").length;
+    const expiring = dynamicLicenceRows.filter(l => l.status === "Expiring in 30 Days" || (l.status as any) === "Expiring Soon").length;
+    const expired = dynamicLicenceRows.filter(l => l.status === "Expired").length;
+    const linked = dynamicLicenceRows.filter(l => l.urlLinked).length;
+    const unlinked = dynamicLicenceRows.filter(l => !l.urlLinked).length;
+    return { total, active, expiring, expired, linked, unlinked };
+  }, [dynamicLicenceRows]);
 
   return (
     <div className="space-y-6 pb-20 animate-in fade-in duration-300">
@@ -361,7 +455,7 @@ function ReportsPageContent() {
                 Reports Center
               </h1>
               <p className="text-xs text-slate-500 dark:text-slate-400 font-medium mt-0.5 max-w-xl">
-                Official operational audits, sales conversions and regulatory licence tracking.
+                Official operational audits, partner conversions and regulatory licence tracking.
               </p>
             </div>
           </div>
@@ -389,7 +483,7 @@ function ReportsPageContent() {
               </span>
             </button>
 
-            {/* Tab 2: Sales Team Report */}
+            {/* Tab 2: Franchise Partner Report */}
             <button
               type="button"
               onClick={() => handleTabChange("sales")}
@@ -400,13 +494,13 @@ function ReportsPageContent() {
               }`}
             >
               <BarChart3 className={`w-4 h-4 ${activeTab === "sales" ? "text-emerald-300" : "text-slate-400"}`} />
-              <span>Sales Team Report</span>
+              <span>Franchise Partner Report</span>
               <span className={`px-2 py-0.5 rounded-full text-[10px] font-black transition-colors ${
                 activeTab === "sales"
                   ? "bg-white/20 text-white ring-1 ring-white/30"
                   : "bg-emerald-100 dark:bg-emerald-950/80 text-emerald-700 dark:text-emerald-300"
               }`}>
-                5 Sales
+                5 Partners
               </span>
             </button>
 
@@ -427,7 +521,7 @@ function ReportsPageContent() {
                   ? "bg-white/20 text-white ring-1 ring-white/30"
                   : "bg-purple-100 dark:bg-purple-950/80 text-purple-700 dark:text-purple-300"
               }`}>
-                100
+                {licenceKpiStats.total}
               </span>
             </button>
           </div>
@@ -703,7 +797,7 @@ function ReportsPageContent() {
       )}
 
       {/* ==================================================================== */}
-      {/* 💼 TAB 2: SALES TEAM REPORT (Matches Screenshot 2 Exactly)          */}
+      {/* 💼 TAB 2: FRANCHISE PARTNER REPORT (Matches Screenshot 2 Exactly)    */}
       {/* ==================================================================== */}
       {activeTab === "sales" && (
         <div className="space-y-6 animate-in fade-in duration-200">
@@ -713,10 +807,10 @@ function ReportsPageContent() {
               <div className="w-1.5 h-9 rounded-full bg-gradient-to-b from-indigo-600 via-blue-600 to-emerald-500 shadow-sm shadow-indigo-500/30 shrink-0" />
               <div>
                 <h2 className="text-2xl font-black text-slate-900 dark:text-white tracking-tight">
-                  Sales Team Report
+                  Franchise Partner Report
                 </h2>
                 <p className="text-xs text-slate-500 dark:text-slate-400 font-medium mt-0.5">
-                  Sales person-wise client summary, task status and collection report
+                  Franchise partner-wise client summary, task status and collection report
                 </p>
               </div>
             </div>
@@ -729,7 +823,7 @@ function ReportsPageContent() {
                 onChange={(e) => setSalesPersonFilter(e.target.value)}
                 className="px-3.5 py-2.5 rounded-xl bg-white dark:bg-[#0c1427] border border-slate-200/90 dark:border-slate-800 text-xs font-bold text-slate-700 dark:text-slate-200 shadow-xs cursor-pointer focus:outline-none"
               >
-                <option value="ALL">All Sales Persons</option>
+                <option value="ALL">All Franchise Partners</option>
                 {salesTeamData.map((s) => (
                   <option key={s.id} value={s.name}>{s.name}</option>
                 ))}
@@ -748,7 +842,7 @@ function ReportsPageContent() {
 
               <button
                 type="button"
-                onClick={() => handleExport("Sales Team Report")}
+                onClick={() => handleExport("Franchise Partner Report")}
                 className="flex items-center gap-1.5 px-4 py-2.5 rounded-xl bg-gradient-to-r from-blue-600 via-indigo-600 to-blue-700 hover:from-blue-700 hover:to-indigo-800 text-white text-xs font-bold shadow-md shadow-blue-500/25 transition-all cursor-pointer active:scale-95"
               >
                 <Download className="w-3.5 h-3.5" />
@@ -762,7 +856,7 @@ function ReportsPageContent() {
             <div className="bg-white dark:bg-[#0c1427] p-3.5 rounded-2xl border border-slate-200/90 dark:border-slate-800 shadow-2xs">
               <div className="flex items-center gap-1.5 text-slate-400">
                 <Users className="w-4 h-4 text-rose-500" />
-                <span className="text-[10px] font-bold uppercase tracking-wider">Total Sales Persons</span>
+                <span className="text-[10px] font-bold uppercase tracking-wider">Total Franchise Partners</span>
               </div>
               <p className="text-2xl font-black text-slate-900 dark:text-white mt-1">5</p>
             </div>
@@ -838,12 +932,12 @@ function ReportsPageContent() {
 
           {/* Middle 3 Visuals Row: Donut 1 + Donut 2 + Bar Chart matching Screenshot 2 */}
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-5">
-            {/* Donut 1: Task Status (Sales Team) */}
+            {/* Donut 1: Task Status (Franchise Partner) */}
             <div className="lg:col-span-4 bg-white dark:bg-[#0c1427] rounded-3xl border border-slate-200/90 dark:border-slate-800 p-5 shadow-sm flex flex-col justify-between">
               <div className="border-b border-slate-100 dark:border-slate-800 pb-2.5">
                 <h3 className="font-black text-slate-900 dark:text-white text-sm tracking-tight flex items-center gap-2">
                   <span className="w-2 h-2 rounded-full bg-purple-500" />
-                  <span>Task Status (Sales Team)</span>
+                  <span>Task Status (Franchise Partner)</span>
                 </h3>
               </div>
 
@@ -875,12 +969,12 @@ function ReportsPageContent() {
               </div>
             </div>
 
-            {/* Donut 2: Collection Status (Sales Team) */}
+            {/* Donut 2: Collection Status (Franchise Partner) */}
             <div className="lg:col-span-4 bg-white dark:bg-[#0c1427] rounded-3xl border border-slate-200/90 dark:border-slate-800 p-5 shadow-sm flex flex-col justify-between">
               <div className="border-b border-slate-100 dark:border-slate-800 pb-2.5">
                 <h3 className="font-black text-slate-900 dark:text-white text-sm tracking-tight flex items-center gap-2">
                   <span className="w-2 h-2 rounded-full bg-sky-500" />
-                  <span>Collection Status (Sales Team)</span>
+                  <span>Collection Status (Franchise Partner)</span>
                 </h3>
               </div>
 
@@ -912,11 +1006,11 @@ function ReportsPageContent() {
               </div>
             </div>
 
-            {/* Bar Chart: Top Sales Persons */}
+            {/* Bar Chart: Top Franchise Partners */}
             <div className="lg:col-span-4 bg-white dark:bg-[#0c1427] rounded-3xl border border-slate-200/90 dark:border-slate-800 p-5 shadow-sm flex flex-col justify-between">
               <div className="border-b border-slate-100 dark:border-slate-800 pb-2 flex items-center justify-between">
                 <h3 className="font-black text-slate-900 dark:text-white text-xs sm:text-sm tracking-tight truncate">
-                  Top Sales Persons ({salesChartMetric === "received" ? "By Received Amount" : "By Total Fees"})
+                  Top Franchise Partners ({salesChartMetric === "received" ? "By Received Amount" : "By Total Fees"})
                 </h3>
                 <select
                   value={salesChartMetric}
@@ -955,8 +1049,8 @@ function ReportsPageContent() {
                 <thead>
                   <tr className="border-b border-slate-200 dark:border-slate-800 text-[11px] font-bold text-slate-500 bg-slate-50/80 dark:bg-slate-900/80">
                     <th rowSpan={2} className="py-3 px-3 w-8 text-center align-middle whitespace-nowrap">#</th>
-                    <th rowSpan={2} className="py-3 px-3 align-middle whitespace-nowrap">Sales Person ID</th>
-                    <th rowSpan={2} className="py-3 px-4 align-middle whitespace-nowrap">Sales Person Name</th>
+                    <th rowSpan={2} className="py-3 px-3 align-middle whitespace-nowrap">Partner ID</th>
+                    <th rowSpan={2} className="py-3 px-4 align-middle whitespace-nowrap">Partner Name</th>
                     <th rowSpan={2} className="py-3 px-3 text-center align-middle whitespace-nowrap">Total Clients</th>
                     <th rowSpan={2} className="py-3 px-3 text-center align-middle whitespace-nowrap">Total Tasks</th>
                     <th rowSpan={2} className="py-3 px-3 text-center text-emerald-600 align-middle whitespace-nowrap">Completed Tasks</th>
@@ -1076,7 +1170,7 @@ function ReportsPageContent() {
                 <FileText className="w-4 h-4 text-sky-500" />
                 <span className="text-[10px] font-bold uppercase tracking-wider">Total Licences</span>
               </div>
-              <p className="text-2xl font-black text-slate-900 dark:text-white mt-1">100</p>
+              <p className="text-2xl font-black text-slate-900 dark:text-white mt-1">{licenceKpiStats.total}</p>
             </div>
 
             <div className="bg-white dark:bg-[#0c1427] p-3.5 rounded-2xl border border-slate-200/90 dark:border-slate-800 shadow-2xs">
@@ -1084,7 +1178,7 @@ function ReportsPageContent() {
                 <CheckCircle2 className="w-4 h-4 text-emerald-500" />
                 <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-600">Active</span>
               </div>
-              <p className="text-2xl font-black text-emerald-600 dark:text-emerald-400 mt-1">85</p>
+              <p className="text-2xl font-black text-emerald-600 dark:text-emerald-400 mt-1">{licenceKpiStats.active}</p>
             </div>
 
             <div className="bg-white dark:bg-[#0c1427] p-3.5 rounded-2xl border border-slate-200/90 dark:border-slate-800 shadow-2xs">
@@ -1092,7 +1186,7 @@ function ReportsPageContent() {
                 <Clock className="w-4 h-4 text-amber-500" />
                 <span className="text-[10px] font-bold uppercase tracking-wider">Expiring in 30 Days</span>
               </div>
-              <p className="text-2xl font-black text-amber-600 dark:text-amber-400 mt-1">10</p>
+              <p className="text-2xl font-black text-amber-600 dark:text-amber-400 mt-1">{licenceKpiStats.expiring}</p>
             </div>
 
             <div className="bg-white dark:bg-[#0c1427] p-3.5 rounded-2xl border border-slate-200/90 dark:border-slate-800 shadow-2xs">
@@ -1100,7 +1194,7 @@ function ReportsPageContent() {
                 <AlertTriangle className="w-4 h-4 text-rose-500" />
                 <span className="text-[10px] font-bold uppercase tracking-wider text-rose-500">Expired</span>
               </div>
-              <p className="text-2xl font-black text-rose-600 dark:text-rose-400 mt-1">5</p>
+              <p className="text-2xl font-black text-rose-600 dark:text-rose-400 mt-1">{licenceKpiStats.expired}</p>
             </div>
 
             <div className="bg-white dark:bg-[#0c1427] p-3.5 rounded-2xl border border-slate-200/90 dark:border-slate-800 shadow-2xs">
@@ -1108,7 +1202,7 @@ function ReportsPageContent() {
                 <Link2 className="w-4 h-4 text-purple-500" />
                 <span className="text-[10px] font-bold uppercase tracking-wider">URL Linked</span>
               </div>
-              <p className="text-2xl font-black text-purple-600 dark:text-purple-400 mt-1">92</p>
+              <p className="text-2xl font-black text-purple-600 dark:text-purple-400 mt-1">{licenceKpiStats.linked}</p>
             </div>
 
             <div className="bg-white dark:bg-[#0c1427] p-3.5 rounded-2xl border border-slate-200/90 dark:border-slate-800 shadow-2xs">
@@ -1116,7 +1210,7 @@ function ReportsPageContent() {
                 <Link2 className="w-4 h-4 text-slate-400" />
                 <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">URL Not Linked</span>
               </div>
-              <p className="text-2xl font-black text-slate-500 dark:text-slate-400 mt-1">8</p>
+              <p className="text-2xl font-black text-slate-500 dark:text-slate-400 mt-1">{licenceKpiStats.unlinked}</p>
             </div>
           </div>
 
@@ -1290,10 +1384,21 @@ function ReportsPageContent() {
                           </button>
                           <button
                             type="button"
-                            onClick={() => setSelectedLicenceModal(lic)}
-                            className="p-1 rounded-lg text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 cursor-pointer"
+                            onClick={() => handleOpenModify(lic)}
+                            className="px-2.5 py-1 rounded-lg bg-amber-50 hover:bg-amber-100 text-amber-700 dark:bg-amber-950/60 dark:text-amber-300 text-[11px] font-bold transition-colors cursor-pointer flex items-center gap-1"
+                            title="Modify Licence"
                           >
-                            <MoreVertical className="w-3.5 h-3.5" />
+                            <Edit3 className="w-3 h-3" />
+                            <span>Modify</span>
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setDeleteConfirmLicence(lic)}
+                            className="px-2 py-1 rounded-lg bg-rose-50 hover:bg-rose-100 text-rose-600 dark:bg-rose-950/60 dark:text-rose-400 text-[11px] font-bold transition-colors cursor-pointer flex items-center gap-1"
+                            title="Delete Licence"
+                          >
+                            <Trash2 className="w-3 h-3" />
+                            <span>Delete</span>
                           </button>
                         </div>
                       </td>
@@ -1437,6 +1542,209 @@ function ReportsPageContent() {
               </button>
             </div>
           </div>
+        </div>
+      )}
+
+      {/* ==================================================================== */}
+      {/* ✏️ MODIFY LICENCE MODAL (Screenshot 3 Requirement)                   */}
+      {/* ==================================================================== */}
+      {modifyModalLicence && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 backdrop-blur-xs p-4 animate-in fade-in">
+          <div className="bg-white dark:bg-[#0c1427] rounded-3xl border border-slate-200 dark:border-slate-800 shadow-2xl max-w-xl w-full p-6 space-y-4">
+            <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-3">
+              <div className="flex items-center gap-2.5">
+                <div className="w-9 h-9 rounded-xl bg-amber-500/10 text-amber-600 flex items-center justify-center">
+                  <Edit3 className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="text-base font-black text-slate-900 dark:text-white">Modify Licence</h3>
+                  <p className="text-xs text-slate-400">Update regulatory record details and portal credentials</p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setModifyModalLicence(null)}
+                className="w-8 h-8 rounded-full bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-slate-500 hover:text-slate-800 cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <form onSubmit={handleSaveModify} className="space-y-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
+                <div>
+                  <label className="block text-[11px] font-bold text-slate-500 mb-1">Licence Number *</label>
+                  <input
+                    type="text"
+                    required
+                    value={editNumber}
+                    onChange={(e) => setEditNumber(e.target.value)}
+                    className="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 font-mono font-bold text-slate-800 dark:text-slate-200"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-[11px] font-bold text-slate-500 mb-1">Licence Type *</label>
+                  <input
+                    type="text"
+                    required
+                    value={editType}
+                    onChange={(e) => setEditType(e.target.value)}
+                    className="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-200"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-[11px] font-bold text-slate-500 mb-1">Task Category</label>
+                  <input
+                    type="text"
+                    value={editCategory}
+                    onChange={(e) => setEditCategory(e.target.value)}
+                    className="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-200"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-[11px] font-bold text-slate-500 mb-1">Service Name</label>
+                  <input
+                    type="text"
+                    value={editService}
+                    onChange={(e) => setEditService(e.target.value)}
+                    className="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-200"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-[11px] font-bold text-slate-500 mb-1">Issue Date</label>
+                  <input
+                    type="text"
+                    value={editIssue}
+                    onChange={(e) => setEditIssue(e.target.value)}
+                    placeholder="DD-MM-YYYY"
+                    className="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-200"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-[11px] font-bold text-slate-500 mb-1">Expiry Date</label>
+                  <input
+                    type="text"
+                    value={editExpiry}
+                    onChange={(e) => setEditExpiry(e.target.value)}
+                    placeholder="DD-MM-YYYY"
+                    className="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-200"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-[11px] font-bold text-slate-500 mb-1">Portal User ID</label>
+                  <input
+                    type="text"
+                    value={editUser}
+                    onChange={(e) => setEditUser(e.target.value)}
+                    className="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 font-mono text-slate-800 dark:text-slate-200"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-[11px] font-bold text-slate-500 mb-1">Portal Password</label>
+                  <div className="relative">
+                    <input
+                      type={showEditPassword ? "text" : "password"}
+                      value={editPassword}
+                      onChange={(e) => setEditPassword(e.target.value)}
+                      className="w-full px-3 py-2 pr-9 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 font-mono text-slate-800 dark:text-slate-200"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowEditPassword(!showEditPassword)}
+                      className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 cursor-pointer"
+                    >
+                      {showEditPassword ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
+                    </button>
+                  </div>
+                </div>
+
+                <div className="sm:col-span-2">
+                  <label className="block text-[11px] font-bold text-slate-500 mb-1">Status</label>
+                  <select
+                    value={editStatus}
+                    onChange={(e) => setEditStatus(e.target.value)}
+                    className="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-xs font-semibold"
+                  >
+                    <option value="Active">Active</option>
+                    <option value="Expiring in 30 Days">Expiring in 30 Days</option>
+                    <option value="Expired">Expired</option>
+                  </select>
+                </div>
+              </div>
+
+              <div className="pt-3 border-t border-slate-100 dark:border-slate-800 flex items-center justify-end gap-2.5">
+                <button
+                  type="button"
+                  onClick={() => setModifyModalLicence(null)}
+                  className="px-4 py-2 rounded-xl text-xs font-bold text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="px-5 py-2 rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white text-xs font-bold shadow-md shadow-blue-500/20 cursor-pointer"
+                >
+                  Save Changes
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* ==================================================================== */}
+      {/* 🗑️ DELETE CONFIRMATION MODAL (Screenshot 3 Requirement)             */}
+      {/* ==================================================================== */}
+      {deleteConfirmLicence && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 backdrop-blur-xs p-4 animate-in fade-in">
+          <div className="bg-white dark:bg-[#0c1427] rounded-3xl border border-slate-200 dark:border-slate-800 shadow-2xl max-w-sm w-full p-6 text-center space-y-4">
+            <div className="w-12 h-12 rounded-2xl bg-rose-500/10 text-rose-500 flex items-center justify-center mx-auto">
+              <Trash2 className="w-6 h-6" />
+            </div>
+
+            <div>
+              <h3 className="text-base font-black text-slate-900 dark:text-white">Delete Licence Record?</h3>
+              <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
+                Are you sure you want to delete licence{" "}
+                <span className="font-mono font-bold text-slate-800 dark:text-slate-200">
+                  {deleteConfirmLicence.licenceNumber}
+                </span>{" "}
+                for <strong>{deleteConfirmLicence.clientName}</strong>? This action cannot be undone.
+              </p>
+            </div>
+
+            <div className="flex items-center justify-center gap-2.5 pt-2">
+              <button
+                type="button"
+                onClick={() => setDeleteConfirmLicence(null)}
+                className="px-4 py-2 rounded-xl text-xs font-bold text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleDelete}
+                className="px-5 py-2 rounded-xl bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold shadow-md shadow-rose-600/20 cursor-pointer"
+              >
+                Delete Licence
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Toast Notification */}
+      {toastMsg && (
+        <div className="fixed bottom-6 right-6 z-50 px-4 py-3 rounded-2xl bg-slate-900 dark:bg-white text-white dark:text-slate-900 text-xs font-bold shadow-2xl flex items-center gap-2 animate-in slide-in-from-bottom duration-200">
+          <Check className="w-4 h-4 text-emerald-400 dark:text-emerald-600" />
+          <span>{toastMsg}</span>
         </div>
       )}
 

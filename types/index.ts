@@ -158,10 +158,20 @@ export interface BrandConfig {
 // ============================================================================
 // 6. Products & Services Master Catalog
 // ============================================================================
+export interface ServiceYearFee {
+  id: string;
+  year: number;
+  label?: string; // e.g. "1 Year", "2 Years", "3 Years", "5 Years"
+  governmentFee: number;
+  professionalFee: number;
+}
+
 export interface ServiceDocument {
   id: string;
   name: string;
   type: "Required" | "Optional";
+  sampleImageUrl?: string;
+  sampleImageName?: string;
 }
 
 export interface ServiceLink {
@@ -191,6 +201,8 @@ export interface ServiceItem {
   frequency: "One Time" | "Monthly" | "Yearly" | "Quarterly";
   price: number;
   governmentFee: number;
+  hasYearFees?: boolean;
+  yearFees?: ServiceYearFee[];
   processingTime: string;
   status: "Active" | "Inactive" | "Draft";
   isPopular?: boolean;
@@ -219,6 +231,13 @@ export type TaskStatus =
   | "Completed"
   | "Cancelled";
 
+export interface CommentAttachment {
+  id: string;
+  fileName: string;
+  fileUrl: string;
+  fileSize?: string;
+}
+
 export interface TaskComment {
   id: string;
   userName: string;
@@ -226,6 +245,7 @@ export interface TaskComment {
   userAvatar?: string;
   timestamp: string;
   text: string;
+  attachments?: CommentAttachment[];
 }
 
 export interface TaskAttachment {
@@ -247,8 +267,22 @@ export interface TaskStatusHistory {
   updatedBy?: string;
 }
 
+export interface TaskCertificate {
+  id: string;
+  certificateNumber: string;
+  certificateName: string;
+  issuedDate: string;
+  validTill?: string;
+  fileUrl: string;
+  fileName: string;
+  submittedBy: string;
+  submittedAt: string;
+  status: "Active" | "Expiring Soon" | "Expired";
+}
+
 export interface TaskItem {
   id: string;
+  partnerId?: string; // e.g. P-101
   partnerName: string;
   partnerContact: string;
   clientName: string;
@@ -269,5 +303,7 @@ export interface TaskItem {
   comments?: TaskComment[];
   attachments?: TaskAttachment[];
   statusHistory?: TaskStatusHistory[];
+  certificates?: TaskCertificate[];
+  license?: string;
 }
 

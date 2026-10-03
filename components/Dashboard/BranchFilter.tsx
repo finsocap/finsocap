@@ -186,7 +186,7 @@ export default function BranchFilter({
           onClick={() => setIsOpen(!isOpen)}
           aria-expanded={isOpen}
           aria-haspopup="true"
-          className={`flex items-center gap-2 px-3 py-2 rounded-xl bg-white dark:bg-[#0c1427] border text-xs font-semibold shadow-xs cursor-pointer transition-all duration-150 select-none ${
+          className={`flex items-center gap-2.5 pl-3 pr-3.5 py-2 rounded-xl bg-white dark:bg-[#0c1427] border text-xs font-semibold shadow-xs cursor-pointer transition-all duration-150 select-none ${
             isOpen
               ? "border-blue-500 ring-2 ring-blue-500/20 text-blue-600 dark:text-sky-400 relative z-50 shadow-md"
               : !isAll
@@ -203,7 +203,7 @@ export default function BranchFilter({
         />
         <span className="truncate max-w-[140px] sm:max-w-[180px]">{value}</span>
         <ChevronDown
-          className={`w-3 h-3 text-slate-400 transition-transform duration-200 ${
+          className={`w-3.5 h-3.5 text-slate-400 transition-transform duration-200 ml-0.5 ${
             isOpen ? "rotate-180 text-blue-500 dark:text-sky-400" : ""
           }`}
         />

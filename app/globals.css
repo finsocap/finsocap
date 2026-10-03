@@ -68,6 +68,15 @@
   --color-brand-teal-hover: var(--brand-teal-hover);
   --color-brand-dark: var(--brand-dark);
   --color-brand-light: var(--brand-light);
+
+  --radius-4xl: 14px;
+  --radius-3xl: 12px;
+  --radius-2xl: 10px;
+  --radius-xl: 8px;
+  --radius-lg: 6px;
+  --radius-md: 4px;
+  --radius-sm: 3px;
+  --radius-xs: 2px;
 }
 
 html, body {
@@ -359,7 +368,7 @@ html, body {
   background: linear-gradient(135deg, #1d4ed8 0%, #2563eb 50%, #3b82f6 100%);
   color: #ffffff;
   font-weight: 700;
-  border-radius: 14px;
+  border-radius: 8px;
   padding: 10px 22px;
   box-shadow: 0 8px 25px -4px rgba(37, 99, 235, 0.5), inset 0 1px 0 rgba(255, 255, 255, 0.25);
   transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
@@ -407,7 +416,7 @@ html, body {
   background: linear-gradient(135deg, #b45309 0%, #d97706 45%, #f59e0b 100%);
   color: #ffffff;
   font-weight: 700;
-  border-radius: 14px;
+  border-radius: 8px;
   padding: 10px 22px;
   box-shadow: 0 8px 25px -4px rgba(245, 158, 11, 0.5), inset 0 1px 0 rgba(255, 255, 255, 0.3);
   transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
@@ -453,7 +462,7 @@ html, body {
   background: linear-gradient(135deg, #047857 0%, #059669 45%, #10b981 100%);
   color: #ffffff;
   font-weight: 700;
-  border-radius: 14px;
+  border-radius: 8px;
   padding: 10px 22px;
   box-shadow: 0 8px 25px -4px rgba(16, 185, 129, 0.5), inset 0 1px 0 rgba(255, 255, 255, 0.3);
   transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
@@ -480,7 +489,7 @@ html, body {
   background: linear-gradient(135deg, #6d28d9 0%, #7c3aed 45%, #8b5cf6 100%);
   color: #ffffff;
   font-weight: 700;
-  border-radius: 14px;
+  border-radius: 8px;
   padding: 10px 22px;
   box-shadow: 0 8px 25px -4px rgba(139, 92, 246, 0.5), inset 0 1px 0 rgba(255, 255, 255, 0.3);
   transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
@@ -507,7 +516,7 @@ html, body {
   background: linear-gradient(135deg, #be123c 0%, #e11d48 45%, #f43f5e 100%);
   color: #ffffff;
   font-weight: 700;
-  border-radius: 14px;
+  border-radius: 8px;
   padding: 10px 22px;
   box-shadow: 0 8px 25px -4px rgba(244, 63, 94, 0.5), inset 0 1px 0 rgba(255, 255, 255, 0.3);
   transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
@@ -535,7 +544,7 @@ html, body {
   border: 1px solid rgba(226, 232, 240, 0.9);
   color: #1e293b;
   font-weight: 700;
-  border-radius: 14px;
+  border-radius: 8px;
   padding: 8px 18px;
   box-shadow: 0 4px 14px -2px rgba(15, 23, 42, 0.05);
   transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
@@ -575,7 +584,7 @@ html, body {
 .btn-action-icon {
   width: 34px;
   height: 34px;
-  border-radius: 10px;
+  border-radius: 6px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -595,7 +604,7 @@ html, body {
 .card-luxury {
   background: #ffffff;
   border: 1px solid rgba(226, 232, 240, 0.85);
-  border-radius: 24px;
+  border-radius: 12px;
   box-shadow: 0 6px 25px -4px rgba(15, 23, 42, 0.04), 0 1px 3px 0 rgba(15, 23, 42, 0.02);
   transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
   position: relative;
@@ -622,7 +631,7 @@ html, body {
 .input-modern {
   background: #f8fafc;
   border: 1.5px solid #e2e8f0;
-  border-radius: 14px;
+  border-radius: 8px;
   padding: 10px 14px;
   font-size: 13px;
   font-weight: 500;
@@ -781,5 +790,72 @@ html, body {
 .animate-spin-fast {
   animation: spin-slow 2.8s linear infinite;
 }
+
+/* ============================================================================
+   GLOBAL DASHBOARD CURVATURE REDUCTION
+   Requested: "curvness kam kr do pure dashboard me div ke"
+   Transforms rounded-3xl (24px) down to 12px, rounded-2xl (16px) down to 10px,
+   and rounded-xl (12px) down to 8px across all dashboard div containers.
+   ============================================================================ */
+div.rounded-3xl, section.rounded-3xl, article.rounded-3xl, aside.rounded-3xl, main.rounded-3xl, nav.rounded-3xl {
+  border-radius: 12px !important;
+}
+
+div.rounded-2xl, section.rounded-2xl, article.rounded-2xl, aside.rounded-2xl, main.rounded-2xl, nav.rounded-2xl {
+  border-radius: 10px !important;
+}
+
+div.rounded-xl, section.rounded-xl, article.rounded-xl, aside.rounded-xl, main.rounded-xl, nav.rounded-xl {
+  border-radius: 8px !important;
+}
+
+div.rounded-t-3xl {
+  border-top-left-radius: 12px !important;
+  border-top-right-radius: 12px !important;
+}
+
+div.rounded-b-3xl {
+  border-bottom-left-radius: 12px !important;
+  border-bottom-right-radius: 12px !important;
+}
+
+div.rounded-t-2xl {
+  border-top-left-radius: 10px !important;
+  border-top-right-radius: 10px !important;
+}
+
+div.rounded-b-2xl {
+  border-bottom-left-radius: 10px !important;
+  border-bottom-right-radius: 10px !important;
+}
+
+/* ============================================================================
+   GLOBAL DASHBOARD DROPDOWN ARROW PADDING
+   Requested: "jitne bhi dashboard me dropdown hai unke arrow right me chipke hai padding chhiye waha , har ek dropdown me"
+   Replaces native tight arrows with a clean, modern SVG chevron positioned with
+   14px of right padding and 38px of internal right padding.
+   ============================================================================ */
+select {
+  appearance: none !important;
+  -webkit-appearance: none !important;
+  -moz-appearance: none !important;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='%23475569' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E") !important;
+  background-repeat: no-repeat !important;
+  background-position: right 14px center !important;
+  background-size: 14px 14px !important;
+  padding-right: 38px !important;
+  cursor: pointer !important;
+}
+
+.dark select {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='%2394a3b8' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E") !important;
+}
+
+select:disabled {
+  opacity: 0.6;
+  cursor: not-allowed !important;
+}
+
+
 
 

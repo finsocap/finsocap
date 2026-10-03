@@ -53,8 +53,12 @@ export default function Sidebar({ userRole = "ADMIN" }: { userRole?: string }) {
     if (typeof window !== "undefined") {
       const urlTab = new URLSearchParams(window.location.search).get("tab");
       if (urlTab && ["service", "sales", "licence"].includes(urlTab)) return urlTab;
+      if (window.location.pathname.includes("/licence")) return "licence";
+      if (window.location.pathname.includes("/sales")) return "sales";
     }
-    return searchParams.get("tab") || "service";
+    const param = searchParams.get("tab");
+    if (param && ["service", "sales", "licence"].includes(param)) return param;
+    return "service";
   });
 
   // Sync activeReportTab whenever pathname or searchParams change
@@ -72,7 +76,12 @@ export default function Sidebar({ userRole = "ADMIN" }: { userRole?: string }) {
         return;
       }
     }
-    if (normalizePath(pathname) === "/dashboard/reports") {
+    const norm = normalizePath(pathname);
+    if (norm === "/dashboard/licence") {
+      setActiveReportTab("licence");
+      return;
+    }
+    if (norm === "/dashboard/reports") {
       setActiveReportTab("service");
     }
   }, [pathname, searchParams]);
@@ -109,18 +118,24 @@ export default function Sidebar({ userRole = "ADMIN" }: { userRole?: string }) {
       return normalizedCurrent === "/dashboard";
     }
 
-    // 2. Report tabs (/dashboard/reports?tab=...)
-    if (normalizedItemBase === "/dashboard/reports") {
-      const itemTab = (itemQuery ? new URLSearchParams(itemQuery).get("tab") : "service") || "service";
+    // 2. Report tabs (/dashboard/reports?tab=... or /dashboard/licence)
+    if (normalizedItemBase === "/dashboard/reports" || normalizedItemBase === "/dashboard/licence") {
+      let itemTab = "service";
+      if (itemQuery && itemQuery.includes("tab=sales")) itemTab = "sales";
+      else if (itemQuery && itemQuery.includes("tab=licence")) itemTab = "licence";
+      else if (normalizedItemBase === "/dashboard/licence") itemTab = "licence";
 
       // If user is currently on the reports page
       if (normalizedCurrent === "/dashboard/reports") {
         return activeReportTab === itemTab;
       }
+      // If user visited /dashboard/licence directly
+      if (normalizedCurrent === "/dashboard/licence") {
+        return itemTab === "licence";
+      }
       // Also match standalone report routes if visited directly
       if (itemTab === "service" && normalizedCurrent === "/dashboard/service-report") return true;
       if (itemTab === "sales" && normalizedCurrent === "/dashboard/sales") return true;
-      if (itemTab === "licence" && normalizedCurrent === "/dashboard/licence") return true;
 
       return false;
     }
@@ -143,7 +158,7 @@ export default function Sidebar({ userRole = "ADMIN" }: { userRole?: string }) {
 
   const reportNavItems = [
     { label: "Service Team Report", href: "/dashboard/reports?tab=service", icon: Award },
-    { label: "Sales Team Report", href: "/dashboard/reports?tab=sales", icon: TrendingUp },
+    { label: "Franchise Partner Report", href: "/dashboard/reports?tab=sales", icon: TrendingUp },
     { label: "Licence Report", href: "/dashboard/reports?tab=licence", icon: KeyRound },
   ];
 
