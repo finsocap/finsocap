@@ -550,7 +550,6 @@ export default function ServiceEditorForm({ initialData, isEditMode = false }: S
               </div>
 
               <div>
-              <div>
                 <div className="flex items-center justify-between mb-1.5">
                   <label className="block text-xs font-bold uppercase tracking-wider text-slate-600 dark:text-slate-400">
                     Processing Time (SLA)

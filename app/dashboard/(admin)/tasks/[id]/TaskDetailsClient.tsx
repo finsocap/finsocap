@@ -69,7 +69,7 @@ export default function TaskDetailsClient({ id }: { id: string }) {
   const [editCategory, setEditCategory] = useState("");
   const [editService, setEditService] = useState("");
   const [editDueDate, setEditDueDate] = useState("");
-  const [editStatus, setEditStatus] = useState<TaskStatus>("Assigned");
+  const [editStatus, setEditStatus] = useState<TaskStatus>("Pending");
   const [editAssignedTo, setEditAssignedTo] = useState("Rahul Jha");
   const [editPartnerName, setEditPartnerName] = useState("");
   const [editPartnerContact, setEditPartnerContact] = useState("");
