@@ -113,54 +113,36 @@ export default function TaskAllocationPage() {
       <AllocationInfographic tasks={tasks} users={users} />
 
       {/* 2. Top 4 KPIs */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
-        <div className="card-luxury p-5 flex items-center gap-4">
-          <div className="w-12 h-12 rounded-2xl bg-amber-100 dark:bg-amber-950/60 text-amber-600 dark:text-amber-400 flex items-center justify-center shrink-0">
-            <Clock className="w-6 h-6" />
-          </div>
-          <div>
-            <p className="text-[11px] font-bold text-slate-400">Unassigned</p>
-            <p className="text-2xl font-black text-slate-900 dark:text-white mt-0.5">
-              <AnimatedCounter value={unassignedTasks.length} /> Requests
-            </p>
-          </div>
-        </div>
-
-        <div className="card-luxury p-5 flex items-center gap-4">
-          <div className="w-12 h-12 rounded-2xl bg-emerald-100 dark:bg-emerald-950/60 text-emerald-600 dark:text-emerald-400 flex items-center justify-center shrink-0">
-            <CheckSquare className="w-6 h-6" />
-          </div>
-          <div>
-            <p className="text-[11px] font-bold text-slate-400">Assigned</p>
-            <p className="text-2xl font-black text-slate-900 dark:text-white mt-0.5">
-              <AnimatedCounter value={assignedTasks.length} /> Tasks
-            </p>
-          </div>
-        </div>
-
-        <div className="card-luxury p-5 flex items-center gap-4">
-          <div className="w-12 h-12 rounded-2xl bg-purple-100 dark:bg-purple-950/60 text-purple-600 dark:text-purple-400 flex items-center justify-center shrink-0">
-            <UserCheck className="w-6 h-6" />
-          </div>
-          <div>
-            <p className="text-[11px] font-bold text-slate-400">In Progress</p>
-            <p className="text-2xl font-black text-slate-900 dark:text-white mt-0.5">
-              <AnimatedCounter value={tasks.filter((t) => t.status === "In Progress").length} /> WIP
-            </p>
-          </div>
-        </div>
-
-        <div className="card-luxury p-5 flex items-center gap-4">
-          <div className="w-12 h-12 rounded-2xl bg-sky-100 dark:bg-sky-950/60 text-sky-600 dark:text-sky-400 flex items-center justify-center shrink-0">
-            <CheckCircle2 className="w-6 h-6" />
-          </div>
-          <div>
-            <p className="text-[11px] font-bold text-slate-400">Completed</p>
-            <p className="text-2xl font-black text-slate-900 dark:text-white mt-0.5">
-              <AnimatedCounter value={tasks.filter((t) => t.status === "Completed").length} /> Done
-            </p>
-          </div>
-        </div>
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 lg:gap-5">
+        {[
+          { id: "Unassigned", label: "Requests", count: unassignedTasks.length, icon: Clock, color: "text-amber-500", bg: "bg-amber-500/10 border-amber-500/20" },
+          { id: "Assigned", label: "Tasks", count: assignedTasks.length, icon: CheckSquare, color: "text-emerald-500", bg: "bg-emerald-500/10 border-emerald-500/20" },
+          { id: "In Progress", label: "WIP", count: tasks.filter((t) => t.status === "In Progress").length, icon: UserCheck, color: "text-purple-500", bg: "bg-purple-500/10 border-purple-500/20" },
+          { id: "Completed", label: "Done", count: tasks.filter((t) => t.status === "Completed").length, icon: CheckCircle2, color: "text-sky-500", bg: "bg-sky-500/10 border-sky-500/20" }
+        ].map(item => {
+          const Icon = item.icon;
+          return (
+            <Link
+              key={item.id}
+              href={`/dashboard/tasks`}
+              className="p-3 sm:p-3.5 rounded-2xl border text-left transition-all cursor-pointer flex flex-col justify-between bg-white dark:bg-[#0c1427] border-slate-200/80 dark:border-slate-800 hover:border-blue-400/50 hover:shadow-sm hover:scale-[1.03]"
+            >
+              <div className="flex items-center justify-between w-full mb-1">
+                <div className={`w-7 h-7 rounded-xl flex items-center justify-center ${item.bg} ${item.color}`}>
+                  <Icon className="w-4 h-4" />
+                </div>
+                <span className="text-lg sm:text-xl font-black text-slate-900 dark:text-white">
+                  {item.count}
+                </span>
+              </div>
+              <p className="text-[10px] sm:text-[11px] font-bold truncate mt-1 uppercase tracking-wider text-slate-500 dark:text-slate-400">
+                <span className="text-slate-400 capitalize font-medium">{item.id}</span>
+                <br/>
+                {item.label}
+              </p>
+            </Link>
+          );
+        })}
       </div>
 
       {/* 3. Split Layout: Assignment Form + Task Tables */}

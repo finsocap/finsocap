@@ -808,9 +808,9 @@ export default function ChatPage() {
                     <div key={msg.id} className={`flex items-end gap-3 ${isMine ? 'flex-row-reverse' : 'flex-row'}`}>
                       {/* Avatar */}
                       {!isMine && (
-                         <div className="w-8 h-8 rounded-full bg-indigo-100 flex items-center justify-center text-indigo-600 font-bold text-xs uppercase flex-shrink-0 mb-5">
-                           {msg.sender ? msg.sender.name.charAt(0) : activeChat.name.charAt(0)}
-                         </div>
+                       <div className="w-8 h-8 rounded-full bg-indigo-100 flex items-center justify-center text-indigo-600 font-bold text-xs uppercase flex-shrink-0 mb-5">
+                         {msg.sender?.name?.charAt(0) || activeChat?.name?.charAt(0) || 'U'}
+                       </div>
                       )}
                       
                       {renderActiveMessage(msg, isMine)}

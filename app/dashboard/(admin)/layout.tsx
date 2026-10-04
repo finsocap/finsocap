@@ -14,7 +14,7 @@ export default function DashboardLayout({
   return (
     <AuthProvider session={session}>
       <div className="flex h-screen bg-slate-50 dark:bg-[#090d16] overflow-hidden transition-colors">
-        <Suspense fallback={<aside className="w-64 bg-white dark:bg-[#0c1222] border-r border-slate-200 dark:border-slate-800 relative z-50" />}>
+        <Suspense fallback={<aside className="hidden lg:block w-64 bg-white dark:bg-[#0c1222] border-r border-slate-200 dark:border-slate-800 relative z-50" />}>
           <Sidebar userRole="ADMIN" />
         </Suspense>
         <div className="flex-1 flex flex-col h-screen overflow-hidden relative z-10">

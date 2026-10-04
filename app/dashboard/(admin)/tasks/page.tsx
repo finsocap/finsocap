@@ -478,7 +478,7 @@ export default function TasksPage() {
 
                   {/* Status */}
                   <td className="py-3 px-3.5">
-                    <span className={`inline-block px-2.5 py-0.5 rounded-full font-bold text-[10px] ${getStatusBadge(t.status)}`}>
+                    <span className={`inline-flex whitespace-nowrap px-2.5 py-0.5 rounded-full font-bold text-[10px] ${getStatusBadge(t.status)}`}>
                       {t.status}
                     </span>
                   </td>

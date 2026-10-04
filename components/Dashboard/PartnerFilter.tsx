@@ -173,14 +173,22 @@ export default function PartnerFilter({
   const isCustomPartner = selectedPartner.id !== "all";
 
   return (
-    <div ref={dropdownRef} className={`relative inline-block text-left ${className}`}>
+    <>
+      {isOpen && (
+        <div
+          className="fixed inset-0 w-screen h-screen bg-slate-950/30 dark:bg-slate-950/60 backdrop-blur-[1px] z-40 transition-all duration-150 animate-in fade-in cursor-pointer"
+          onClick={() => setIsOpen(false)}
+          aria-hidden="true"
+        />
+      )}
+      <div ref={dropdownRef} className={`relative inline-block text-left ${isOpen ? "z-50" : "z-10"} ${className}`}>
       {/* Trigger Button matching Screenshot 1 */}
       <button
         type="button"
         onClick={() => setIsOpen(!isOpen)}
         aria-haspopup="listbox"
         aria-expanded={isOpen}
-        className={`group flex items-center gap-2 pl-3 pr-3.5 py-2 rounded-xl text-xs font-bold transition-all duration-200 cursor-pointer shadow-xs border ${
+        className={`group flex items-center gap-2 pl-3 pr-3.5 h-11 rounded-xl text-xs font-bold transition-all duration-200 cursor-pointer shadow-xs border ${
           isCustomPartner
             ? "bg-blue-50/90 dark:bg-blue-950/60 border-blue-400 dark:border-blue-600 text-blue-700 dark:text-sky-300 ring-2 ring-blue-500/20"
             : "bg-white/80 dark:bg-slate-900/80 border-slate-200/90 dark:border-slate-800 text-slate-700 dark:text-slate-200 hover:bg-white dark:hover:bg-slate-900 hover:border-slate-300 dark:hover:border-slate-700"
@@ -347,5 +355,6 @@ export default function PartnerFilter({
         </div>
       )}
     </div>
+    </>
   );
 }

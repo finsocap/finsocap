@@ -8,7 +8,7 @@ import {
   ChevronRight, ShieldCheck, Settings, LogOut, 
   Receipt, AlertCircle, Building, CreditCard, 
   Clock, Users, IndianRupee, Sparkles,
-  MessageSquare, Radio, CheckSquare, Command
+  MessageSquare, Radio, CheckSquare, Command, Menu
 } from "lucide-react";
 import { soundEffects } from "@/lib/soundEffects";
 
@@ -42,6 +42,13 @@ export default function Topbar({ user }: { user?: any }) {
 
   const notifRef = useRef<HTMLDivElement>(null);
   const profileRef = useRef<HTMLDivElement>(null);
+
+  // Trigger mobile drawer toggle via window event
+  const handleToggleMobileSidebar = () => {
+    if (typeof window !== "undefined") {
+      window.dispatchEvent(new CustomEvent("finsocap-toggle-mobile-sidebar"));
+    }
+  };
 
   // Load notifications from API on mount
   useEffect(() => {
@@ -201,22 +208,35 @@ export default function Topbar({ user }: { user?: any }) {
   const userEmail = user?.email || "ankit@finsocap.com";
 
   return (
-    <header className="h-[74px] bg-white/95 dark:bg-[#0c1222]/95 backdrop-blur-md border-b border-slate-200/90 dark:border-slate-800/90 flex items-center justify-between px-6 sm:px-8 sticky top-0 z-30 transition-colors">
+    <header className="h-[74px] bg-white/95 dark:bg-[#0c1222]/95 backdrop-blur-md border-b border-slate-200/90 dark:border-slate-800/90 flex items-center justify-between px-3.5 sm:px-6 lg:px-8 sticky top-0 z-30 transition-colors">
       
-      {/* 1. SEARCH BAR matching Reference Screenshot */}
-      <form onSubmit={handleSearchSubmit} className="flex items-center bg-slate-100/80 dark:bg-slate-900/90 border border-slate-200 dark:border-slate-700/80 rounded-2xl px-3.5 py-2 w-72 sm:w-96 transition-all focus-within:border-blue-500 focus-within:bg-white dark:focus-within:bg-slate-900 focus-within:ring-2 focus-within:ring-blue-500/20 shadow-xs">
-        <Search className="w-4 h-4 text-slate-400 mr-2 shrink-0" />
-        <input 
-          type="text" 
-          value={searchQuery}
-          onChange={e => setSearchQuery(e.target.value)}
-          placeholder="Search leads, clients, services, tasks, documents..." 
-          className="bg-transparent border-none outline-none text-slate-800 dark:text-slate-100 w-full text-xs font-semibold placeholder:text-slate-400"
-        />
-        <kbd className="hidden sm:inline-flex items-center gap-0.5 px-1.5 py-0.5 text-[10px] font-black text-slate-400 bg-slate-200/60 dark:bg-slate-800 rounded-md border border-slate-300/60 dark:border-slate-700">
-          <Command className="w-2.5 h-2.5" /> K
-        </kbd>
-      </form>
+      {/* 1. LEFT CONTROLS: Mobile Toggle Button + SEARCH BAR */}
+      <div className="flex items-center gap-2.5 sm:gap-3 flex-1 max-w-xl mr-2">
+        {/* Mobile Hamburger Toggle (hidden on lg: screens) */}
+        <button
+          type="button"
+          onClick={handleToggleMobileSidebar}
+          aria-label="Open Mobile Menu"
+          className="lg:hidden p-2 rounded-xl bg-slate-100 hover:bg-slate-200/80 dark:bg-slate-800/80 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 border border-slate-200 dark:border-slate-700 transition-colors cursor-pointer shrink-0"
+        >
+          <Menu className="w-5 h-5 text-blue-600 dark:text-sky-400" />
+        </button>
+
+        {/* Search Bar */}
+        <form onSubmit={handleSearchSubmit} className="flex items-center bg-slate-100/80 dark:bg-slate-900/90 border border-slate-200 dark:border-slate-700/80 rounded-2xl px-3 sm:px-3.5 py-2 w-full max-w-[220px] sm:max-w-xs md:max-w-sm lg:w-96 transition-all focus-within:border-blue-500 focus-within:bg-white dark:focus-within:bg-slate-900 focus-within:ring-2 focus-within:ring-blue-500/20 shadow-xs">
+          <Search className="w-4 h-4 text-slate-400 mr-2 shrink-0" />
+          <input 
+            type="text" 
+            value={searchQuery}
+            onChange={e => setSearchQuery(e.target.value)}
+            placeholder="Search leads, clients, services..." 
+            className="bg-transparent border-none outline-none text-slate-800 dark:text-slate-100 w-full text-xs font-semibold placeholder:text-slate-400"
+          />
+          <kbd className="hidden sm:inline-flex items-center gap-0.5 px-1.5 py-0.5 text-[10px] font-black text-slate-400 bg-slate-200/60 dark:bg-slate-800 rounded-md border border-slate-300/60 dark:border-slate-700">
+            <Command className="w-2.5 h-2.5" /> K
+          </kbd>
+        </form>
+      </div>
 
       {/* 2. RIGHT CONTROLS */}
       <div className="flex items-center gap-3 sm:gap-4">

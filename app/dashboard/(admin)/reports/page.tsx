@@ -228,8 +228,8 @@ function ReportsPageContent() {
   };
 
   // Toggle Password Mask
-  const togglePassword = (taskId: string) => {
-    setShowPasswordMap(prev => ({ ...prev, [taskId]: !prev[taskId] }));
+  const togglePassword = (licenceNumber: string) => {
+    setShowPasswordMap(prev => ({ ...prev, [licenceNumber]: !prev[licenceNumber] }));
   };
 
   // Copy to clipboard
@@ -389,7 +389,11 @@ function ReportsPageContent() {
     return dynamicLicenceRows.filter((row) => {
       if (licenceTypeFilter !== "ALL" && row.licenceType !== licenceTypeFilter) return false;
       if (licenceCategoryFilter !== "ALL" && row.taskCategory !== licenceCategoryFilter) return false;
-      if (licenceStatusFilter !== "ALL" && row.status !== licenceStatusFilter) return false;
+      if (licenceStatusFilter !== "ALL") {
+        if (licenceStatusFilter === "Linked" && !row.urlLinked) return false;
+        if (licenceStatusFilter === "Not Linked" && row.urlLinked) return false;
+        if (licenceStatusFilter !== "Linked" && licenceStatusFilter !== "Not Linked" && row.status !== licenceStatusFilter) return false;
+      }
       if (licenceEmployeeFilter !== "ALL" && row.partnerName !== licenceEmployeeFilter) return false;
       if (licenceSearch.trim()) {
         const q = licenceSearch.toLowerCase();
@@ -1163,55 +1167,50 @@ function ReportsPageContent() {
             </div>
           </div>
 
-          {/* 6 KPI Summary Cards matching Screenshot 3 */}
+          {/* 6 KPI Summary Cards matching Screenshot 3 Clickable format */}
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3.5">
-            <div className="bg-white dark:bg-[#0c1427] p-3.5 rounded-2xl border border-slate-200/90 dark:border-slate-800 shadow-2xs">
-              <div className="flex items-center gap-2 text-slate-400">
-                <FileText className="w-4 h-4 text-sky-500" />
-                <span className="text-[10px] font-bold uppercase tracking-wider">Total Licences</span>
-              </div>
-              <p className="text-2xl font-black text-slate-900 dark:text-white mt-1">{licenceKpiStats.total}</p>
-            </div>
-
-            <div className="bg-white dark:bg-[#0c1427] p-3.5 rounded-2xl border border-slate-200/90 dark:border-slate-800 shadow-2xs">
-              <div className="flex items-center gap-2 text-slate-400">
-                <CheckCircle2 className="w-4 h-4 text-emerald-500" />
-                <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-600">Active</span>
-              </div>
-              <p className="text-2xl font-black text-emerald-600 dark:text-emerald-400 mt-1">{licenceKpiStats.active}</p>
-            </div>
-
-            <div className="bg-white dark:bg-[#0c1427] p-3.5 rounded-2xl border border-slate-200/90 dark:border-slate-800 shadow-2xs">
-              <div className="flex items-center gap-2 text-slate-400">
-                <Clock className="w-4 h-4 text-amber-500" />
-                <span className="text-[10px] font-bold uppercase tracking-wider">Expiring in 30 Days</span>
-              </div>
-              <p className="text-2xl font-black text-amber-600 dark:text-amber-400 mt-1">{licenceKpiStats.expiring}</p>
-            </div>
-
-            <div className="bg-white dark:bg-[#0c1427] p-3.5 rounded-2xl border border-slate-200/90 dark:border-slate-800 shadow-2xs">
-              <div className="flex items-center gap-2 text-slate-400">
-                <AlertTriangle className="w-4 h-4 text-rose-500" />
-                <span className="text-[10px] font-bold uppercase tracking-wider text-rose-500">Expired</span>
-              </div>
-              <p className="text-2xl font-black text-rose-600 dark:text-rose-400 mt-1">{licenceKpiStats.expired}</p>
-            </div>
-
-            <div className="bg-white dark:bg-[#0c1427] p-3.5 rounded-2xl border border-slate-200/90 dark:border-slate-800 shadow-2xs">
-              <div className="flex items-center gap-2 text-slate-400">
-                <Link2 className="w-4 h-4 text-purple-500" />
-                <span className="text-[10px] font-bold uppercase tracking-wider">URL Linked</span>
-              </div>
-              <p className="text-2xl font-black text-purple-600 dark:text-purple-400 mt-1">{licenceKpiStats.linked}</p>
-            </div>
-
-            <div className="bg-white dark:bg-[#0c1427] p-3.5 rounded-2xl border border-slate-200/90 dark:border-slate-800 shadow-2xs">
-              <div className="flex items-center gap-2 text-slate-400">
-                <Link2 className="w-4 h-4 text-slate-400" />
-                <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">URL Not Linked</span>
-              </div>
-              <p className="text-2xl font-black text-slate-500 dark:text-slate-400 mt-1">{licenceKpiStats.unlinked}</p>
-            </div>
+            {[
+              { id: "ALL", label: "Total Licences", count: licenceKpiStats.total, icon: FileText, color: "text-sky-500", bg: "bg-sky-500/10 border-sky-500/20" },
+              { id: "Active", label: "Active", count: licenceKpiStats.active, icon: CheckCircle2, color: "text-emerald-500", bg: "bg-emerald-500/10 border-emerald-500/20" },
+              { id: "Expiring in 30 Days", label: "Expiring in 30 Days", count: licenceKpiStats.expiring, icon: Clock, color: "text-amber-500", bg: "bg-amber-500/10 border-amber-500/20" },
+              { id: "Expired", label: "Expired", count: licenceKpiStats.expired, icon: AlertTriangle, color: "text-rose-500", bg: "bg-rose-500/10 border-rose-500/20" },
+              { id: "Linked", label: "URL Linked", count: licenceKpiStats.linked, icon: Link2, color: "text-purple-500", bg: "bg-purple-500/10 border-purple-500/20" },
+              { id: "Not Linked", label: "URL Not Linked", count: licenceKpiStats.unlinked, icon: Link2, color: "text-slate-400", bg: "bg-slate-400/10 border-slate-400/20" }
+            ].map(item => {
+              const isSelected = licenceStatusFilter === item.id;
+              const Icon = item.icon;
+              return (
+                <button
+                  key={item.id}
+                  onClick={() => setLicenceStatusFilter(isSelected ? "ALL" : item.id)}
+                  className={`p-3.5 rounded-2xl border text-left transition-all cursor-pointer flex flex-col justify-between ${
+                    isSelected
+                      ? "bg-blue-600 text-white border-blue-600 shadow-lg shadow-blue-500/25 scale-[1.03]"
+                      : "bg-white dark:bg-[#0c1427] border-slate-200/80 dark:border-slate-800 hover:border-blue-400/50 hover:shadow-sm"
+                  }`}
+                >
+                  <div className="flex items-center justify-between w-full mb-1">
+                    <div
+                      className={`w-7 h-7 rounded-xl flex items-center justify-center ${
+                        isSelected ? "bg-white/20 text-white" : `${item.bg} ${item.color}`
+                      }`}
+                    >
+                      <Icon className="w-4 h-4" />
+                    </div>
+                    <span className={`text-xl font-black ${isSelected ? "text-white" : "text-slate-900 dark:text-white"}`}>
+                      {item.count}
+                    </span>
+                  </div>
+                  <p
+                    className={`text-[11px] font-bold truncate mt-1 uppercase tracking-wider ${
+                      isSelected ? "text-blue-100" : "text-slate-500 dark:text-slate-400"
+                    }`}
+                  >
+                    {item.label}
+                  </p>
+                </button>
+              );
+            })}
           </div>
 
           {/* Multi-Filter Row matching Screenshot 3 */}
@@ -1255,6 +1254,8 @@ function ReportsPageContent() {
               <option value="Active">Active</option>
               <option value="Expiring in 30 Days">Expiring in 30 Days</option>
               <option value="Expired">Expired</option>
+              <option value="Linked">URL Linked</option>
+              <option value="Not Linked">URL Not Linked</option>
             </select>
 
             <select
@@ -1321,7 +1322,7 @@ function ReportsPageContent() {
                 </thead>
                 <tbody className="divide-y divide-slate-100 dark:divide-slate-800/60 font-medium whitespace-nowrap">
                   {filteredLicences.map((lic, index) => (
-                    <tr key={lic.taskId} className="hover:bg-slate-50/80 dark:hover:bg-slate-800/50 transition-colors">
+                    <tr key={`licence-${lic.taskId}-${index}`} className="hover:bg-slate-50/80 dark:hover:bg-slate-800/50 transition-colors">
                       <td className="py-3 px-3">
                         <input type="checkbox" className="rounded border-slate-300" />
                       </td>
@@ -1352,14 +1353,14 @@ function ReportsPageContent() {
                       <td className="py-3 px-3 font-mono text-[11px] text-slate-700 dark:text-slate-300">{lic.userId}</td>
                       <td className="py-3 px-3 font-mono text-[11px] text-slate-500">
                         <div className="flex items-center gap-1.5">
-                          <span>{showPasswordMap[lic.taskId] ? lic.passwordMasked : "••••••••"}</span>
+                          <span>{showPasswordMap[lic.licenceNumber] ? lic.passwordMasked : "••••••••"}</span>
                           <button
                             type="button"
-                            onClick={() => togglePassword(lic.taskId)}
+                            onClick={() => togglePassword(lic.licenceNumber)}
                             className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 cursor-pointer"
                             title="Toggle Password"
                           >
-                            {showPasswordMap[lic.taskId] ? (
+                            {showPasswordMap[lic.licenceNumber] ? (
                               <EyeOff className="w-3 h-3" />
                             ) : (
                               <Eye className="w-3 h-3" />

@@ -22,7 +22,8 @@ import {
   Headphones,
   Sparkles,
   ShieldCheck,
-  TrendingUp
+  TrendingUp,
+  X
 } from "lucide-react";
 import DeveloperProfileModal from "../Global/DeveloperProfileModal";
 import { useTheme } from "@/components/Providers/ThemeProvider";
@@ -60,6 +61,23 @@ export default function Sidebar({ userRole = "ADMIN" }: { userRole?: string }) {
     if (param && ["service", "sales", "licence"].includes(param)) return param;
     return "service";
   });
+
+  // Mobile drawer state (<lg screens)
+  const [isMobileOpen, setIsMobileOpen] = useState(false);
+
+  // Close mobile drawer on route change
+  useEffect(() => {
+    setIsMobileOpen(false);
+  }, [pathname, searchParams]);
+
+  // Listen to mobile toggle event from Topbar hamburger button
+  useEffect(() => {
+    const handleToggleMobile = () => {
+      setIsMobileOpen(prev => !prev);
+    };
+    window.addEventListener("finsocap-toggle-mobile-sidebar", handleToggleMobile);
+    return () => window.removeEventListener("finsocap-toggle-mobile-sidebar", handleToggleMobile);
+  }, []);
 
   // Sync activeReportTab whenever pathname or searchParams change
   useEffect(() => {
@@ -163,22 +181,43 @@ export default function Sidebar({ userRole = "ADMIN" }: { userRole?: string }) {
   ];
 
   return (
-    <aside 
-      className={`${
-        isCollapsed ? "w-20" : "w-64"
-      } bg-white dark:bg-[#0c1222] border-r border-slate-200/90 dark:border-slate-800/90 text-slate-700 dark:text-slate-300 flex flex-col h-screen sticky top-0 transition-all duration-300 relative z-50 shadow-xs`}
-    >
-      {/* Collapse Toggle Button - Elevated z-[60] so it sits cleanly on top of Topbar without clipping */}
-      <button 
-        onClick={() => setIsCollapsed(!isCollapsed)}
-        aria-label="Toggle Sidebar"
-        className="absolute -right-3 top-[25px] w-6 h-6 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 shadow-md hover:bg-blue-50 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-200 rounded-full flex items-center justify-center transition-all z-[60] cursor-pointer hover:scale-110 active:scale-95"
-      >
-        {isCollapsed ? <ChevronRight className="w-3.5 h-3.5 text-blue-600 dark:text-sky-400" /> : <ChevronLeft className="w-3.5 h-3.5 text-blue-600 dark:text-sky-400" />}
-      </button>
+    <>
+      {/* Mobile Backdrop Overlay (<lg screens) */}
+      {isMobileOpen && (
+        <div
+          className="fixed inset-0 bg-slate-950/60 backdrop-blur-xs z-50 lg:hidden transition-opacity duration-300"
+          onClick={() => setIsMobileOpen(false)}
+          aria-hidden="true"
+        />
+      )}
 
-      {/* Brand Header with Finsocap Favicon */}
-      <div className={`flex items-center h-[74px] border-b border-slate-100 dark:border-slate-800/80 ${isCollapsed ? "justify-center px-2" : "px-5"}`}>
+      <aside 
+        className={`fixed lg:sticky top-0 h-screen z-50 flex flex-col bg-white dark:bg-[#0c1222] border-r border-slate-200/90 dark:border-slate-800/90 text-slate-700 dark:text-slate-300 shadow-xl lg:shadow-xs transition-all duration-300 ease-in-out ${
+          isCollapsed ? "lg:w-20" : "lg:w-64"
+        } w-72 max-w-[85vw] ${
+          isMobileOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0"
+        }`}
+      >
+        {/* Collapse Toggle Button - Visible only on Desktop (lg:) */}
+        <button 
+          onClick={() => setIsCollapsed(!isCollapsed)}
+          aria-label="Toggle Sidebar"
+          className="hidden lg:flex absolute -right-3 top-[25px] w-6 h-6 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 shadow-md hover:bg-blue-50 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-200 rounded-full items-center justify-center transition-all z-[60] cursor-pointer hover:scale-110 active:scale-95"
+        >
+          {isCollapsed ? <ChevronRight className="w-3.5 h-3.5 text-blue-600 dark:text-sky-400" /> : <ChevronLeft className="w-3.5 h-3.5 text-blue-600 dark:text-sky-400" />}
+        </button>
+
+        {/* Brand Header with Finsocap Favicon & Mobile Close Button */}
+        <div className={`flex items-center justify-between h-[74px] border-b border-slate-100 dark:border-slate-800/80 ${isCollapsed ? "lg:justify-center px-4 lg:px-2" : "px-5"}`}>
+          {/* Mobile Close Button (<lg screens) */}
+          <button
+            type="button"
+            onClick={() => setIsMobileOpen(false)}
+            aria-label="Close menu"
+            className="lg:hidden p-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-500 order-last cursor-pointer"
+          >
+            <X className="w-4 h-4" />
+          </button>
         {isCollapsed ? (
           <Link href="/dashboard" className="flex items-center justify-center group" title="Finsocap Financial Services">
             <div className="w-10 h-10 rounded-xl overflow-hidden bg-white dark:bg-slate-800 border border-slate-200/80 dark:border-slate-700 shadow-xs flex items-center justify-center p-1 group-hover:scale-105 transition-transform">
@@ -366,26 +405,44 @@ export default function Sidebar({ userRole = "ADMIN" }: { userRole?: string }) {
           <Link
             href="/dashboard/chat"
             onClick={() => setOptimisticHref("/dashboard/chat")}
-            className={`flex items-center justify-between p-3 rounded-2xl border transition-all group cursor-pointer ${
+            className={`relative overflow-hidden flex items-center justify-between p-3.5 rounded-2xl border transition-all duration-300 group cursor-pointer ${
               normalizePath(pathname) === "/dashboard/chat"
-                ? "bg-blue-50/90 dark:bg-blue-950/40 border-blue-300 dark:border-blue-700/80 shadow-xs ring-1 ring-blue-500/20"
-                : "bg-slate-50/90 dark:bg-slate-900/80 hover:bg-blue-50/80 dark:hover:bg-blue-950/40 border border-slate-200/80 dark:border-slate-800"
+                ? "bg-gradient-to-r from-blue-600 via-indigo-600 to-blue-700 border-transparent shadow-lg shadow-blue-500/30 scale-[1.02]"
+                : "bg-gradient-to-br from-white via-blue-50/50 to-indigo-50/30 dark:from-[#0b1226] dark:via-[#0e1c44]/60 dark:to-[#080d1a] border-blue-200/80 dark:border-blue-800/60 hover:border-blue-400 dark:hover:border-blue-600 hover:shadow-xl hover:shadow-blue-500/15"
             }`}
           >
-            <div className="flex items-center gap-3">
-              <div className="w-8 h-8 rounded-xl bg-gradient-to-tr from-blue-600 to-indigo-600 text-white flex items-center justify-center shrink-0 shadow-sm group-hover:scale-105 transition-transform">
+            {/* Ambient Glow */}
+            <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-500 pointer-events-none">
+              <div className="absolute -top-6 -right-6 w-20 h-20 bg-blue-500/20 dark:bg-blue-400/20 rounded-full blur-xl" />
+              <div className="absolute -bottom-6 -left-6 w-20 h-20 bg-indigo-500/20 dark:bg-indigo-400/20 rounded-full blur-xl" />
+            </div>
+
+            <div className="flex items-center gap-3 relative z-10">
+              <div className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 shadow-md transition-all duration-300 group-hover:scale-110 group-hover:rotate-6 ${
+                normalizePath(pathname) === "/dashboard/chat"
+                  ? "bg-white/25 text-white ring-2 ring-white/30"
+                  : "bg-gradient-to-tr from-blue-600 to-indigo-600 text-white shadow-blue-500/30 ring-2 ring-blue-500/10"
+              }`}>
                 <Headphones className="w-4 h-4" />
               </div>
-              <div>
-                <p className="text-xs font-bold text-slate-900 dark:text-white leading-tight">
+              <div className="flex flex-col">
+                <span className={`text-[11px] font-black uppercase tracking-wider leading-tight ${
+                  normalizePath(pathname) === "/dashboard/chat" ? "text-white" : "text-slate-900 dark:text-white"
+                }`}>
                   Need Help?
-                </p>
-                <p className="text-[10px] text-slate-500 dark:text-slate-400 font-medium">
+                </span>
+                <span className={`text-[10px] font-bold mt-0.5 ${
+                  normalizePath(pathname) === "/dashboard/chat" ? "text-blue-100" : "text-blue-600 dark:text-sky-400"
+                }`}>
                   24/7 Priority Support
-                </p>
+                </span>
               </div>
             </div>
-            <ChevronRight className="w-4 h-4 text-slate-400 group-hover:text-blue-600 dark:group-hover:text-sky-400 group-hover:translate-x-0.5 transition-all" />
+            <ChevronRight className={`w-4 h-4 shrink-0 transition-transform duration-300 group-hover:translate-x-1 relative z-10 ${
+              normalizePath(pathname) === "/dashboard/chat"
+                ? "text-white"
+                : "text-slate-400 group-hover:text-blue-600 dark:group-hover:text-sky-400"
+            }`} />
           </Link>
         ) : (
           <Link
@@ -403,5 +460,6 @@ export default function Sidebar({ userRole = "ADMIN" }: { userRole?: string }) {
         )}
       </div>
     </aside>
+    </>
   );
 }

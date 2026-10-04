@@ -646,7 +646,7 @@ export default function DashboardHome() {
                       </span>
                     </td>
                     <td className="py-2.5 px-4">
-                      <span className={`inline-block px-2 py-0.5 rounded-md font-bold text-[10px] ${getStatusBadge(lead.status)}`}>
+                      <span className={`inline-flex whitespace-nowrap px-2 py-0.5 rounded-md font-bold text-[10px] ${getStatusBadge(lead.status)}`}>
                         {lead.status}
                       </span>
                     </td>

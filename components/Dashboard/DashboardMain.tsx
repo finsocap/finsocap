@@ -12,7 +12,7 @@ export default function DashboardMain({ children }: { children: React.ReactNode 
     (pathname?.startsWith("/dashboard/blogs/") && pathname !== "/dashboard/blogs");
 
   return (
-    <main className={`flex-1 overflow-y-auto relative ${isBlogStudio ? "p-0" : "p-8"}`}>
+    <main className={`flex-1 overflow-y-auto relative ${isBlogStudio ? "p-0" : "p-3.5 sm:p-5 lg:p-8"}`}>
       {children}
     </main>
   );
