@@ -7,7 +7,7 @@ import {
   Bell, Search, User, Check, CheckCheck, X, 
   ChevronRight, ShieldCheck, Settings, LogOut, 
   Receipt, AlertCircle, Building, CreditCard, 
-  Clock, Users, IndianRupee, Sparkles,
+  Clock, Calendar, Users, IndianRupee, Sparkles,
   MessageSquare, Radio, CheckSquare, Command, Menu,
   Sun, Moon
 } from "lucide-react";
@@ -39,6 +39,48 @@ export default function Topbar({ user }: { user?: any }) {
 
   // Search state
   const [searchQuery, setSearchQuery] = useState("");
+
+  // Live Date and Time State
+  const [currentDateTime, setCurrentDateTime] = useState<{
+    day: string;
+    date: string;
+    time: string;
+    seconds: string;
+    period: string;
+  } | null>(null);
+
+  useEffect(() => {
+    const updateDateTime = () => {
+      const now = new Date();
+      
+      const day = now.toLocaleDateString("en-IN", { weekday: "short" });
+      const date = now.toLocaleDateString("en-IN", { 
+        day: "2-digit", 
+        month: "short", 
+        year: "numeric" 
+      });
+
+      // 12-hour format with ticking seconds
+      let hours = now.getHours();
+      const minutes = String(now.getMinutes()).padStart(2, "0");
+      const seconds = String(now.getSeconds()).padStart(2, "0");
+      const period = hours >= 12 ? "PM" : "AM";
+      hours = hours % 12 || 12;
+      const formattedHours = String(hours).padStart(2, "0");
+
+      setCurrentDateTime({
+        day,
+        date,
+        time: `${formattedHours}:${minutes}`,
+        seconds,
+        period,
+      });
+    };
+
+    updateDateTime();
+    const timer = setInterval(updateDateTime, 1000);
+    return () => clearInterval(timer);
+  }, []);
 
   // User DP State
   const [userDp, setUserDp] = useState<string | null>(null);
@@ -242,8 +284,37 @@ export default function Topbar({ user }: { user?: any }) {
       </div>
 
       {/* 2. RIGHT CONTROLS */}
-      <div className="flex items-center gap-2.5 sm:gap-4">
+      <div className="flex items-center gap-3 sm:gap-4">
         
+        {/* LIVE MINIMAL DATE & TIME (BEFORE NOTIFICATION BELL) */}
+        {currentDateTime && (
+          <div className="hidden lg:flex items-center gap-2 text-[11px] sm:text-xs text-slate-500 dark:text-slate-400 select-none pr-1">
+            {/* Calendar: Day, DD MMM YYYY */}
+            <div className="flex items-center gap-1.5 font-medium">
+              <Calendar className="w-3.5 h-3.5 text-slate-400 dark:text-slate-500 shrink-0" />
+              <span className="font-semibold text-slate-700 dark:text-slate-200">{currentDateTime.day},</span>
+              <span className="text-slate-500 dark:text-slate-400">{currentDateTime.date}</span>
+            </div>
+
+            {/* Minimal Dot Divider */}
+            <span className="text-slate-300 dark:text-slate-700 font-bold">•</span>
+
+            {/* Clock: HH:MM:SS AM/PM */}
+            <div className="flex items-center gap-1 font-mono text-xs">
+              <Clock className="w-3.5 h-3.5 text-slate-400 dark:text-slate-500 shrink-0" />
+              <span className="font-bold text-slate-800 dark:text-slate-100 tabular-nums">
+                {currentDateTime.time}
+              </span>
+              <span className="text-[11px] font-semibold text-slate-500 dark:text-slate-400 tabular-nums">
+                :{currentDateTime.seconds}
+              </span>
+              <span className="text-[10px] font-bold tracking-tight text-slate-400 dark:text-slate-500 ml-0.5">
+                {currentDateTime.period}
+              </span>
+            </div>
+          </div>
+        )}
+
         {/* Notification Center */}
         <div ref={notifRef} className="relative">
           <button 

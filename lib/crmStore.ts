@@ -68,6 +68,19 @@ export interface PartnerModel {
   shortName: string;
   email?: string;
   phone: string;
+  userId?: string; // defaults to phone number
+  password?: string;
+  dob?: string;
+  shopName?: string;
+  currentAddress?: string; // Shop live/exact location
+  completeShopAddress?: string;
+  panNumber?: string;
+  adhaarNumber?: string;
+  documents?: {
+    panDoc?: string;
+    adhaarDoc?: string;
+    shopDoc?: string;
+  };
   city: string;
   state: string;
   status: "Active" | "Deactivated" | "Pending";

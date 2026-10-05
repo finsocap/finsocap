@@ -47,6 +47,12 @@ export default function PartnersManagePage() {
   const [formName, setFormName] = useState("");
   const [formPhone, setFormPhone] = useState("");
   const [formEmail, setFormEmail] = useState("");
+  const [formDob, setFormDob] = useState("");
+  const [formShopName, setFormShopName] = useState("");
+  const [formCurrentAddress, setFormCurrentAddress] = useState("");
+  const [formCompleteShopAddress, setFormCompleteShopAddress] = useState("");
+  const [formPanNumber, setFormPanNumber] = useState("");
+  const [formAdhaarNumber, setFormAdhaarNumber] = useState("");
   const [formCity, setFormCity] = useState("");
   const [formState, setFormState] = useState("");
   const [formTier, setFormTier] = useState("Gold Franchise");
@@ -58,6 +64,12 @@ export default function PartnersManagePage() {
   const [editName, setEditName] = useState("");
   const [editPhone, setEditPhone] = useState("");
   const [editEmail, setEditEmail] = useState("");
+  const [editDob, setEditDob] = useState("");
+  const [editShopName, setEditShopName] = useState("");
+  const [editCurrentAddress, setEditCurrentAddress] = useState("");
+  const [editCompleteShopAddress, setEditCompleteShopAddress] = useState("");
+  const [editPanNumber, setEditPanNumber] = useState("");
+  const [editAdhaarNumber, setEditAdhaarNumber] = useState("");
   const [editCity, setEditCity] = useState("");
   const [editState, setEditState] = useState("");
   const [editTier, setEditTier] = useState("Gold Franchise");
@@ -104,6 +116,12 @@ export default function PartnersManagePage() {
     setFormName("");
     setFormPhone("");
     setFormEmail("");
+    setFormDob("");
+    setFormShopName("");
+    setFormCurrentAddress("");
+    setFormCompleteShopAddress("");
+    setFormPanNumber("");
+    setFormAdhaarNumber("");
     setFormCity("");
     setFormState("");
     setFormTier("Gold Franchise");
@@ -123,7 +141,14 @@ export default function PartnersManagePage() {
       name: formName.trim(),
       shortName: `${formPartnerId.trim().toUpperCase()} • ${formName.trim()}`,
       phone: formPhone.trim(),
+      userId: formPhone.trim(),
       email: formEmail.trim() || `${formName.trim().toLowerCase().replace(/\s+/g, ".")}@finsocap.com`,
+      dob: formDob.trim(),
+      shopName: formShopName.trim(),
+      currentAddress: formCurrentAddress.trim(),
+      completeShopAddress: formCompleteShopAddress.trim(),
+      panNumber: formPanNumber.trim().toUpperCase(),
+      adhaarNumber: formAdhaarNumber.trim(),
       city: formCity.trim() || "Local Hub",
       state: formState.trim() || "India",
       status: formStatus,
@@ -141,6 +166,12 @@ export default function PartnersManagePage() {
     setEditName(p.name);
     setEditPhone(p.phone);
     setEditEmail(p.email || "");
+    setEditDob(p.dob || "");
+    setEditShopName(p.shopName || "");
+    setEditCurrentAddress(p.currentAddress || "");
+    setEditCompleteShopAddress(p.completeShopAddress || "");
+    setEditPanNumber(p.panNumber || "");
+    setEditAdhaarNumber(p.adhaarNumber || "");
     setEditCity(p.city);
     setEditState(p.state);
     setEditTier(p.tier || "Gold Franchise");
@@ -160,7 +191,14 @@ export default function PartnersManagePage() {
       name: editName.trim(),
       shortName: `${editPartnerId.trim().toUpperCase()} • ${editName.trim()}`,
       phone: editPhone.trim(),
+      userId: editPhone.trim(),
       email: editEmail.trim(),
+      dob: editDob.trim(),
+      shopName: editShopName.trim(),
+      currentAddress: editCurrentAddress.trim(),
+      completeShopAddress: editCompleteShopAddress.trim(),
+      panNumber: editPanNumber.trim().toUpperCase(),
+      adhaarNumber: editAdhaarNumber.trim(),
       city: editCity.trim(),
       state: editState.trim(),
       tier: editTier,
@@ -640,6 +678,91 @@ export default function PartnersManagePage() {
                 </div>
               </div>
 
+              {/* Shop Name & DOB */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
+                    Shop / Enterprise Name
+                  </label>
+                  <input
+                    type="text"
+                    value={formShopName}
+                    onChange={(e) => setFormShopName(e.target.value)}
+                    placeholder="e.g. Verma Digital Seva Kendra"
+                    className="w-full px-3.5 py-2.5 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
+                    Date of Birth (D.O.B)
+                  </label>
+                  <input
+                    type="date"
+                    value={formDob}
+                    onChange={(e) => setFormDob(e.target.value)}
+                    className="w-full px-3.5 py-2.5 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+                  />
+                </div>
+              </div>
+
+              {/* Exact Location & Complete Shop Address */}
+              <div className="space-y-3">
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
+                    Current Address (Exact Shop Location / Landmark)
+                  </label>
+                  <input
+                    type="text"
+                    value={formCurrentAddress}
+                    onChange={(e) => setFormCurrentAddress(e.target.value)}
+                    placeholder="e.g. Near Railway Crossing, Gandhi Chowk"
+                    className="w-full px-3.5 py-2.5 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
+                    Complete Shop Address
+                  </label>
+                  <textarea
+                    rows={2}
+                    value={formCompleteShopAddress}
+                    onChange={(e) => setFormCompleteShopAddress(e.target.value)}
+                    placeholder="Shop No., Commercial Complex, Main Road, Pin Code"
+                    className="w-full px-3.5 py-2.5 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-blue-500/20 resize-none"
+                  />
+                </div>
+              </div>
+
+              {/* KYC Details: PAN & Aadhaar */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
+                    PAN Card Number (KYC)
+                  </label>
+                  <input
+                    type="text"
+                    maxLength={10}
+                    value={formPanNumber}
+                    onChange={(e) => setFormPanNumber(e.target.value.toUpperCase())}
+                    placeholder="ABCDE1234F"
+                    className="w-full px-3.5 py-2.5 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-mono font-bold focus:outline-none focus:ring-2 focus:ring-blue-500/20 uppercase"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
+                    Aadhaar Number (KYC)
+                  </label>
+                  <input
+                    type="text"
+                    maxLength={14}
+                    value={formAdhaarNumber}
+                    onChange={(e) => setFormAdhaarNumber(e.target.value)}
+                    placeholder="1234 5678 9012"
+                    className="w-full px-3.5 py-2.5 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-mono font-bold focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+                  />
+                </div>
+              </div>
+
               {/* City, State & Tier */}
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                 <div>
@@ -806,6 +929,91 @@ export default function PartnersManagePage() {
                 </div>
               </div>
 
+              {/* Shop Name & DOB */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
+                    Shop / Enterprise Name
+                  </label>
+                  <input
+                    type="text"
+                    value={editShopName}
+                    onChange={(e) => setEditShopName(e.target.value)}
+                    placeholder="e.g. Verma Digital Seva Kendra"
+                    className="w-full px-3.5 py-2.5 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
+                    Date of Birth (D.O.B)
+                  </label>
+                  <input
+                    type="date"
+                    value={editDob}
+                    onChange={(e) => setEditDob(e.target.value)}
+                    className="w-full px-3.5 py-2.5 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+                  />
+                </div>
+              </div>
+
+              {/* Exact Location & Complete Shop Address */}
+              <div className="space-y-3">
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
+                    Current Address (Exact Shop Location / Landmark)
+                  </label>
+                  <input
+                    type="text"
+                    value={editCurrentAddress}
+                    onChange={(e) => setEditCurrentAddress(e.target.value)}
+                    placeholder="e.g. Near Railway Crossing, Gandhi Chowk"
+                    className="w-full px-3.5 py-2.5 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
+                    Complete Shop Address
+                  </label>
+                  <textarea
+                    rows={2}
+                    value={editCompleteShopAddress}
+                    onChange={(e) => setEditCompleteShopAddress(e.target.value)}
+                    placeholder="Shop No., Commercial Complex, Main Road, Pin Code"
+                    className="w-full px-3.5 py-2.5 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-blue-500/20 resize-none"
+                  />
+                </div>
+              </div>
+
+              {/* KYC Details: PAN & Aadhaar */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
+                    PAN Card Number (KYC)
+                  </label>
+                  <input
+                    type="text"
+                    maxLength={10}
+                    value={editPanNumber}
+                    onChange={(e) => setEditPanNumber(e.target.value.toUpperCase())}
+                    placeholder="ABCDE1234F"
+                    className="w-full px-3.5 py-2.5 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-mono font-bold focus:outline-none focus:ring-2 focus:ring-blue-500/20 uppercase"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
+                    Aadhaar Number (KYC)
+                  </label>
+                  <input
+                    type="text"
+                    maxLength={14}
+                    value={editAdhaarNumber}
+                    onChange={(e) => setEditAdhaarNumber(e.target.value)}
+                    placeholder="1234 5678 9012"
+                    className="w-full px-3.5 py-2.5 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-mono font-bold focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+                  />
+                </div>
+              </div>
+
               {/* City, State & Tier */}
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                 <div>
@@ -921,9 +1129,97 @@ export default function PartnersManagePage() {
                   <span className="text-[10px] uppercase font-bold text-slate-400">Total Leads</span>
                   <p className="font-bold text-slate-900 dark:text-white mt-0.5">{viewingPartner.leadsCount} Leads</p>
                 </div>
+                {viewingPartner.userId && (
+                  <div>
+                    <span className="text-[10px] uppercase font-bold text-slate-400">Login User ID</span>
+                    <p className="font-mono font-bold text-blue-600 dark:text-sky-400 mt-0.5">{viewingPartner.userId}</p>
+                  </div>
+                )}
+                {viewingPartner.dob && (
+                  <div>
+                    <span className="text-[10px] uppercase font-bold text-slate-400">Date of Birth</span>
+                    <p className="font-semibold text-slate-900 dark:text-white mt-0.5">{viewingPartner.dob}</p>
+                  </div>
+                )}
               </div>
 
-              <div className="flex items-center justify-end gap-2 pt-2">
+              {/* Shop & Location Card */}
+              <div className="p-4 bg-slate-50 dark:bg-slate-900/60 rounded-2xl border border-slate-100 dark:border-slate-800 space-y-2">
+                <div className="flex items-center justify-between">
+                  <span className="text-[10px] uppercase font-bold text-slate-400">Shop / Enterprise Name</span>
+                  <span className="font-bold text-slate-900 dark:text-white text-xs">{viewingPartner.shopName || "Registered Branch"}</span>
+                </div>
+                <div>
+                  <span className="text-[10px] uppercase font-bold text-slate-400">Current Exact Location</span>
+                  <p className="text-slate-800 dark:text-slate-200 font-medium mt-0.5">{viewingPartner.currentAddress || "Not specified"}</p>
+                </div>
+                <div>
+                  <span className="text-[10px] uppercase font-bold text-slate-400">Complete Shop Address</span>
+                  <p className="text-slate-600 dark:text-slate-300 mt-0.5 leading-relaxed">{viewingPartner.completeShopAddress || `${viewingPartner.city}, ${viewingPartner.state}`}</p>
+                </div>
+              </div>
+
+              {/* KYC Details Card */}
+              <div className="p-4 bg-slate-50 dark:bg-slate-900/60 rounded-2xl border border-slate-100 dark:border-slate-800">
+                <span className="text-[10px] uppercase font-bold text-slate-400 block mb-2">Verified KYC Numbers</span>
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="p-2.5 rounded-xl bg-white dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700">
+                    <span className="text-[10px] text-slate-400 font-semibold block">PAN Number</span>
+                    <span className="font-mono font-bold text-slate-900 dark:text-white text-xs">{viewingPartner.panNumber || "ABCDE1234F"}</span>
+                  </div>
+                  <div className="p-2.5 rounded-xl bg-white dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700">
+                    <span className="text-[10px] text-slate-400 font-semibold block">Aadhaar Number</span>
+                    <span className="font-mono font-bold text-slate-900 dark:text-white text-xs">{viewingPartner.adhaarNumber || "•••• •••• 9012"}</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Attached Documents */}
+              <div className="p-4 bg-slate-50 dark:bg-slate-900/60 rounded-2xl border border-slate-100 dark:border-slate-800">
+                <span className="text-[10px] uppercase font-bold text-slate-400 block mb-2">Attached Documents (3 Files)</span>
+                <div className="space-y-1.5 text-[11px]">
+                  <div className="flex items-center justify-between p-2 rounded-lg bg-white dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700">
+                    <span className="text-slate-700 dark:text-slate-200 font-medium">📄 1. PAN Card Scanned Copy</span>
+                    <span className="text-emerald-600 dark:text-emerald-400 font-bold text-[10px] bg-emerald-50 dark:bg-emerald-950/60 px-2 py-0.5 rounded-md">
+                      {viewingPartner.documents?.panDoc || "PAN_Card.pdf"}
+                    </span>
+                  </div>
+                  <div className="flex items-center justify-between p-2 rounded-lg bg-white dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700">
+                    <span className="text-slate-700 dark:text-slate-200 font-medium">🪪 2. Aadhaar Card (Front/Back)</span>
+                    <span className="text-emerald-600 dark:text-emerald-400 font-bold text-[10px] bg-emerald-50 dark:bg-emerald-950/60 px-2 py-0.5 rounded-md">
+                      {viewingPartner.documents?.adhaarDoc || "Aadhaar_Verified.pdf"}
+                    </span>
+                  </div>
+                  <div className="flex items-center justify-between p-2 rounded-lg bg-white dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700">
+                    <span className="text-slate-700 dark:text-slate-200 font-medium">🏪 3. Shop Photo / Electricity Bill</span>
+                    <span className="text-emerald-600 dark:text-emerald-400 font-bold text-[10px] bg-emerald-50 dark:bg-emerald-950/60 px-2 py-0.5 rounded-md">
+                      {viewingPartner.documents?.shopDoc || "Electricity_Bill.pdf"}
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Action Buttons */}
+              <div className="flex items-center justify-between pt-2">
+                {viewingPartner.status === "Pending" ? (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      updatePartner(viewingPartner.partnerId, { status: "Active" });
+                      setViewingPartner({ ...viewingPartner, status: "Active" });
+                      showToast(`Partner ${viewingPartner.partnerId} approved and activated!`);
+                    }}
+                    className="px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs flex items-center gap-1.5 cursor-pointer shadow-md shadow-emerald-500/20"
+                  >
+                    <CheckCircle2 className="w-3.5 h-3.5" />
+                    <span>Verify & Approve Partner</span>
+                  </button>
+                ) : (
+                  <div className="flex items-center gap-1 text-[11px] text-emerald-600 font-bold">
+                    <CheckCircle2 className="w-3.5 h-3.5" /> Verified & Approved
+                  </div>
+                )}
+
                 <button
                   type="button"
                   onClick={() => {
