@@ -36,7 +36,7 @@ export default function MobileAppUiPage() {
               <span>Reload Prototype</span>
             </button>
             <a
-              href="/mobile-app-ui/index.html"
+              href={`${process.env.NEXT_PUBLIC_BASE_PATH || ""}/mobile-app-ui/index.html`}
               target="_blank"
               rel="noopener noreferrer"
               className="btn-primary-vibrant text-xs py-2 px-4 cursor-pointer inline-flex items-center gap-1.5 shadow-md shadow-blue-500/25"
@@ -59,7 +59,7 @@ export default function MobileAppUiPage() {
             </span>
           </div>
           <a
-            href="/mobile-app-ui/index.html"
+            href={`${process.env.NEXT_PUBLIC_BASE_PATH || ""}/mobile-app-ui/index.html`}
             target="_blank"
             rel="noopener noreferrer"
             className="text-blue-600 dark:text-sky-400 hover:underline inline-flex items-center gap-1"
@@ -72,7 +72,7 @@ export default function MobileAppUiPage() {
         <div className="w-full rounded-2xl overflow-hidden border border-slate-200/90 dark:border-slate-800 shadow-xl bg-slate-100 dark:bg-slate-950 flex justify-center">
           <iframe
             key={iframeKey}
-            src="/mobile-app-ui/index.html"
+            src={`${process.env.NEXT_PUBLIC_BASE_PATH || ""}/mobile-app-ui/index.html`}
             title="Partner Mobile App UI"
             className="w-full h-[860px] border-0 rounded-2xl"
             allow="clipboard-read; clipboard-write;"
