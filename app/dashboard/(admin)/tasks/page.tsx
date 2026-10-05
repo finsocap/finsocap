@@ -11,9 +11,11 @@ import {
 } from "lucide-react";
 import { TaskItem, TaskStatus } from "@/types";
 import { taskService } from "@/lib/services/taskService";
+import { useCrmStore } from "@/lib/crmStore";
 import { initialTasks } from "@/lib/tasksData";
 import AnimatedCounter from "@/components/Global/AnimatedCounter";
 import PageBanner from "@/components/Dashboard/PageBanner";
+import DateRangeFilter, { DateRangeValue } from "@/components/Dashboard/DateRangeFilter";
 
 const allStatuses: { status: TaskStatus; label: string; count: number; color: string; bg: string; icon: any }[] = [
   { status: "Pending", label: "Pending", count: 47, color: "text-blue-500", bg: "bg-blue-500/10 border-blue-500/20", icon: Clock },
@@ -27,6 +29,7 @@ const allStatuses: { status: TaskStatus; label: string; count: number; color: st
 ];
 
 export default function TasksPage() {
+  const { services, partners } = useCrmStore();
   const [tasks, setTasks] = useState<TaskItem[]>(initialTasks);
   const [loading, setLoading] = useState(true);
 
@@ -57,12 +60,20 @@ export default function TasksPage() {
   const [newClient, setNewClient] = useState("");
   const [newPhone, setNewPhone] = useState("");
   const [newBusiness, setNewBusiness] = useState("");
-  const [newPartnerId, setNewPartnerId] = useState("P-101");
-  const [newPartnerName, setNewPartnerName] = useState("Rahul Jha");
-  const [newPartnerPhone, setNewPartnerPhone] = useState("9873207632");
+  const [newPartnerId, setNewPartnerId] = useState(partners[0]?.partnerId || "P-101");
+  const [newPartnerName, setNewPartnerName] = useState(partners[0]?.name || "Rahul Jha");
+  const [newPartnerPhone, setNewPartnerPhone] = useState(partners[0]?.phone || "9873207632");
   const [newCategory, setNewCategory] = useState("Compliance");
-  const [newServiceName, setNewServiceName] = useState("FSSAI Registration");
+  const [newServiceName, setNewServiceName] = useState("");
   const [newDue, setNewDue] = useState("2026-10-15");
+
+  // Keep newServiceName synchronized with first service if not set
+  useEffect(() => {
+    if (!newServiceName && services.length > 0) {
+      setNewServiceName(services[0].name);
+      setNewCategory(services[0].category || "Compliance");
+    }
+  }, [services, newServiceName]);
 
   const showToast = (msg: string) => {
     setToastMsg(msg);
@@ -80,18 +91,20 @@ export default function TasksPage() {
     loadTasks();
   }, []);
 
-  // Distinct Categories & Services
+  // Distinct Categories & Services from catalog + active tasks
   const categories = useMemo(() => {
     const s = new Set<string>();
+    services.forEach((srv) => srv.category && s.add(srv.category));
     tasks.forEach((t) => t.taskCategory && s.add(t.taskCategory));
     return Array.from(s);
-  }, [tasks]);
+  }, [services, tasks]);
 
   const serviceNames = useMemo(() => {
     const s = new Set<string>();
+    services.forEach((srv) => srv.name && s.add(srv.name));
     tasks.forEach((t) => t.serviceName && s.add(t.serviceName));
     return Array.from(s);
-  }, [tasks]);
+  }, [services, tasks]);
 
   // Filtered rows
   const filteredTasks = useMemo(() => {
@@ -291,83 +304,88 @@ export default function TasksPage() {
       </div>
 
       {/* 3. Filter Bar (Matching Screenshot 4) */}
-      <div className="p-3.5 bg-white dark:bg-[#0c1427] rounded-2xl border border-slate-200/90 dark:border-slate-800 shadow-xs flex flex-wrap items-center gap-3">
-        {/* Date Range Picker */}
-        <div className="flex items-center gap-2 px-3.5 py-2 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-semibold text-slate-700 dark:text-slate-300">
-          <Calendar className="w-3.5 h-3.5 text-blue-500" />
-          <span>{dateRange}</span>
-        </div>
-
-        {/* Task Category Dropdown */}
-        <select
-          value={selectedCategory}
-          onChange={(e) => setSelectedCategory(e.target.value)}
-          className="px-3.5 py-2 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-semibold text-slate-800 dark:text-slate-200 focus:outline-none cursor-pointer"
-        >
-          <option value="ALL">All Task Category</option>
-          {categories.map((c) => (
-            <option key={c} value={c}>{c}</option>
-          ))}
-        </select>
-
-        {/* Service Name Dropdown */}
-        <select
-          value={selectedService}
-          onChange={(e) => setSelectedService(e.target.value)}
-          className="px-3.5 py-2 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-semibold text-slate-800 dark:text-slate-200 focus:outline-none cursor-pointer max-w-[200px]"
-        >
-          <option value="ALL">All Service Name</option>
-          {serviceNames.map((s) => (
-            <option key={s} value={s}>{s}</option>
-          ))}
-        </select>
-
-        {/* Status Dropdown */}
-        <select
-          value={selectedStatusFilter}
-          onChange={(e) => setSelectedStatusFilter(e.target.value)}
-          className="px-3.5 py-2 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-semibold text-slate-800 dark:text-slate-200 focus:outline-none cursor-pointer"
-        >
-          <option value="ALL">All Status</option>
-          {allStatuses.map((s) => (
-            <option key={s.status} value={s.status}>{s.label}</option>
-          ))}
-        </select>
-
-        {/* Search Input */}
-        <div className="relative flex-1 min-w-[200px]">
-          <Search className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
-          <input
-            type="text"
-            placeholder="Search tasks, client, partner, business..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full pl-9 pr-3 py-2 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-semibold text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+      {/* 3. Filter Bar (Responsive Grid Layout: Clean 2-col on mobile/tablet, single bar on desktop) */}
+      <div className="p-3.5 bg-white dark:bg-[#0c1427] rounded-2xl border border-slate-200/90 dark:border-slate-800 shadow-xs space-y-2.5">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:flex lg:flex-wrap lg:items-center gap-2.5">
+          {/* Interactive Date Range Filter */}
+          <DateRangeFilter
+            value={dateRange}
+            onChange={(range) => setDateRange(range.label)}
+            className="w-full sm:w-auto"
           />
+
+          {/* Task Category Dropdown */}
+          <select
+            value={selectedCategory}
+            onChange={(e) => setSelectedCategory(e.target.value)}
+            className="w-full lg:w-auto h-11 px-3.5 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-semibold text-slate-800 dark:text-slate-200 focus:outline-none cursor-pointer"
+          >
+            <option value="ALL">All Task Category</option>
+            {categories.map((c) => (
+              <option key={c} value={c}>{c}</option>
+            ))}
+          </select>
+
+          {/* Service Name Dropdown */}
+          <select
+            value={selectedService}
+            onChange={(e) => setSelectedService(e.target.value)}
+            className="w-full lg:w-auto lg:max-w-[200px] h-11 px-3.5 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-semibold text-slate-800 dark:text-slate-200 focus:outline-none cursor-pointer"
+          >
+            <option value="ALL">All Service Name</option>
+            {serviceNames.map((s) => (
+              <option key={s} value={s}>{s}</option>
+            ))}
+          </select>
+
+          {/* Status Dropdown */}
+          <select
+            value={selectedStatusFilter}
+            onChange={(e) => setSelectedStatusFilter(e.target.value)}
+            className="w-full lg:w-auto h-11 px-3.5 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-semibold text-slate-800 dark:text-slate-200 focus:outline-none cursor-pointer"
+          >
+            <option value="ALL">All Status</option>
+            {allStatuses.map((s) => (
+              <option key={s.status} value={s.status}>{s.label}</option>
+            ))}
+          </select>
         </div>
 
-        {/* Search & Clear Buttons */}
-        <div className="flex items-center gap-2">
-          <button
-            type="button"
-            className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold shadow-md shadow-blue-500/25 transition-all cursor-pointer"
-          >
-            Search
-          </button>
-          {(selectedStatusFilter !== "ALL" || selectedCategory !== "ALL" || selectedService !== "ALL" || searchQuery) && (
+        {/* Search Row */}
+        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2.5 pt-0.5">
+          <div className="relative flex-1">
+            <Search className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+            <input
+              type="text"
+              placeholder="Search tasks, client, partner, business..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="w-full pl-9 pr-3 py-2.5 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-semibold text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+            />
+          </div>
+
+          <div className="flex items-center gap-2">
             <button
               type="button"
-              onClick={() => {
-                setSelectedStatusFilter("ALL");
-                setSelectedCategory("ALL");
-                setSelectedService("ALL");
-                setSearchQuery("");
-              }}
-              className="px-3.5 py-2 rounded-xl border border-slate-200 dark:border-slate-700 text-xs font-bold text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 cursor-pointer"
+              className="flex-1 sm:flex-initial px-5 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold shadow-md shadow-blue-500/25 transition-all cursor-pointer text-center"
             >
-              Clear
+              Search
             </button>
-          )}
+            {(selectedStatusFilter !== "ALL" || selectedCategory !== "ALL" || selectedService !== "ALL" || searchQuery) && (
+              <button
+                type="button"
+                onClick={() => {
+                  setSelectedStatusFilter("ALL");
+                  setSelectedCategory("ALL");
+                  setSelectedService("ALL");
+                  setSearchQuery("");
+                }}
+                className="px-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 text-xs font-bold text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 cursor-pointer"
+              >
+                Clear
+              </button>
+            )}
+          </div>
         </div>
       </div>
 
@@ -582,24 +600,25 @@ export default function TasksPage() {
                 </div>
 
                 <div className="space-y-1">
-                  <label className="font-bold text-slate-700 dark:text-slate-300">Partner ID</label>
+                  <label className="font-bold text-slate-700 dark:text-slate-300">Partner ID *</label>
                   <select
                     value={newPartnerId}
                     onChange={(e) => {
-                      setNewPartnerId(e.target.value);
-                      if (e.target.value === "P-101") { setNewPartnerName("Rahul Jha"); setNewPartnerPhone("9873207632"); }
-                      if (e.target.value === "P-102") { setNewPartnerName("Kanhaiya"); setNewPartnerPhone("7011340730"); }
-                      if (e.target.value === "P-103") { setNewPartnerName("Gaurav"); setNewPartnerPhone("9312345678"); }
-                      if (e.target.value === "P-104") { setNewPartnerName("Roshan"); setNewPartnerPhone("9998887776"); }
-                      if (e.target.value === "P-105") { setNewPartnerName("Roshni"); setNewPartnerPhone("8887776655"); }
+                      const pid = e.target.value;
+                      setNewPartnerId(pid);
+                      const found = partners.find((p) => p.partnerId === pid);
+                      if (found) {
+                        setNewPartnerName(found.name);
+                        setNewPartnerPhone(found.phone);
+                      }
                     }}
                     className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl"
                   >
-                    <option value="P-101">P-101 • Rahul Jha</option>
-                    <option value="P-102">P-102 • Kanhaiya</option>
-                    <option value="P-103">P-103 • Gaurav</option>
-                    <option value="P-104">P-104 • Roshan</option>
-                    <option value="P-105">P-105 • Roshni</option>
+                    {partners.map((p) => (
+                      <option key={p.partnerId} value={p.partnerId}>
+                        {p.partnerId} • {p.name}
+                      </option>
+                    ))}
                   </select>
                 </div>
               </div>
@@ -609,27 +628,42 @@ export default function TasksPage() {
                   <label className="font-bold text-slate-700 dark:text-slate-300">Task Category</label>
                   <select
                     value={newCategory}
-                    onChange={(e) => setNewCategory(e.target.value)}
+                    onChange={(e) => {
+                      const cat = e.target.value;
+                      setNewCategory(cat);
+                      // Auto-select first matching service if current service doesn't belong
+                      const matching = services.find((s) => s.category === cat);
+                      if (matching) {
+                        setNewServiceName(matching.name);
+                      }
+                    }}
                     className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl"
                   >
-                    <option value="Compliance">Compliance</option>
-                    <option value="Taxation">Taxation</option>
-                    <option value="Licensing">Licensing</option>
-                    <option value="Import Export">Import Export</option>
-                    <option value="IPR">IPR</option>
-                    <option value="Marketing">Marketing</option>
+                    {Array.from(new Set(services.map((s) => s.category))).map((cat) => (
+                      <option key={cat} value={cat}>{cat}</option>
+                    ))}
                   </select>
                 </div>
 
                 <div className="space-y-1">
-                  <label className="font-bold text-slate-700 dark:text-slate-300">Service Name</label>
-                  <input
-                    type="text"
+                  <label className="font-bold text-slate-700 dark:text-slate-300">Service Name * (Catalog Only)</label>
+                  <select
+                    required
                     value={newServiceName}
-                    onChange={(e) => setNewServiceName(e.target.value)}
-                    placeholder="e.g. FSSAI Registration"
-                    className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl"
-                  />
+                    onChange={(e) => {
+                      const val = e.target.value;
+                      setNewServiceName(val);
+                      const matching = services.find((s) => s.name === val);
+                      if (matching) setNewCategory(matching.category);
+                    }}
+                    className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl font-semibold text-slate-900 dark:text-white"
+                  >
+                    {services.map((s) => (
+                      <option key={s.id} value={s.name}>
+                        {s.name} ({s.category})
+                      </option>
+                    ))}
+                  </select>
                 </div>
               </div>
 
@@ -757,13 +791,24 @@ export default function TasksPage() {
 
               <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-1">
-                  <label className="font-bold text-slate-700 dark:text-slate-300">Service Name</label>
-                  <input
-                    type="text"
+                  <label className="font-bold text-slate-700 dark:text-slate-300">Service Name * (Catalog Only)</label>
+                  <select
+                    required
                     value={editService}
-                    onChange={(e) => setEditService(e.target.value)}
-                    className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl"
-                  />
+                    onChange={(e) => {
+                      const val = e.target.value;
+                      setEditService(val);
+                      const match = services.find((s) => s.name === val);
+                      if (match) setEditCategory(match.category);
+                    }}
+                    className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl font-semibold text-slate-900 dark:text-white"
+                  >
+                    {services.map((s) => (
+                      <option key={s.id} value={s.name}>
+                        {s.name} ({s.category})
+                      </option>
+                    ))}
+                  </select>
                 </div>
                 <div className="space-y-1">
                   <label className="font-bold text-slate-700 dark:text-slate-300">Status</label>

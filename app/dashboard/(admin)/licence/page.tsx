@@ -328,100 +328,106 @@ export default function LicenceReportPage() {
         </div>
       </div>
 
-      {/* 3. Multi-Filter Bar (Screenshot 3 Exact Match) */}
-      <div className="p-3.5 bg-white dark:bg-[#0c1427] rounded-3xl border border-slate-200/90 dark:border-slate-800 shadow-xs flex flex-wrap items-center gap-2.5">
-        <div className="relative flex-1 min-w-[240px]">
-          <Search className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
-          <input
-            type="text"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            placeholder="Search by partner name, client name, licence number..."
-            className="w-full pl-8 pr-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50/50 dark:bg-slate-900 text-xs font-medium focus:outline-none focus:border-blue-500"
-          />
+      {/* 3. Multi-Filter Bar (Responsive clean grid without negative space) */}
+      <div className="p-3.5 bg-white dark:bg-[#0c1427] rounded-3xl border border-slate-200/90 dark:border-slate-800 shadow-xs space-y-2.5">
+        {/* Search & Action Row */}
+        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2.5">
+          <div className="relative flex-1">
+            <Search className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+            <input
+              type="text"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Search by partner name, client name, licence number..."
+              className="w-full pl-8 pr-3 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50/50 dark:bg-slate-900 text-xs font-medium focus:outline-none focus:border-blue-500"
+            />
+          </div>
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              className="flex-1 sm:flex-initial px-5 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold shadow-xs cursor-pointer transition-colors text-center"
+            >
+              Filter
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setSearch("");
+                setTypeFilter("ALL");
+                setCategoryFilter("ALL");
+                setServiceFilter("ALL");
+                setStatusFilter("ALL");
+                setAssignedFilter("ALL");
+              }}
+              className="px-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 text-xs font-bold text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 cursor-pointer"
+            >
+              Clear
+            </button>
+          </div>
         </div>
 
-        {/* Licence Type Filter */}
-        <select
-          value={typeFilter}
-          onChange={(e) => setTypeFilter(e.target.value)}
-          className="px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-xs font-semibold text-slate-800 dark:text-slate-200 cursor-pointer"
-        >
-          <option value="ALL">All Types</option>
-          {distinctTypes.map((t) => (
-            <option key={t} value={t}>{t}</option>
-          ))}
-        </select>
+        {/* Dropdowns Grid */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-2.5 pt-0.5">
+          {/* Licence Type Filter */}
+          <select
+            value={typeFilter}
+            onChange={(e) => setTypeFilter(e.target.value)}
+            className="w-full px-3 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-xs font-semibold text-slate-800 dark:text-slate-200 cursor-pointer"
+          >
+            <option value="ALL">All Types</option>
+            {distinctTypes.map((t) => (
+              <option key={t} value={t}>{t}</option>
+            ))}
+          </select>
 
-        {/* Task Category Filter */}
-        <select
-          value={categoryFilter}
-          onChange={(e) => setCategoryFilter(e.target.value)}
-          className="px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-xs font-semibold text-slate-800 dark:text-slate-200 cursor-pointer"
-        >
-          <option value="ALL">All Categories</option>
-          {distinctCategories.map((c) => (
-            <option key={c} value={c}>{c}</option>
-          ))}
-        </select>
+          {/* Task Category Filter */}
+          <select
+            value={categoryFilter}
+            onChange={(e) => setCategoryFilter(e.target.value)}
+            className="w-full px-3 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-xs font-semibold text-slate-800 dark:text-slate-200 cursor-pointer"
+          >
+            <option value="ALL">All Categories</option>
+            {distinctCategories.map((c) => (
+              <option key={c} value={c}>{c}</option>
+            ))}
+          </select>
 
-        {/* Service Name Filter */}
-        <select
-          value={serviceFilter}
-          onChange={(e) => setServiceFilter(e.target.value)}
-          className="px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-xs font-semibold text-slate-800 dark:text-slate-200 cursor-pointer"
-        >
-          <option value="ALL">All Services</option>
-          {distinctServices.map((s) => (
-            <option key={s} value={s}>{s}</option>
-          ))}
-        </select>
+          {/* Service Name Filter */}
+          <select
+            value={serviceFilter}
+            onChange={(e) => setServiceFilter(e.target.value)}
+            className="w-full px-3 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-xs font-semibold text-slate-800 dark:text-slate-200 cursor-pointer"
+          >
+            <option value="ALL">All Services</option>
+            {distinctServices.map((s) => (
+              <option key={s} value={s}>{s}</option>
+            ))}
+          </select>
 
-        {/* Status Filter */}
-        <select
-          value={statusFilter}
-          onChange={(e) => setStatusFilter(e.target.value)}
-          className="px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-xs font-semibold text-slate-800 dark:text-slate-200 cursor-pointer"
-        >
-          <option value="ALL">All Status</option>
-          <option value="Active">Active</option>
-          <option value="Expiring in 30 Days">Expiring in 30 Days</option>
-          <option value="Expired">Expired</option>
-        </select>
+          {/* Status Filter */}
+          <select
+            value={statusFilter}
+            onChange={(e) => setStatusFilter(e.target.value)}
+            className="w-full px-3 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-xs font-semibold text-slate-800 dark:text-slate-200 cursor-pointer"
+          >
+            <option value="ALL">All Status</option>
+            <option value="Active">Active</option>
+            <option value="Expiring in 30 Days">Expiring in 30 Days</option>
+            <option value="Expired">Expired</option>
+          </select>
 
-        {/* Assigned To Filter (Franchise Partner / Employee) */}
-        <select
-          value={assignedFilter}
-          onChange={(e) => setAssignedFilter(e.target.value)}
-          className="px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-xs font-semibold text-slate-800 dark:text-slate-200 cursor-pointer"
-        >
-          <option value="ALL">All Franchise Partners / Employees</option>
-          {distinctAssignees.map((a) => (
-            <option key={a} value={a}>{a}</option>
-          ))}
-        </select>
-
-        <button
-          type="button"
-          className="px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold shadow-xs cursor-pointer transition-colors"
-        >
-          Filter
-        </button>
-
-        <button
-          type="button"
-          onClick={() => {
-            setSearch("");
-            setTypeFilter("ALL");
-            setCategoryFilter("ALL");
-            setServiceFilter("ALL");
-            setStatusFilter("ALL");
-            setAssignedFilter("ALL");
-          }}
-          className="px-3 py-2 rounded-xl text-xs font-bold text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800 cursor-pointer"
-        >
-          Clear
-        </button>
+          {/* Assigned To Filter (Franchise Partner / Employee) */}
+          <select
+            value={assignedFilter}
+            onChange={(e) => setAssignedFilter(e.target.value)}
+            className="w-full sm:col-span-2 lg:col-span-1 px-3 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-xs font-semibold text-slate-800 dark:text-slate-200 cursor-pointer"
+          >
+            <option value="ALL">All Franchise Partners / Employees</option>
+            {distinctAssignees.map((a) => (
+              <option key={a} value={a}>{a}</option>
+            ))}
+          </select>
+        </div>
       </div>
 
       {/* 4. Licence Report Data Table (Screenshot 3 Exact Match with View, Modify, and Delete Actions) */}

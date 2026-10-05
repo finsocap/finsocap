@@ -23,6 +23,7 @@ import {
   Sparkles,
   ShieldCheck,
   TrendingUp,
+  Handshake,
   X
 } from "lucide-react";
 import DeveloperProfileModal from "../Global/DeveloperProfileModal";
@@ -170,6 +171,7 @@ export default function Sidebar({ userRole = "ADMIN" }: { userRole?: string }) {
     { label: "Products / Services", href: "/dashboard/services", icon: Boxes, badge: services.length ? `${services.length}` : undefined },
     { label: "Tasks", href: "/dashboard/tasks", icon: ClipboardList, badge: openTasksCount > 0 ? `${openTasksCount}` : undefined },
     { label: "Task Allocation", href: "/dashboard/allocation", icon: UserCheck, badge: unassignedTasksCount > 0 ? `${unassignedTasksCount}` : undefined },
+    { label: "Partners", href: "/dashboard/partners", icon: Handshake },
     { label: "Clients", href: "/dashboard/clients", icon: Users },
     { label: "Team", href: "/dashboard/team", icon: ShieldCheck },
   ];
@@ -236,24 +238,21 @@ export default function Sidebar({ userRole = "ADMIN" }: { userRole?: string }) {
         ) : (
           <Link href="/dashboard" className="flex items-center gap-3 overflow-hidden group">
             {/* Official Finsocap Favicon Logo */}
-            <div className="w-9 h-9 rounded-xl overflow-hidden bg-white dark:bg-slate-800 border border-slate-200/80 dark:border-slate-700 shadow-xs flex items-center justify-center p-1 shrink-0 group-hover:scale-105 transition-transform">
+            <div className="w-10 h-10 lg:w-12 lg:h-12 rounded-xl overflow-hidden bg-white dark:bg-slate-800 border border-slate-200/80 dark:border-slate-700 shadow-xs flex items-center justify-center p-1 shrink-0 group-hover:scale-105 transition-transform">
               <img 
                 src={getAssetUrl("/apple-touch-icon.png")} 
                 alt="Finsocap Favicon" 
-                width={32} 
-                height={32} 
+                width={44} 
+                height={44} 
                 className="w-full h-full object-contain"
                 onError={(e) => {
                   (e.target as HTMLImageElement).src = getAssetUrl("/Finsocap_logo.png");
                 }}
               />
             </div>
-            <div className="flex flex-col">
-              <span className="font-black text-slate-900 dark:text-white text-base tracking-tight leading-tight">
+            <div className="flex flex-col justify-center">
+              <span className="font-black text-slate-900 dark:text-white text-xl sm:text-2xl lg:text-[26px] tracking-tight leading-none">
                 Finsocap
-              </span>
-              <span className="text-[11px] font-semibold text-slate-500 dark:text-slate-400 tracking-tight leading-none mt-0.5">
-                Financial Services
               </span>
             </div>
           </Link>

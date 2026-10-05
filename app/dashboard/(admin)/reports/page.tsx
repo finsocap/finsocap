@@ -575,15 +575,15 @@ function ReportsPageContent() {
               </div>
             </div>
 
-            <div className="flex flex-wrap items-center gap-2.5">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:flex lg:items-center gap-2.5 w-full lg:w-auto">
               {/* Date Filter */}
-              <DateRangeFilter value={dateRange} onChange={(p) => setDateRange(p.label)} />
+              <DateRangeFilter value={dateRange} onChange={(p) => setDateRange(p.label)} className="w-full lg:w-auto" />
 
               {/* All Employees Filter */}
               <select
                 value={serviceEmpFilter}
                 onChange={(e) => setServiceEmpFilter(e.target.value)}
-                className="px-3.5 py-2.5 rounded-xl bg-white dark:bg-[#0c1427] border border-slate-200/90 dark:border-slate-800 text-xs font-bold text-slate-700 dark:text-slate-200 shadow-xs cursor-pointer focus:outline-none"
+                className="w-full lg:w-auto px-3 py-2 sm:px-3.5 sm:py-2.5 rounded-xl bg-white dark:bg-[#0c1427] border border-slate-200/90 dark:border-slate-800 text-xs font-bold text-slate-700 dark:text-slate-200 shadow-xs cursor-pointer focus:outline-none"
               >
                 <option value="ALL">All Employees</option>
                 {serviceTeamData.map((e) => (
@@ -595,7 +595,7 @@ function ReportsPageContent() {
               <select
                 value={serviceNameFilter}
                 onChange={(e) => setServiceNameFilter(e.target.value)}
-                className="px-3.5 py-2.5 rounded-xl bg-white dark:bg-[#0c1427] border border-slate-200/90 dark:border-slate-800 text-xs font-bold text-slate-700 dark:text-slate-200 shadow-xs cursor-pointer focus:outline-none"
+                className="w-full lg:w-auto px-3 py-2 sm:px-3.5 sm:py-2.5 rounded-xl bg-white dark:bg-[#0c1427] border border-slate-200/90 dark:border-slate-800 text-xs font-bold text-slate-700 dark:text-slate-200 shadow-xs cursor-pointer focus:outline-none"
               >
                 <option value="ALL">All Services</option>
                 <option value="FSSAI Registration">FSSAI Registration</option>
@@ -608,7 +608,7 @@ function ReportsPageContent() {
               <button
                 type="button"
                 onClick={() => handleExport("Service Team Report")}
-                className="flex items-center gap-1.5 px-4 py-2.5 rounded-xl bg-gradient-to-r from-blue-600 via-indigo-600 to-blue-700 hover:from-blue-700 hover:to-indigo-800 text-white text-xs font-bold shadow-md shadow-blue-500/25 transition-all cursor-pointer active:scale-95"
+                className="w-full sm:col-span-2 lg:w-auto flex items-center justify-center gap-1.5 px-4 py-2 sm:py-2.5 rounded-xl bg-gradient-to-r from-blue-600 via-indigo-600 to-blue-700 hover:from-blue-700 hover:to-indigo-800 text-white text-xs font-bold shadow-md shadow-blue-500/25 transition-all cursor-pointer active:scale-95"
               >
                 <Download className="w-3.5 h-3.5" />
                 <span>Export</span>
@@ -819,13 +819,13 @@ function ReportsPageContent() {
               </div>
             </div>
 
-            <div className="flex flex-wrap items-center gap-2.5">
-              <DateRangeFilter value={dateRange} onChange={(p) => setDateRange(p.label)} />
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:flex lg:items-center gap-2.5 w-full lg:w-auto">
+              <DateRangeFilter value={dateRange} onChange={(p) => setDateRange(p.label)} className="w-full lg:w-auto" />
 
               <select
                 value={salesPersonFilter}
                 onChange={(e) => setSalesPersonFilter(e.target.value)}
-                className="px-3.5 py-2.5 rounded-xl bg-white dark:bg-[#0c1427] border border-slate-200/90 dark:border-slate-800 text-xs font-bold text-slate-700 dark:text-slate-200 shadow-xs cursor-pointer focus:outline-none"
+                className="w-full lg:w-auto px-3 py-2 sm:px-3.5 sm:py-2.5 rounded-xl bg-white dark:bg-[#0c1427] border border-slate-200/90 dark:border-slate-800 text-xs font-bold text-slate-700 dark:text-slate-200 shadow-xs cursor-pointer focus:outline-none"
               >
                 <option value="ALL">All Franchise Partners</option>
                 {salesTeamData.map((s) => (
@@ -836,7 +836,7 @@ function ReportsPageContent() {
               <select
                 value={salesServiceFilter}
                 onChange={(e) => setSalesServiceFilter(e.target.value)}
-                className="px-3.5 py-2.5 rounded-xl bg-white dark:bg-[#0c1427] border border-slate-200/90 dark:border-slate-800 text-xs font-bold text-slate-700 dark:text-slate-200 shadow-xs cursor-pointer focus:outline-none"
+                className="w-full lg:w-auto px-3 py-2 sm:px-3.5 sm:py-2.5 rounded-xl bg-white dark:bg-[#0c1427] border border-slate-200/90 dark:border-slate-800 text-xs font-bold text-slate-700 dark:text-slate-200 shadow-xs cursor-pointer focus:outline-none"
               >
                 <option value="ALL">All Services</option>
                 <option value="FSSAI Registration">FSSAI Registration</option>
@@ -847,7 +847,7 @@ function ReportsPageContent() {
               <button
                 type="button"
                 onClick={() => handleExport("Franchise Partner Report")}
-                className="flex items-center gap-1.5 px-4 py-2.5 rounded-xl bg-gradient-to-r from-blue-600 via-indigo-600 to-blue-700 hover:from-blue-700 hover:to-indigo-800 text-white text-xs font-bold shadow-md shadow-blue-500/25 transition-all cursor-pointer active:scale-95"
+                className="w-full sm:col-span-2 lg:w-auto flex items-center justify-center gap-1.5 px-4 py-2 sm:py-2.5 rounded-xl bg-gradient-to-r from-blue-600 via-indigo-600 to-blue-700 hover:from-blue-700 hover:to-indigo-800 text-white text-xs font-bold shadow-md shadow-blue-500/25 transition-all cursor-pointer active:scale-95"
               >
                 <Download className="w-3.5 h-3.5" />
                 <span>Export</span>
@@ -1153,13 +1153,13 @@ function ReportsPageContent() {
               </div>
             </div>
 
-            <div className="flex flex-wrap items-center gap-2.5">
-              <DateRangeFilter value={dateRange} onChange={(p) => setDateRange(p.label)} />
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:flex lg:items-center gap-2.5 w-full lg:w-auto">
+              <DateRangeFilter value={dateRange} onChange={(p) => setDateRange(p.label)} className="w-full lg:w-auto" />
 
               <button
                 type="button"
                 onClick={() => handleExport("Licence Report")}
-                className="flex items-center gap-1.5 px-4 py-2.5 rounded-xl bg-gradient-to-r from-blue-600 via-indigo-600 to-blue-700 hover:from-blue-700 hover:to-indigo-800 text-white text-xs font-bold shadow-md shadow-blue-500/25 transition-all cursor-pointer active:scale-95"
+                className="w-full lg:w-auto flex items-center justify-center gap-1.5 px-4 py-2 sm:py-2.5 rounded-xl bg-gradient-to-r from-blue-600 via-indigo-600 to-blue-700 hover:from-blue-700 hover:to-indigo-800 text-white text-xs font-bold shadow-md shadow-blue-500/25 transition-all cursor-pointer active:scale-95"
               >
                 <Download className="w-3.5 h-3.5" />
                 <span>Export</span>
@@ -1214,83 +1214,88 @@ function ReportsPageContent() {
           </div>
 
           {/* Multi-Filter Row matching Screenshot 3 */}
-          <div className="p-3.5 bg-white dark:bg-[#0c1427] rounded-3xl border border-slate-200/90 dark:border-slate-800 shadow-xs flex flex-wrap items-center gap-2.5">
-            <div className="relative flex-1 min-w-[220px]">
-              <Search className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
-              <input
-                type="text"
-                value={licenceSearch}
-                onChange={(e) => setLicenceSearch(e.target.value)}
-                placeholder="Search by partner name, client name, licence number..."
-                className="w-full pl-8 pr-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50/50 dark:bg-slate-900 text-xs focus:outline-none focus:border-blue-500"
-              />
+          <div className="p-3.5 bg-white dark:bg-[#0c1427] rounded-3xl border border-slate-200/90 dark:border-slate-800 shadow-xs space-y-2.5">
+            <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2.5">
+              <div className="relative flex-1">
+                <Search className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+                <input
+                  type="text"
+                  value={licenceSearch}
+                  onChange={(e) => setLicenceSearch(e.target.value)}
+                  placeholder="Search by partner name, client name, licence number..."
+                  className="w-full pl-8 pr-3 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50/50 dark:bg-slate-900 text-xs focus:outline-none focus:border-blue-500"
+                />
+              </div>
+
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  className="flex-1 sm:flex-initial px-5 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold shadow-xs cursor-pointer text-center"
+                >
+                  Filter
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setLicenceSearch("");
+                    setLicenceTypeFilter("ALL");
+                    setLicenceCategoryFilter("ALL");
+                    setLicenceStatusFilter("ALL");
+                    setLicenceEmployeeFilter("ALL");
+                  }}
+                  className="px-3.5 py-2.5 rounded-xl text-xs font-bold text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800 cursor-pointer"
+                >
+                  Clear
+                </button>
+              </div>
             </div>
 
-            <select
-              value={licenceTypeFilter}
-              onChange={(e) => setLicenceTypeFilter(e.target.value)}
-              className="px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-xs font-semibold"
-            >
-              <option value="ALL">All Types</option>
-              <option value="FSSAI Basic Licence">FSSAI Basic Licence</option>
-              <option value="FSSAI Central Licence">FSSAI Central Licence</option>
-            </select>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2.5 pt-0.5">
+              <select
+                value={licenceTypeFilter}
+                onChange={(e) => setLicenceTypeFilter(e.target.value)}
+                className="w-full px-3 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-xs font-semibold text-slate-800 dark:text-slate-200 cursor-pointer"
+              >
+                <option value="ALL">All Types</option>
+                <option value="FSSAI Basic Licence">FSSAI Basic Licence</option>
+                <option value="FSSAI Central Licence">FSSAI Central Licence</option>
+              </select>
 
-            <select
-              value={licenceCategoryFilter}
-              onChange={(e) => setLicenceCategoryFilter(e.target.value)}
-              className="px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-xs font-semibold"
-            >
-              <option value="ALL">All Categories</option>
-              <option value="Compliance">Compliance</option>
-            </select>
+              <select
+                value={licenceCategoryFilter}
+                onChange={(e) => setLicenceCategoryFilter(e.target.value)}
+                className="w-full px-3 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-xs font-semibold text-slate-800 dark:text-slate-200 cursor-pointer"
+              >
+                <option value="ALL">All Categories</option>
+                <option value="Compliance">Compliance</option>
+              </select>
 
-            <select
-              value={licenceStatusFilter}
-              onChange={(e) => setLicenceStatusFilter(e.target.value)}
-              className="px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-xs font-semibold"
-            >
-              <option value="ALL">All Status</option>
-              <option value="Active">Active</option>
-              <option value="Expiring in 30 Days">Expiring in 30 Days</option>
-              <option value="Expired">Expired</option>
-              <option value="Linked">URL Linked</option>
-              <option value="Not Linked">URL Not Linked</option>
-            </select>
+              <select
+                value={licenceStatusFilter}
+                onChange={(e) => setLicenceStatusFilter(e.target.value)}
+                className="w-full px-3 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-xs font-semibold text-slate-800 dark:text-slate-200 cursor-pointer"
+              >
+                <option value="ALL">All Status</option>
+                <option value="Active">Active</option>
+                <option value="Expiring in 30 Days">Expiring in 30 Days</option>
+                <option value="Expired">Expired</option>
+                <option value="Linked">URL Linked</option>
+                <option value="Not Linked">URL Not Linked</option>
+              </select>
 
-            <select
-              value={licenceEmployeeFilter}
-              onChange={(e) => setLicenceEmployeeFilter(e.target.value)}
-              className="px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-xs font-semibold"
-            >
-              <option value="ALL">All Employees</option>
-              <option value="Rahul Jha">Rahul Jha</option>
-              <option value="Kanhaiya">Kanhaiya</option>
-              <option value="Gaurav">Gaurav</option>
-              <option value="Roshan">Roshan</option>
-              <option value="Roshni">Roshni</option>
-            </select>
-
-            <button
-              type="button"
-              className="px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold shadow-xs cursor-pointer"
-            >
-              Filter
-            </button>
-
-            <button
-              type="button"
-              onClick={() => {
-                setLicenceSearch("");
-                setLicenceTypeFilter("ALL");
-                setLicenceCategoryFilter("ALL");
-                setLicenceStatusFilter("ALL");
-                setLicenceEmployeeFilter("ALL");
-              }}
-              className="px-3 py-2 rounded-xl text-xs font-bold text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800 cursor-pointer"
-            >
-              Clear
-            </button>
+              <select
+                value={licenceEmployeeFilter}
+                onChange={(e) => setLicenceEmployeeFilter(e.target.value)}
+                className="w-full px-3 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-xs font-semibold text-slate-800 dark:text-slate-200 cursor-pointer"
+              >
+                <option value="ALL">All Employees</option>
+                <option value="Rahul Jha">Rahul Jha</option>
+                <option value="Kanhaiya">Kanhaiya</option>
+                <option value="Gaurav">Gaurav</option>
+                <option value="Roshan">Roshan</option>
+                <option value="Roshni">Roshni</option>
+              </select>
+            </div>
           </div>
 
           {/* Table matching Screenshot 3 */}
@@ -1410,42 +1415,42 @@ function ReportsPageContent() {
             </div>
 
             {/* Pagination matching Screenshot 3 */}
-            <div className="p-4 border-t border-slate-100 dark:border-slate-800 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 text-xs text-slate-500 dark:text-slate-400">
-              <div className="flex items-center gap-2">
-                <span>Show</span>
-                <select className="px-2 py-1 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 font-bold">
+            <div className="p-3 sm:p-4 border-t border-slate-100 dark:border-slate-800 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 text-xs text-slate-500 dark:text-slate-400">
+              <div className="flex items-center gap-1.5 sm:gap-2 flex-wrap">
+                <span className="text-[11px] sm:text-xs">Show</span>
+                <select className="px-2 py-1 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 font-bold text-xs">
                   <option>10</option>
                   <option>25</option>
                   <option>50</option>
                 </select>
-                <span>entries</span>
-                <span className="ml-2 font-medium">Showing 1 to 10 of 100 entries</span>
+                <span className="text-[11px] sm:text-xs">entries</span>
+                <span className="ml-1 sm:ml-2 font-medium text-[11px] sm:text-xs text-slate-400">Showing 1 to 10 of 100 entries</span>
               </div>
 
-              <div className="flex items-center gap-1">
-                <button className="w-7 h-7 rounded-lg border border-slate-200 dark:border-slate-700 flex items-center justify-center text-slate-400 hover:bg-slate-100 cursor-pointer">
+              <div className="flex items-center gap-1 overflow-x-auto no-scrollbar py-0.5">
+                <button className="w-6 h-6 sm:w-7 sm:h-7 rounded-lg border border-slate-200 dark:border-slate-700 flex items-center justify-center text-slate-400 hover:bg-slate-100 cursor-pointer text-xs">
                   <ChevronLeft className="w-3.5 h-3.5" />
                 </button>
-                <button className="w-7 h-7 rounded-lg bg-blue-600 text-white font-bold flex items-center justify-center cursor-pointer shadow-xs">
+                <button className="w-6 h-6 sm:w-7 sm:h-7 rounded-lg bg-blue-600 text-white font-bold flex items-center justify-center cursor-pointer shadow-xs text-xs">
                   1
                 </button>
-                <button className="w-7 h-7 rounded-lg border border-slate-200 dark:border-slate-700 flex items-center justify-center hover:bg-slate-100 cursor-pointer">
+                <button className="w-6 h-6 sm:w-7 sm:h-7 rounded-lg border border-slate-200 dark:border-slate-700 flex items-center justify-center hover:bg-slate-100 cursor-pointer text-xs">
                   2
                 </button>
-                <button className="w-7 h-7 rounded-lg border border-slate-200 dark:border-slate-700 flex items-center justify-center hover:bg-slate-100 cursor-pointer">
+                <button className="w-6 h-6 sm:w-7 sm:h-7 rounded-lg border border-slate-200 dark:border-slate-700 flex items-center justify-center hover:bg-slate-100 cursor-pointer text-xs">
                   3
                 </button>
-                <button className="w-7 h-7 rounded-lg border border-slate-200 dark:border-slate-700 flex items-center justify-center hover:bg-slate-100 cursor-pointer">
+                <button className="w-6 h-6 sm:w-7 sm:h-7 rounded-lg border border-slate-200 dark:border-slate-700 flex items-center justify-center hover:bg-slate-100 cursor-pointer text-xs">
                   4
                 </button>
-                <button className="w-7 h-7 rounded-lg border border-slate-200 dark:border-slate-700 flex items-center justify-center hover:bg-slate-100 cursor-pointer">
+                <button className="w-6 h-6 sm:w-7 sm:h-7 rounded-lg border border-slate-200 dark:border-slate-700 flex items-center justify-center hover:bg-slate-100 cursor-pointer text-xs">
                   5
                 </button>
-                <span className="px-1 text-slate-400">...</span>
-                <button className="w-7 h-7 rounded-lg border border-slate-200 dark:border-slate-700 flex items-center justify-center hover:bg-slate-100 cursor-pointer">
+                <span className="px-1 text-slate-400 text-xs">...</span>
+                <button className="w-6 h-6 sm:w-7 sm:h-7 rounded-lg border border-slate-200 dark:border-slate-700 flex items-center justify-center hover:bg-slate-100 cursor-pointer text-xs">
                   10
                 </button>
-                <button className="w-7 h-7 rounded-lg border border-slate-200 dark:border-slate-700 flex items-center justify-center text-slate-400 hover:bg-slate-100 cursor-pointer">
+                <button className="w-6 h-6 sm:w-7 sm:h-7 rounded-lg border border-slate-200 dark:border-slate-700 flex items-center justify-center text-slate-400 hover:bg-slate-100 cursor-pointer text-xs">
                   <ChevronRight className="w-3.5 h-3.5" />
                 </button>
               </div>

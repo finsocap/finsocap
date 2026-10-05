@@ -13,6 +13,8 @@ import {
   BadgeCheck,
 } from "lucide-react";
 
+import { useCrmStore } from "@/lib/crmStore";
+
 export interface PartnerOption {
   id: string; // "all", "P-101", etc.
   partnerId: string;
@@ -25,6 +27,7 @@ export interface PartnerOption {
   activeTasks: number;
   phone: string;
   tier?: string;
+  status?: string;
 }
 
 export const PARTNER_OPTIONS: PartnerOption[] = [
@@ -34,7 +37,7 @@ export const PARTNER_OPTIONS: PartnerOption[] = [
     name: "All Partners",
     shortName: "All Partners",
     city: "Nationwide",
-    state: "India (All 48 Partners)",
+    state: "India (All Partners)",
     leadsCount: 1248,
     revenueStr: "₹8.72L",
     activeTasks: 96,
@@ -119,27 +122,61 @@ export default function PartnerFilter({
   onChange,
   className = "",
 }: PartnerFilterProps) {
+  const { partners } = useCrmStore();
   const [isOpen, setIsOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const dropdownRef = useRef<HTMLDivElement>(null);
   const searchInputRef = useRef<HTMLInputElement>(null);
 
+  const availableOptions = useMemo<PartnerOption[]>(() => {
+    const allOption: PartnerOption = {
+      id: "all",
+      partnerId: "ALL",
+      name: "All Partners",
+      shortName: "All Partners",
+      city: "Nationwide",
+      state: `India (All ${partners.length} Partners)`,
+      leadsCount: partners.reduce((acc, p) => acc + (p.leadsCount || 0), 0),
+      revenueStr: "₹8.72L",
+      activeTasks: partners.reduce((acc, p) => acc + (p.activeTasks || 0), 0),
+      phone: "All Kiosks",
+      tier: "Master Network",
+    };
+
+    const dynamicList: PartnerOption[] = partners.map((p) => ({
+      id: p.id,
+      partnerId: p.partnerId,
+      name: p.name,
+      shortName: p.shortName || `${p.partnerId} • ${p.name}`,
+      city: p.city,
+      state: p.state,
+      leadsCount: p.leadsCount || 0,
+      revenueStr: p.revenueStr || "₹0",
+      activeTasks: p.activeTasks || 0,
+      phone: p.phone,
+      tier: p.tier || "Franchise Partner",
+      status: p.status,
+    }));
+
+    return [allOption, ...dynamicList];
+  }, [partners]);
+
   const selectedPartner = useMemo(() => {
     return (
-      PARTNER_OPTIONS.find(
+      availableOptions.find(
         (p) =>
           p.name === value ||
           p.shortName === value ||
           p.partnerId === value ||
           (value === "All Partners" && p.id === "all")
-      ) || PARTNER_OPTIONS[0]
+      ) || availableOptions[0]
     );
-  }, [value]);
+  }, [value, availableOptions]);
 
   const filteredOptions = useMemo(() => {
-    if (!searchQuery.trim()) return PARTNER_OPTIONS;
+    if (!searchQuery.trim()) return availableOptions;
     const q = searchQuery.toLowerCase().trim();
-    return PARTNER_OPTIONS.filter(
+    return availableOptions.filter(
       (p) =>
         p.name.toLowerCase().includes(q) ||
         p.partnerId.toLowerCase().includes(q) ||
@@ -147,7 +184,24 @@ export default function PartnerFilter({
         p.state.toLowerCase().includes(q) ||
         p.phone.includes(q)
     );
-  }, [searchQuery]);
+  }, [searchQuery, availableOptions]);
+
+  const [popoverAlign, setPopoverAlign] = useState<"right" | "left">("right");
+
+  // Dynamically calculate alignment to prevent overflowing off the screen edge on mobile/tablet
+  useEffect(() => {
+    if (isOpen && dropdownRef.current) {
+      const rect = dropdownRef.current.getBoundingClientRect();
+      const popoverWidth = 360;
+      const screenPadding = 16;
+
+      if (rect.left + popoverWidth <= window.innerWidth - screenPadding) {
+        setPopoverAlign("left");
+      } else {
+        setPopoverAlign("right");
+      }
+    }
+  }, [isOpen]);
 
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
@@ -181,40 +235,42 @@ export default function PartnerFilter({
           aria-hidden="true"
         />
       )}
-      <div ref={dropdownRef} className={`relative inline-block text-left ${isOpen ? "z-50" : "z-10"} ${className}`}>
+      <div ref={dropdownRef} className={`relative w-full sm:w-auto sm:inline-block text-left ${isOpen ? "z-50" : "z-10"} ${className}`}>
       {/* Trigger Button matching Screenshot 1 */}
       <button
         type="button"
         onClick={() => setIsOpen(!isOpen)}
         aria-haspopup="listbox"
         aria-expanded={isOpen}
-        className={`group flex items-center gap-2 pl-3 pr-3.5 h-11 rounded-xl text-xs font-bold transition-all duration-200 cursor-pointer shadow-xs border ${
+        className={`w-full sm:w-auto group flex items-center justify-between sm:justify-start gap-2 pl-3 pr-3.5 h-11 rounded-xl text-xs font-bold transition-all duration-200 cursor-pointer shadow-xs border ${
           isCustomPartner
             ? "bg-blue-50/90 dark:bg-blue-950/60 border-blue-400 dark:border-blue-600 text-blue-700 dark:text-sky-300 ring-2 ring-blue-500/20"
             : "bg-white/80 dark:bg-slate-900/80 border-slate-200/90 dark:border-slate-800 text-slate-700 dark:text-slate-200 hover:bg-white dark:hover:bg-slate-900 hover:border-slate-300 dark:hover:border-slate-700"
         } backdrop-blur-md`}
       >
-        <div
-          className={`w-6 h-6 rounded-lg flex items-center justify-center transition-colors ${
-            isCustomPartner
-              ? "bg-blue-600 text-white shadow-xs"
-              : "bg-blue-50 dark:bg-blue-950/60 text-blue-600 dark:text-sky-400 group-hover:bg-blue-100 dark:group-hover:bg-blue-900/40"
-          }`}
-        >
-          <Users className="w-3.5 h-3.5" />
-        </div>
+        <div className="flex items-center gap-2 truncate">
+          <div
+            className={`w-6 h-6 rounded-lg flex items-center justify-center shrink-0 transition-colors ${
+              isCustomPartner
+                ? "bg-blue-600 text-white shadow-xs"
+                : "bg-blue-50 dark:bg-blue-950/60 text-blue-600 dark:text-sky-400 group-hover:bg-blue-100 dark:group-hover:bg-blue-900/40"
+            }`}
+          >
+            <Users className="w-3.5 h-3.5" />
+          </div>
 
-        <div className="flex flex-col text-left leading-tight">
-          <span className="text-[9.5px] uppercase tracking-wider font-extrabold text-slate-400 dark:text-slate-500">
-            Partner Filter
-          </span>
-          <span className="truncate max-w-[150px] font-extrabold text-slate-900 dark:text-white">
-            {selectedPartner.shortName}
-          </span>
+          <div className="flex flex-col text-left leading-tight truncate">
+            <span className="text-[9.5px] uppercase tracking-wider font-extrabold text-slate-400 dark:text-slate-500">
+              Partner Filter
+            </span>
+            <span className="truncate max-w-[190px] sm:max-w-[150px] font-extrabold text-slate-900 dark:text-white">
+              {selectedPartner.shortName}
+            </span>
+          </div>
         </div>
 
         <ChevronDown
-          className={`w-3.5 h-3.5 text-slate-400 transition-transform duration-200 ml-1.5 ${
+          className={`w-3.5 h-3.5 shrink-0 text-slate-400 transition-transform duration-200 ml-1.5 ${
             isOpen ? "rotate-180 text-blue-600 dark:text-sky-400" : ""
           }`}
         />
@@ -224,7 +280,9 @@ export default function PartnerFilter({
       {isOpen && (
         <div
           role="listbox"
-          className="absolute right-0 z-50 mt-2 w-80 sm:w-96 origin-top-right rounded-2xl bg-white/95 dark:bg-[#0c1427]/95 backdrop-blur-xl border border-slate-200 dark:border-slate-800 shadow-2xl p-2.5 space-y-2 animate-in fade-in zoom-in-95 duration-150 focus:outline-none"
+          className={`absolute z-50 mt-2 w-[min(380px,calc(100vw-2rem))] max-w-[calc(100vw-2rem)] rounded-2xl bg-white/95 dark:bg-[#0c1427]/95 backdrop-blur-xl border border-slate-200 dark:border-slate-800 shadow-2xl p-2.5 space-y-2 animate-in fade-in zoom-in-95 duration-150 focus:outline-none left-1/2 -translate-x-1/2 sm:translate-x-0 ${
+            popoverAlign === "right" ? "sm:right-0 sm:left-auto origin-top-right" : "sm:left-0 sm:right-auto origin-top-left"
+          }`}
         >
           {/* Header */}
           <div className="px-2 pt-1 pb-1.5 flex items-center justify-between border-b border-slate-100 dark:border-slate-800/80">

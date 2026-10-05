@@ -178,7 +178,7 @@ export default function BranchFilter({
 
       <div
         ref={containerRef}
-        className={`relative inline-block ${isOpen ? "z-50" : "z-10"} ${className}`}
+        className={`relative w-full sm:w-auto sm:inline-block ${isOpen ? "z-50" : "z-10"} ${className}`}
       >
         {/* Trigger Button - Exactly matches screenshot */}
         <button
@@ -186,7 +186,7 @@ export default function BranchFilter({
           onClick={() => setIsOpen(!isOpen)}
           aria-expanded={isOpen}
           aria-haspopup="true"
-          className={`flex items-center gap-2.5 pl-3 pr-3.5 py-2 rounded-xl bg-white dark:bg-[#0c1427] border text-xs font-semibold shadow-xs cursor-pointer transition-all duration-150 select-none ${
+          className={`flex items-center justify-between sm:justify-start w-full sm:w-auto gap-2.5 pl-3 pr-3.5 py-2 rounded-xl bg-white dark:bg-[#0c1427] border text-xs font-semibold shadow-xs cursor-pointer transition-all duration-150 select-none ${
             isOpen
               ? "border-blue-500 ring-2 ring-blue-500/20 text-blue-600 dark:text-sky-400 relative z-50 shadow-md"
               : !isAll
@@ -211,7 +211,7 @@ export default function BranchFilter({
 
       {/* Floating Dropdown Popover */}
       {isOpen && (
-        <div className="absolute right-0 sm:left-auto mt-2 w-[310px] sm:w-[350px] bg-white dark:bg-[#0c1427] rounded-2xl border border-slate-200 dark:border-slate-800 shadow-2xl z-50 overflow-hidden animate-in fade-in zoom-in-95 duration-150">
+        <div className="absolute left-1/2 -translate-x-1/2 sm:translate-x-0 sm:right-0 sm:left-auto mt-2 w-[min(350px,calc(100vw-2rem))] max-w-[calc(100vw-2rem)] bg-white dark:bg-[#0c1427] rounded-2xl border border-slate-200 dark:border-slate-800 shadow-2xl z-50 overflow-hidden animate-in fade-in zoom-in-95 duration-150">
           {/* Header & Search */}
           <div className="p-3 border-b border-slate-100 dark:border-slate-800/80 bg-slate-50/70 dark:bg-slate-900/50 space-y-2.5">
             <div className="flex items-center justify-between">

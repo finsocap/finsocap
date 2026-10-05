@@ -147,16 +147,14 @@ export default function DateRangeFilter({
   useEffect(() => {
     if (isOpen && containerRef.current) {
       const rect = containerRef.current.getBoundingClientRect();
-      const popoverWidth = 375;
-      const screenPadding = 24;
+      const popoverWidth = 360;
+      const screenPadding = 16;
 
-      // If opening to the right (left-aligned) would stick or overflow right edge:
-      if (rect.left + popoverWidth > window.innerWidth - screenPadding) {
-        setPopoverAlign("right");
-      } else if (rect.right - popoverWidth < screenPadding) {
+      // If left-aligned popup fits within viewport, prefer left-aligned on tablet/desktop left side
+      if (rect.left + popoverWidth <= window.innerWidth - screenPadding) {
         setPopoverAlign("left");
       } else {
-        setPopoverAlign("right"); // Default to right-aligned so it flows inward
+        setPopoverAlign("right");
       }
     }
   }, [isOpen]);
@@ -313,7 +311,7 @@ export default function DateRangeFilter({
 
       <div
         ref={containerRef}
-        className={`relative inline-block ${isOpen ? "z-50" : "z-10"} ${className}`}
+        className={`relative w-full sm:w-auto sm:inline-block ${isOpen ? "z-50" : "z-10"} ${className}`}
       >
         {/* Trigger Button - Exactly preserves the screenshot aesthetic */}
         <button
@@ -321,7 +319,7 @@ export default function DateRangeFilter({
           onClick={() => setIsOpen(!isOpen)}
           aria-expanded={isOpen}
           aria-haspopup="true"
-          className={`flex items-center gap-2.5 pl-3 pr-3.5 h-11 rounded-xl bg-white dark:bg-[#0c1427] border text-xs font-semibold shadow-xs cursor-pointer transition-all duration-150 select-none ${
+          className={`w-full sm:w-auto flex items-center justify-between sm:justify-start gap-2.5 pl-3 pr-3.5 h-11 rounded-xl bg-white dark:bg-[#0c1427] border text-xs font-semibold shadow-xs cursor-pointer transition-all duration-150 select-none ${
             isOpen
               ? "border-blue-500 ring-2 ring-blue-500/20 text-blue-600 dark:text-sky-400 relative z-50 shadow-md"
               : !isDefault
@@ -329,16 +327,18 @@ export default function DateRangeFilter({
               : "border-slate-200/90 dark:border-slate-800 text-slate-700 dark:text-slate-200 hover:border-slate-300 dark:hover:border-slate-700"
           }`}
         >
-        <Calendar
-          className={`w-3.5 h-3.5 transition-colors ${
-            isOpen || !isDefault
-              ? "text-blue-500 dark:text-sky-400"
-              : "text-slate-400"
-          }`}
-        />
-        <span className="truncate max-w-[190px] sm:max-w-[240px]">{value}</span>
+        <div className="flex items-center gap-2 truncate">
+          <Calendar
+            className={`w-3.5 h-3.5 shrink-0 transition-colors ${
+              isOpen || !isDefault
+                ? "text-blue-500 dark:text-sky-400"
+                : "text-slate-400"
+            }`}
+          />
+          <span className="truncate">{value}</span>
+        </div>
         <ChevronDown
-          className={`w-3.5 h-3.5 text-slate-400 transition-transform duration-200 ml-0.5 ${
+          className={`w-3.5 h-3.5 shrink-0 text-slate-400 transition-transform duration-200 ml-0.5 ${
             isOpen ? "rotate-180 text-blue-500 dark:text-sky-400" : ""
           }`}
         />
@@ -347,8 +347,8 @@ export default function DateRangeFilter({
       {/* Floating Dropdown Popover */}
       {isOpen && (
         <div
-          className={`absolute mt-2 w-[min(375px,calc(100vw-2rem))] bg-white dark:bg-[#0c1427] rounded-3xl border border-slate-200 dark:border-slate-800 shadow-2xl z-50 overflow-hidden animate-in fade-in zoom-in-95 duration-150 ${
-            popoverAlign === "right" ? "right-0 left-auto" : "left-0 right-auto"
+          className={`absolute mt-2 w-[min(375px,calc(100vw-2rem))] bg-white dark:bg-[#0c1427] rounded-3xl border border-slate-200 dark:border-slate-800 shadow-2xl z-50 overflow-hidden animate-in fade-in zoom-in-95 duration-150 left-1/2 -translate-x-1/2 sm:translate-x-0 ${
+            popoverAlign === "right" ? "sm:right-0 sm:left-auto" : "sm:left-0 sm:right-auto"
           }`}
         >
           

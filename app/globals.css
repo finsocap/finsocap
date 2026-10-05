@@ -3,6 +3,7 @@
 @plugin "@tailwindcss/typography";
 
 :root {
+  color-scheme: light !important;
   --background: #f4f6fa;
   --foreground: #0b132b;
   --surface: #ffffff;
@@ -29,19 +30,24 @@
   --brand-light: #f4f6fa;
 }
 
-.dark {
-  --background: #090e1a;
-  --foreground: #f8fafc;
-  --surface: #0f172a;
-  --card: #0d1527;
-  --border: #1e293b;
-  --muted: #94a3b8;
+/* Force dark variant to never match so dark: classes never activate anywhere */
+@custom-variant dark (.never-dark-mode-disabled);
 
-  --brand-primary: #0a1128;
-  --brand-primary-hover: #111e42;
-  --brand-accent: #3b82f6;
-  --brand-accent-hover: #60a5fa;
-  --brand-accent-subtle: rgba(59, 130, 246, 0.18);
+/* Fallback: neutralise any existing .dark CSS overrides to light values */
+.dark {
+  color-scheme: light !important;
+  --background: #f4f6fa !important;
+  --foreground: #0b132b !important;
+  --surface: #ffffff !important;
+  --card: #ffffff !important;
+  --border: #e2e8f0 !important;
+  --muted: #64748b !important;
+
+  --brand-primary: #0e1c44 !important;
+  --brand-primary-hover: #1a2b5b !important;
+  --brand-accent: #2563eb !important;
+  --brand-accent-hover: #1d4ed8 !important;
+  --brand-accent-subtle: rgba(37, 99, 235, 0.12) !important;
 }
 
 @theme inline {
@@ -88,12 +94,12 @@ html, body {
   transition: background-color 0.2s ease, color 0.2s ease, border-color 0.2s ease;
 }
 
-/* Prevent unwanted automatic zoom-in when tapping input fields on iPhone / Mobile */
+/* Mobile / Tablet font and input sizing: natural, crisp scaling */
 @media screen and (max-width: 768px) {
   input,
   textarea,
   select {
-    font-size: 16px !important;
+    font-size: 13px !important;
   }
 }
 

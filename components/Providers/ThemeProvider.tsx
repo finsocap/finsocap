@@ -19,43 +19,46 @@ const ThemeContext = createContext<ThemeContextType>({
 
 export function ThemeProvider({ children }: { children: React.ReactNode }) {
   const config = defaultBrandConfig;
-  const [currentMode, setCurrentMode] = React.useState<"light" | "dark">("light");
 
   useEffect(() => {
+    // Purge any dark mode settings from localStorage
     try {
-      const saved = localStorage.getItem("finsocap_theme_mode");
-      if (saved === "dark" || saved === "light") {
-        setCurrentMode(saved);
-        return;
-      }
-      if (window.matchMedia("(prefers-color-scheme: dark)").matches) {
-        setCurrentMode("dark");
-      }
+      localStorage.removeItem("finsocap_desktop_theme_mode");
+      localStorage.removeItem("finsocap_theme_mode");
     } catch (e) {}
+
+    // Strictly enforce light mode on documentElement and body
+    if (typeof document !== "undefined") {
+      const root = document.documentElement;
+      root.classList.remove("dark");
+      root.style.colorScheme = "light";
+      if (document.body) {
+        document.body.classList.remove("dark");
+        document.body.style.colorScheme = "light";
+      }
+
+      // Observer to immediately remove .dark if anything ever tries to add it
+      const observer = new MutationObserver(() => {
+        if (root.classList.contains("dark")) {
+          root.classList.remove("dark");
+        }
+      });
+      observer.observe(root, { attributes: true, attributeFilter: ["class"] });
+
+      return () => observer.disconnect();
+    }
   }, []);
 
   const toggleTheme = React.useCallback(() => {
-    setCurrentMode((prev) => {
-      const next = prev === "dark" ? "light" : "dark";
-      try {
-        localStorage.setItem("finsocap_theme_mode", next);
-      } catch (e) {}
-      return next;
-    });
+    // Strictly stay light mode
   }, []);
-
-  const resolvedMode = currentMode;
 
   useEffect(() => {
     if (typeof document === "undefined") return;
 
     const root = document.documentElement;
-
-    if (resolvedMode === "dark") {
-      root.classList.add("dark");
-    } else {
-      root.classList.remove("dark");
-    }
+    root.classList.remove("dark");
+    root.style.colorScheme = "light";
 
     // Apply Brand Colors & Typography Tokens to :root
     root.style.setProperty("--brand-primary", config.colors.primary);
@@ -63,10 +66,10 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
     root.style.setProperty("--brand-accent", config.colors.accent);
     root.style.setProperty("--brand-accent-hover", config.colors.accentHover);
     root.style.setProperty("--brand-accent-subtle", config.colors.accentSubtle);
-  }, [config, resolvedMode]);
+  }, [config]);
 
   return (
-    <ThemeContext.Provider value={{ config, mode: resolvedMode, resolvedMode, toggleTheme }}>
+    <ThemeContext.Provider value={{ config, mode: "light", resolvedMode: "light", toggleTheme }}>
       {children}
     </ThemeContext.Provider>
   );

@@ -38,6 +38,7 @@ export interface TaskModel {
 export interface UserModel {
   id: number;
   name: string;
+  email?: string;
   role: string;
   dept: string;
   skill: string;
@@ -58,6 +59,23 @@ export interface ClientModel {
   tasks: number;
   last: string;
   status: string;
+}
+
+export interface PartnerModel {
+  id: string; // "p-101", etc.
+  partnerId: string; // "P-101", etc.
+  name: string;
+  shortName: string;
+  email?: string;
+  phone: string;
+  city: string;
+  state: string;
+  status: "Active" | "Deactivated" | "Pending";
+  tier?: string;
+  registeredAt?: string;
+  leadsCount: number;
+  revenueStr: string;
+  activeTasks: number;
 }
 
 export interface LicenceModel {
@@ -116,12 +134,12 @@ const defaultTasks: TaskModel[] = [
 ];
 
 const defaultUsers: UserModel[] = [
-  { id: 1, name: "Ankit Kumar", role: "Executive", dept: "Operations", skill: "Food & Beverage, Compliance", skills: ["Food & Beverage", "Compliance", "Business Compliance"], phone: "8505828033", password: "Password@123", status: "Active", tasks: 33 },
-  { id: 2, name: "Pooja Mehta", role: "CA", dept: "Taxation", skill: "Taxation", skills: ["Taxation"], phone: "8796951056", password: "Password@123", status: "Active", tasks: 34 },
-  { id: 3, name: "Rohit Jain", role: "CS", dept: "Compliance", skill: "Intellectual Property, Compliance", skills: ["Intellectual Property", "Compliance"], phone: "9355749363", password: "Password@123", status: "Active", tasks: 3 },
-  { id: 4, name: "Neha Verma", role: "Legal Executive", dept: "Legal", skill: "Business Compliance, Licensing", skills: ["Business Compliance", "Licensing", "Compliance"], phone: "9811637390", password: "Password@123", status: "Active", tasks: 1 },
-  { id: 5, name: "Gaurav Sharma", role: "Executive", dept: "Operations", skill: "Import Export, Taxation, Digital Services", skills: ["Import Export", "Taxation", "Digital Services"], phone: "9873207632", password: "Password@123", status: "Active", tasks: 14 },
-  { id: 6, name: "Rahul Jha", role: "Manager", dept: "Franchise Partner", skill: "Compliance, Food & Beverage", skills: ["Compliance", "Food & Beverage"], phone: "9873207632", password: "Password@123", status: "Active", tasks: 22 },
+  { id: 1, name: "Ankit Kumar", email: "ankit.kumar@finsocap.com", role: "Executive", dept: "Operations", skill: "Food & Beverage, Compliance", skills: ["Food & Beverage", "Compliance", "Business Compliance"], phone: "8505828033", password: "Password@123", status: "Active", tasks: 33 },
+  { id: 2, name: "Pooja Mehta", email: "pooja.mehta@finsocap.com", role: "CA", dept: "Taxation", skill: "Taxation", skills: ["Taxation"], phone: "8796951056", password: "Password@123", status: "Active", tasks: 34 },
+  { id: 3, name: "Rohit Jain", email: "rohit.jain@finsocap.com", role: "CS", dept: "Compliance", skill: "Intellectual Property, Compliance", skills: ["Intellectual Property", "Compliance"], phone: "9355749363", password: "Password@123", status: "Active", tasks: 3 },
+  { id: 4, name: "Neha Verma", email: "neha.verma@finsocap.com", role: "Legal Executive", dept: "Legal", skill: "Business Compliance, Licensing", skills: ["Business Compliance", "Licensing", "Compliance"], phone: "9811637390", password: "Password@123", status: "Active", tasks: 1 },
+  { id: 5, name: "Gaurav Sharma", email: "gaurav.sharma@finsocap.com", role: "Executive", dept: "Operations", skill: "Import Export, Taxation, Digital Services", skills: ["Import Export", "Taxation", "Digital Services"], phone: "9873207632", password: "Password@123", status: "Active", tasks: 14 },
+  { id: 6, name: "Rahul Jha", email: "rahul.jha@finsocap.com", role: "Manager", dept: "Franchise Partner", skill: "Compliance, Food & Beverage", skills: ["Compliance", "Food & Beverage"], phone: "9873207632", password: "Password@123", status: "Active", tasks: 22 },
 ];
 
 // 10 Real Verified Entries matching Screenshot 3 Exactly
@@ -138,12 +156,96 @@ const defaultLicences: LicenceModel[] = [
   { task: "T-1010", partner: "Roshni", partnerPhone: "9811637390", client: "SABER DINING", phone: "7264040445", type: "FSSAI Basic Licence", category: "Compliance", service: "FSSAI Registration", number: "21526083016333", issue: "22-09-2026", expiry: "21-09-2027", user: "UPFSSAI111", password: "Ee@9900", status: "Active", url: false, files: 1, assignedTo: "Roshni" },
 ];
 
+export const defaultPartners: PartnerModel[] = [
+  {
+    id: "p-101",
+    partnerId: "P-101",
+    name: "Rahul Jha",
+    shortName: "P-101 • Rahul Jha",
+    email: "rahul.jha@finsocap.com",
+    phone: "9873207632",
+    city: "Patna",
+    state: "Bihar",
+    status: "Active",
+    tier: "Gold Franchise",
+    registeredAt: "10 Jan 2026",
+    leadsCount: 512,
+    revenueStr: "₹3.84L",
+    activeTasks: 38,
+  },
+  {
+    id: "p-102",
+    partnerId: "P-102",
+    name: "Kanhaiya",
+    shortName: "P-102 • Kanhaiya",
+    email: "kanhaiya@finsocap.com",
+    phone: "7011340730",
+    city: "Noida",
+    state: "Uttar Pradesh",
+    status: "Active",
+    tier: "Silver Franchise",
+    registeredAt: "14 Jan 2026",
+    leadsCount: 224,
+    revenueStr: "₹1.48L",
+    activeTasks: 18,
+  },
+  {
+    id: "p-103",
+    partnerId: "P-103",
+    name: "Gaurav Sharma",
+    shortName: "P-103 • Gaurav",
+    email: "gaurav.sharma@finsocap.com",
+    phone: "9312345678",
+    city: "Mumbai",
+    state: "Maharashtra",
+    status: "Active",
+    tier: "Gold Franchise",
+    registeredAt: "22 Jan 2026",
+    leadsCount: 286,
+    revenueStr: "₹2.12L",
+    activeTasks: 22,
+  },
+  {
+    id: "p-104",
+    partnerId: "P-104",
+    name: "Roshan Enterprises",
+    shortName: "P-104 • Roshan",
+    email: "roshan@finsocap.com",
+    phone: "9998887776",
+    city: "Bengaluru",
+    state: "Karnataka",
+    status: "Active",
+    tier: "Bronze Franchise",
+    registeredAt: "05 Feb 2026",
+    leadsCount: 136,
+    revenueStr: "₹88K",
+    activeTasks: 12,
+  },
+  {
+    id: "p-105",
+    partnerId: "P-105",
+    name: "Roshni Roy",
+    shortName: "P-105 • Roshni",
+    email: "roshni.roy@finsocap.com",
+    phone: "8887776655",
+    city: "Kolkata",
+    state: "West Bengal",
+    status: "Active",
+    tier: "Bronze Franchise",
+    registeredAt: "18 Feb 2026",
+    leadsCount: 90,
+    revenueStr: "₹40.5K",
+    activeTasks: 6,
+  },
+];
+
 interface CrmData {
   services: ServiceModel[];
   tasks: TaskModel[];
   users: UserModel[];
   licences: LicenceModel[];
   manualClients: ClientModel[];
+  partners: PartnerModel[];
 }
 
 function loadInitialData(): CrmData {
@@ -154,6 +256,7 @@ function loadInitialData(): CrmData {
       users: defaultUsers,
       licences: defaultLicences,
       manualClients: [],
+      partners: defaultPartners,
     };
   }
 
@@ -171,6 +274,7 @@ function loadInitialData(): CrmData {
         users: parsed.users && parsed.users.length > 0 ? parsed.users : defaultUsers,
         licences: hasFullLicences ? storedLicences : defaultLicences,
         manualClients: parsed.manualClients || [],
+        partners: parsed.partners && parsed.partners.length > 0 ? parsed.partners : defaultPartners,
       };
     }
   } catch (e) {
@@ -183,6 +287,7 @@ function loadInitialData(): CrmData {
     users: defaultUsers,
     licences: defaultLicences,
     manualClients: [],
+    partners: defaultPartners,
   };
 }
 
@@ -207,6 +312,7 @@ const serverSnapshot: CrmData = {
   users: defaultUsers,
   licences: defaultLicences,
   manualClients: [],
+  partners: defaultPartners,
 };
 
 function getServerSnapshot(): CrmData {
@@ -440,6 +546,20 @@ export function useCrmStore() {
     }));
   }, []);
 
+  const updateUser = useCallback((id: number, updates: Partial<UserModel>) => {
+    updateStore((prev) => ({
+      ...prev,
+      users: prev.users.map((u) => (u.id === id ? { ...u, ...updates } : u)),
+    }));
+  }, []);
+
+  const deleteUser = useCallback((id: number) => {
+    updateStore((prev) => ({
+      ...prev,
+      users: prev.users.filter((u) => u.id !== id),
+    }));
+  }, []);
+
   const addClient = useCallback((client: { name: string; phone: string; business: string; partner: string }) => {
     updateStore((prev) => {
       const newClient: ClientModel = {
@@ -512,11 +632,62 @@ export function useCrmStore() {
     return Array.from(map.values());
   }, [data.manualClients, data.tasks]);
 
+  const addPartner = useCallback((partner: Omit<PartnerModel, "id" | "leadsCount" | "revenueStr" | "activeTasks">) => {
+    updateStore((prev) => {
+      const generatedId = `p-${Date.now()}`;
+      const partnerId = partner.partnerId?.trim() || `P-${100 + prev.partners.length + 1}`;
+      const newPartner: PartnerModel = {
+        ...partner,
+        id: generatedId,
+        partnerId,
+        leadsCount: 0,
+        revenueStr: "₹0",
+        activeTasks: 0,
+        status: partner.status || "Active",
+        registeredAt: partner.registeredAt || new Date().toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" }),
+      };
+      return {
+        ...prev,
+        partners: [newPartner, ...prev.partners],
+      };
+    });
+  }, []);
+
+  const updatePartner = useCallback((partnerId: string, updates: Partial<PartnerModel>) => {
+    updateStore((prev) => ({
+      ...prev,
+      partners: prev.partners.map((p) =>
+        p.partnerId === partnerId || p.id === partnerId
+          ? { ...p, ...updates }
+          : p
+      ),
+    }));
+  }, []);
+
+  const togglePartnerStatus = useCallback((partnerId: string) => {
+    updateStore((prev) => ({
+      ...prev,
+      partners: prev.partners.map((p) =>
+        p.partnerId === partnerId || p.id === partnerId
+          ? { ...p, status: p.status === "Active" ? "Deactivated" : "Active" }
+          : p
+      ),
+    }));
+  }, []);
+
+  const deletePartner = useCallback((partnerId: string) => {
+    updateStore((prev) => ({
+      ...prev,
+      partners: prev.partners.filter((p) => p.partnerId !== partnerId && p.id !== partnerId),
+    }));
+  }, []);
+
   return {
     services: data.services,
     tasks: data.tasks,
     users: data.users,
     licences: data.licences,
+    partners: data.partners,
     allClients,
     addService,
     updateService,
@@ -532,8 +703,14 @@ export function useCrmStore() {
     updateLicence,
     deleteLicence,
     addUser,
+    updateUser,
+    deleteUser,
     toggleUserStatus,
     addClient,
     updateClient,
+    addPartner,
+    updatePartner,
+    togglePartnerStatus,
+    deletePartner,
   };
 }

@@ -8,9 +8,11 @@ import {
   ChevronRight, ShieldCheck, Settings, LogOut, 
   Receipt, AlertCircle, Building, CreditCard, 
   Clock, Users, IndianRupee, Sparkles,
-  MessageSquare, Radio, CheckSquare, Command, Menu
+  MessageSquare, Radio, CheckSquare, Command, Menu,
+  Sun, Moon
 } from "lucide-react";
 import { soundEffects } from "@/lib/soundEffects";
+import { useTheme } from "@/components/Providers/ThemeProvider";
 
 type NotificationItem = {
   id: string;
@@ -24,6 +26,7 @@ type NotificationItem = {
 
 export default function Topbar({ user }: { user?: any }) {
   const router = useRouter();
+  const { resolvedMode, toggleTheme } = useTheme();
 
   // Dropdown states
   const [isNotifOpen, setIsNotifOpen] = useState(false);
@@ -239,15 +242,8 @@ export default function Topbar({ user }: { user?: any }) {
       </div>
 
       {/* 2. RIGHT CONTROLS */}
-      <div className="flex items-center gap-3 sm:gap-4">
+      <div className="flex items-center gap-2.5 sm:gap-4">
         
-        {/* Franchise Live Kiosk Chip */}
-        <div className="hidden lg:flex items-center gap-2 px-3 py-1.5 rounded-2xl bg-emerald-500/10 dark:bg-emerald-950/40 border border-emerald-500/25 text-emerald-700 dark:text-emerald-400 text-xs font-bold">
-          <span className="w-2 h-2 rounded-full bg-emerald-500 radar-live-dot" />
-          <span>48 Kiosks Online</span>
-        </div>
-
-
         {/* Notification Center */}
         <div ref={notifRef} className="relative">
           <button 
@@ -272,7 +268,7 @@ export default function Topbar({ user }: { user?: any }) {
 
           {/* NOTIFICATION CENTER MODAL */}
           {isNotifOpen && (
-            <div className="absolute right-0 top-full mt-3 w-84 sm:w-96 bg-white dark:bg-[#0d1527] rounded-3xl shadow-2xl border border-slate-200 dark:border-slate-800 overflow-hidden z-50 animate-in fade-in zoom-in-95 duration-150">
+            <div className="fixed sm:absolute left-4 right-4 sm:left-auto sm:right-0 top-[75px] sm:top-full mt-0 sm:mt-3 w-auto sm:w-96 max-w-[calc(100vw-2rem)] bg-white dark:bg-[#0d1527] rounded-3xl shadow-2xl border border-slate-200 dark:border-slate-800 overflow-hidden z-50 animate-in fade-in zoom-in-95 duration-150">
               
               {/* Header */}
               <div className="px-5 py-4 border-b border-slate-100 dark:border-slate-800 bg-slate-50/80 dark:bg-slate-900/80 flex items-center justify-between">
@@ -435,7 +431,7 @@ export default function Topbar({ user }: { user?: any }) {
 
           {/* USER PROFILE DROPDOWN PANEL */}
           {isProfileOpen && (
-            <div className="absolute right-0 top-full mt-3 w-72 bg-white dark:bg-[#0d1527] rounded-3xl shadow-2xl border border-slate-200 dark:border-slate-800 overflow-hidden z-50 animate-in fade-in zoom-in-95 duration-150">
+            <div className="fixed sm:absolute left-4 right-4 sm:left-auto sm:right-0 top-[75px] sm:top-full mt-0 sm:mt-3 w-auto sm:w-72 max-w-[calc(100vw-2rem)] bg-white dark:bg-[#0d1527] rounded-3xl shadow-2xl border border-slate-200 dark:border-slate-800 overflow-hidden z-50 animate-in fade-in zoom-in-95 duration-150">
               
               <div className="p-4 bg-gradient-to-br from-blue-50 via-slate-50 to-indigo-50 dark:from-slate-900 dark:via-[#0c1427] dark:to-blue-950/40 border-b border-slate-100 dark:border-slate-800">
                 <div className="flex items-center gap-3">

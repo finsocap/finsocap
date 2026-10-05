@@ -17,7 +17,7 @@ import { useTheme } from "@/components/Providers/ThemeProvider";
 export default function TaskDetailsClient({ id }: { id: string }) {
   const router = useRouter();
   const { config } = useTheme();
-  const { completeTask: completeTaskInStore } = useCrmStore();
+  const { completeTask: completeTaskInStore, services, partners } = useCrmStore();
 
   const [task, setTask] = useState<TaskItem | null>(null);
   const [loading, setLoading] = useState(true);
@@ -26,7 +26,7 @@ export default function TaskDetailsClient({ id }: { id: string }) {
   const [statusDropdownOpen, setStatusDropdownOpen] = useState(false);
   const [toastMsg, setToastMsg] = useState<string | null>(null);
 
-  // Mark Task as Completed Modal State (Screenshot 1 Exact Match)
+  // Mark Task as Completed Modal State (Screenshot 1 & Screenshot 2 Exact Match)
   const [isCompleteModalOpen, setIsCompleteModalOpen] = useState(false);
   const [licenceType, setLicenceType] = useState<"Permanent Licence" | "Renewal Licence">("Permanent Licence");
   const [completeCategory, setCompleteCategory] = useState("Compliance");
@@ -37,6 +37,7 @@ export default function TaskDetailsClient({ id }: { id: string }) {
   const [completeUserId, setCompleteUserId] = useState("UPFSSAI123");
   const [completePassword, setCompletePassword] = useState("Abc@1234");
   const [showCompletePassword, setShowCompletePassword] = useState(false);
+  const [completePartnerId, setCompletePartnerId] = useState("P-101");
   const [completePartnerName, setCompletePartnerName] = useState("");
   const [completePartnerNumber, setCompletePartnerNumber] = useState("");
   const [completeClientName, setCompleteClientName] = useState("");
@@ -71,6 +72,7 @@ export default function TaskDetailsClient({ id }: { id: string }) {
   const [editDueDate, setEditDueDate] = useState("");
   const [editStatus, setEditStatus] = useState<TaskStatus>("Pending");
   const [editAssignedTo, setEditAssignedTo] = useState("Rahul Jha");
+  const [editPartnerId, setEditPartnerId] = useState("P-101");
   const [editPartnerName, setEditPartnerName] = useState("");
   const [editPartnerContact, setEditPartnerContact] = useState("");
 
@@ -84,6 +86,7 @@ export default function TaskDetailsClient({ id }: { id: string }) {
     setEditDueDate(task.dueDate);
     setEditStatus(task.status);
     setEditAssignedTo(task.assignedTo?.name || "Rahul Jha");
+    setEditPartnerId(task.partnerId || "P-101");
     setEditPartnerName(task.partnerName);
     setEditPartnerContact(task.partnerContact);
     setIsEditTaskModalOpen(true);
@@ -100,6 +103,7 @@ export default function TaskDetailsClient({ id }: { id: string }) {
       serviceName: editService.trim(),
       dueDate: editDueDate,
       status: editStatus,
+      partnerId: editPartnerId,
       partnerName: editPartnerName.trim(),
       partnerContact: editPartnerContact.trim(),
       assignedTo: {
@@ -129,6 +133,7 @@ export default function TaskDetailsClient({ id }: { id: string }) {
         setCertName(`${data.serviceName} Certificate`);
         setCertNumber(`${data.serviceName.slice(0, 4).toUpperCase()}-2026-${Math.floor(1000 + Math.random() * 9000)}`);
         setCertFileName(`${data.serviceName.replace(/\s+/g, "_")}_Official_Certificate.pdf`);
+        setCompletePartnerId(data.partnerId || "P-101");
         setCompletePartnerName(data.partnerName || "Rahul Jha");
         setCompletePartnerNumber(data.partnerContact || "9873207632");
         setCompleteClientName(data.clientName || "Amit Kumar");
@@ -542,7 +547,7 @@ export default function TaskDetailsClient({ id }: { id: string }) {
                   onClick={() => setStatusDropdownOpen(false)}
                   aria-hidden="true"
                 />
-                <div className="absolute right-0 top-full mt-2 w-56 bg-white dark:bg-[#0c1427] border border-slate-200 dark:border-slate-800 rounded-2xl shadow-2xl z-50 py-1.5 divide-y divide-slate-100 dark:divide-slate-800 animate-in fade-in zoom-in-95 duration-150">
+                <div className="absolute left-1/2 -translate-x-1/2 sm:translate-x-0 sm:left-auto sm:right-0 top-full mt-2 w-56 max-w-[calc(100vw-2rem)] bg-white dark:bg-[#0c1427] border border-slate-200 dark:border-slate-800 rounded-2xl shadow-2xl z-50 py-1.5 divide-y divide-slate-100 dark:divide-slate-800 animate-in fade-in zoom-in-95 duration-150">
                   {statusOptions.map((opt) => (
                     <button
                       key={opt.status}
@@ -1223,7 +1228,7 @@ export default function TaskDetailsClient({ id }: { id: string }) {
                   <span>Basic Details</span>
                 </div>
 
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                <div className="grid grid-cols-1 sm:grid-cols-4 gap-3">
                   <div>
                     <label className="block text-[11px] font-bold text-slate-600 dark:text-slate-400 mb-1">
                       Task ID
@@ -1234,6 +1239,30 @@ export default function TaskDetailsClient({ id }: { id: string }) {
                       value={task.id}
                       className="w-full px-3 py-2 bg-slate-100 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 rounded-xl font-mono font-bold text-slate-500 dark:text-slate-400"
                     />
+                  </div>
+                  <div>
+                    <label className="block text-[11px] font-bold text-slate-600 dark:text-slate-400 mb-1">
+                      Partner ID
+                    </label>
+                    <select
+                      value={completePartnerId}
+                      onChange={(e) => {
+                        const pid = e.target.value;
+                        setCompletePartnerId(pid);
+                        const found = partners.find((p) => p.partnerId === pid);
+                        if (found) {
+                          setCompletePartnerName(found.name);
+                          setCompletePartnerNumber(found.phone);
+                        }
+                      }}
+                      className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl font-mono font-bold text-slate-900 dark:text-white"
+                    >
+                      {partners.map((p) => (
+                        <option key={p.partnerId} value={p.partnerId}>
+                          {p.partnerId}
+                        </option>
+                      ))}
+                    </select>
                   </div>
                   <div>
                     <label className="block text-[11px] font-bold text-slate-600 dark:text-slate-400 mb-1">
@@ -1379,30 +1408,40 @@ export default function TaskDetailsClient({ id }: { id: string }) {
                     </label>
                     <select
                       value={completeCategory}
-                      onChange={(e) => setCompleteCategory(e.target.value)}
+                      onChange={(e) => {
+                        const cat = e.target.value;
+                        setCompleteCategory(cat);
+                        const match = services.find((s) => s.category === cat);
+                        if (match) setCompleteServiceName(match.name);
+                      }}
                       className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl font-semibold cursor-pointer"
                     >
-                      <option value="Compliance">Compliance</option>
-                      <option value="Taxation">Taxation</option>
-                      <option value="Food & Beverage">Food & Beverage</option>
-                      <option value="Intellectual Property">Intellectual Property</option>
-                      <option value="Business Compliance">Business Compliance</option>
-                      <option value="Import Export">Import Export</option>
-                      <option value="Digital Services">Digital Services</option>
-                      <option value="Business Growth">Business Growth</option>
+                      {Array.from(new Set(services.map((s) => s.category))).map((c) => (
+                        <option key={c} value={c}>{c}</option>
+                      ))}
                     </select>
                   </div>
 
                   <div>
                     <label className="block text-[11px] font-bold text-slate-600 dark:text-slate-400 mb-1">
-                      Service Name
+                      Service Name * (Catalog Only)
                     </label>
-                    <input
-                      type="text"
+                    <select
                       value={completeServiceName}
-                      onChange={(e) => setCompleteServiceName(e.target.value)}
-                      className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl font-semibold text-slate-900 dark:text-white"
-                    />
+                      onChange={(e) => {
+                        const name = e.target.value;
+                        setCompleteServiceName(name);
+                        const match = services.find((s) => s.name === name);
+                        if (match) setCompleteCategory(match.category);
+                      }}
+                      className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl font-semibold text-slate-900 dark:text-white cursor-pointer"
+                    >
+                      {services.map((s) => (
+                        <option key={s.id} value={s.name}>
+                          {s.name}
+                        </option>
+                      ))}
+                    </select>
                   </div>
 
                   <div>
@@ -1644,15 +1683,25 @@ export default function TaskDetailsClient({ id }: { id: string }) {
 
                 <div>
                   <label className="block text-[11px] font-bold text-slate-500 mb-1">
-                    Service Name *
+                    Service Name * (Catalog Only)
                   </label>
-                  <input
-                    type="text"
+                  <select
                     required
                     value={editService}
-                    onChange={(e) => setEditService(e.target.value)}
-                    className="w-full px-3.5 py-2 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-semibold text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500/20"
-                  />
+                    onChange={(e) => {
+                      const val = e.target.value;
+                      setEditService(val);
+                      const match = services.find((s) => s.name === val);
+                      if (match) setEditCategory(match.category);
+                    }}
+                    className="w-full px-3.5 py-2 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-semibold text-slate-900 dark:text-white cursor-pointer"
+                  >
+                    {services.map((s) => (
+                      <option key={s.id} value={s.name}>
+                        {s.name} ({s.category})
+                      </option>
+                    ))}
+                  </select>
                 </div>
               </div>
 
@@ -1695,7 +1744,32 @@ export default function TaskDetailsClient({ id }: { id: string }) {
                 </div>
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                <div>
+                  <label className="block text-[11px] font-bold text-slate-500 mb-1">
+                    Partner ID
+                  </label>
+                  <select
+                    value={editPartnerId}
+                    onChange={(e) => {
+                      const pid = e.target.value;
+                      setEditPartnerId(pid);
+                      const found = partners.find((p) => p.partnerId === pid);
+                      if (found) {
+                        setEditPartnerName(found.name);
+                        setEditPartnerContact(found.phone);
+                      }
+                    }}
+                    className="w-full px-3.5 py-2 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-mono font-bold text-slate-900 dark:text-white cursor-pointer"
+                  >
+                    {partners.map((p) => (
+                      <option key={p.partnerId} value={p.partnerId}>
+                        {p.partnerId} • {p.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
                 <div>
                   <label className="block text-[11px] font-bold text-slate-500 mb-1">
                     Partner Name

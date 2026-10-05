@@ -21,7 +21,8 @@ export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,
   maximumScale: 5,
-  themeColor: "#0e1c44",
+  themeColor: "#ffffff",
+  colorScheme: "light",
 };
 
 export const metadata: Metadata = {
@@ -46,8 +47,9 @@ export default function RootLayout({
       lang="en"
       suppressHydrationWarning
       className={`${jakartaSans.variable} ${jetbrainsMono.variable} h-full antialiased`}
+      style={{ colorScheme: "light" }}
     >
-      <body className="min-h-full flex flex-col bg-[#f4f6fa] dark:bg-[#090e1a] text-slate-800 dark:text-slate-100 font-sans transition-colors duration-200 selection:bg-blue-600 selection:text-white">
+      <body className="min-h-full flex flex-col bg-[#f4f6fa] text-slate-800 font-sans transition-colors duration-200 selection:bg-blue-600 selection:text-white">
         <ThemeProvider>
           <AuthProvider>
             <GlobalTopProgressBar />

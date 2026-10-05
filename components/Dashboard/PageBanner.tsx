@@ -64,7 +64,7 @@ export default function PageBanner({
 
         {/* Right Action / Controls - Elevated z-index so dropdowns float over bottom sub-bar */}
         {actions && (
-          <div className="relative z-30 flex flex-wrap items-center gap-2.5 shrink-0">
+          <div className="relative z-30 flex flex-col sm:flex-row sm:flex-wrap items-stretch sm:items-center gap-2.5 w-full sm:w-auto shrink-0">
             {actions}
           </div>
         )}
