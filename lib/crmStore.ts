@@ -344,6 +344,33 @@ function updateStore(updater: (prev: CrmData) => CrmData) {
   listeners.forEach((listener) => listener());
 }
 
+// Fetch live database updates on load
+let hasFetchedFromApi = false;
+async function fetchLiveDbData() {
+  if (typeof window === "undefined" || hasFetchedFromApi) return;
+  hasFetchedFromApi = true;
+
+  try {
+    const [servicesRes, tasksRes, partnersRes] = await Promise.all([
+      api.get<ServiceModel[]>("/services"),
+      api.get<TaskModel[]>("/tasks"),
+      api.get<PartnerModel[]>("/partners"),
+    ]);
+
+    if (servicesRes.success && Array.isArray(servicesRes.data) && servicesRes.data.length > 0) {
+      updateStore((prev) => ({ ...prev, services: servicesRes.data! }));
+    }
+    if (tasksRes.success && Array.isArray(tasksRes.data) && tasksRes.data.length > 0) {
+      updateStore((prev) => ({ ...prev, tasks: tasksRes.data! }));
+    }
+    if (partnersRes.success && Array.isArray(partnersRes.data) && partnersRes.data.length > 0) {
+      updateStore((prev) => ({ ...prev, partners: partnersRes.data! }));
+    }
+  } catch (err) {
+    console.warn("Live API background sync fallback:", err);
+  }
+}
+
 if (typeof window !== "undefined") {
   window.addEventListener("storage", (e) => {
     if (e.key === "finsocap-crm-data") {
@@ -351,10 +378,17 @@ if (typeof window !== "undefined") {
       listeners.forEach((listener) => listener());
     }
   });
+
+  // Initial fetch from live API
+  setTimeout(fetchLiveDbData, 300);
 }
 
 export function useCrmStore() {
   const data = useSyncExternalStore(subscribe, getSnapshot, getServerSnapshot);
+
+  useEffect(() => {
+    fetchLiveDbData();
+  }, []);
 
   // Actions
   const addService = useCallback((service: Omit<ServiceModel, "id">) => {
