@@ -24,7 +24,6 @@ import {
   ShieldCheck,
   TrendingUp,
   Handshake,
-  Smartphone,
   X
 } from "lucide-react";
 import DeveloperProfileModal from "../Global/DeveloperProfileModal";
@@ -173,7 +172,6 @@ export default function Sidebar({ userRole = "ADMIN" }: { userRole?: string }) {
     { label: "Tasks", href: "/dashboard/tasks", icon: ClipboardList, badge: openTasksCount > 0 ? `${openTasksCount}` : undefined },
     { label: "Task Allocation", href: "/dashboard/allocation", icon: UserCheck, badge: unassignedTasksCount > 0 ? `${unassignedTasksCount}` : undefined },
     { label: "Partners", href: "/dashboard/partners", icon: Handshake },
-    { label: "Partner App UI", href: "/dashboard/mobile-app", icon: Smartphone },
     { label: "Clients", href: "/dashboard/clients", icon: Users },
     { label: "Team", href: "/dashboard/team", icon: ShieldCheck },
   ];

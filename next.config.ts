@@ -1,19 +1,11 @@
 import type { NextConfig } from "next";
 
-const isProd = process.env.NODE_ENV === "production";
-const basePath = process.env.NEXT_PUBLIC_BASE_PATH ?? (isProd ? "/finsocap" : "");
-
+// Vercel deployment root configuration
 const nextConfig: NextConfig = {
-  output: "export",
-  basePath: basePath || undefined,
-  assetPrefix: basePath ? `${basePath}/` : undefined,
   images: {
     unoptimized: true,
   },
-  trailingSlash: true,
-  env: {
-    NEXT_PUBLIC_BASE_PATH: basePath,
-  },
+  trailingSlash: false,
 };
 
 export default nextConfig;

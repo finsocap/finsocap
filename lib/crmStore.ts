@@ -1,6 +1,5 @@
-"use client";
-
-import { useSyncExternalStore, useCallback, useMemo } from "react";
+import { useSyncExternalStore, useCallback, useMemo, useEffect } from "react";
+import { api } from "./apiClient";
 
 export interface ServiceModel {
   id: number;
@@ -416,6 +415,9 @@ export function useCrmStore() {
         tasks: [newTask, ...prev.tasks],
       };
     });
+
+    // Synchronize to standalone backend REST API
+    api.post("/tasks", task).catch(() => {});
   }, []);
 
   const updateTaskStatus = useCallback((id: string, newStatus: TaskModel["status"]) => {
@@ -423,6 +425,9 @@ export function useCrmStore() {
       ...prev,
       tasks: prev.tasks.map((t) => (t.id === id ? { ...t, status: newStatus } : t)),
     }));
+
+    // Synchronize to standalone backend REST API
+    api.put(`/tasks/${id}`, { status: newStatus }).catch(() => {});
   }, []);
 
   const assignTask = useCallback((id: string, assignee: string, priority: TaskModel["priority"], due: string) => {
@@ -507,6 +512,21 @@ export function useCrmStore() {
         licences: [newLicence, ...prev.licences.filter((l) => l.number !== newLicence.number)],
       };
     });
+
+    // Synchronize to standalone backend REST API
+    api.post(`/tasks/${taskId}/complete`, {
+      licenseNumber: licenceInfo.number,
+      clientName: licenceInfo.client,
+      clientNumber: licenceInfo.phone,
+      partnerName: licenceInfo.partner,
+      partnerNumber: licenceInfo.partnerPhone,
+      serviceName: licenceInfo.service,
+      type: licenceInfo.type,
+      issueDate: licenceInfo.issue,
+      expiryDate: licenceInfo.expiry,
+      portalUser: licenceInfo.user,
+      portalPassword: licenceInfo.password,
+    }).catch(() => {});
   }, []);
 
   const updateLicence = useCallback((licenceNumber: string, updated: Partial<LicenceModel>) => {
@@ -548,6 +568,9 @@ export function useCrmStore() {
         users: [...prev.users, newUser],
       };
     });
+
+    // Synchronize to standalone backend REST API
+    api.post("/crm/users", user).catch(() => {});
   }, []);
 
   const toggleUserStatus = useCallback((id: number) => {
@@ -564,6 +587,9 @@ export function useCrmStore() {
       ...prev,
       users: prev.users.map((u) => (u.id === id ? { ...u, ...updates } : u)),
     }));
+
+    // Synchronize to standalone backend REST API
+    api.put(`/crm/users/${id}`, updates).catch(() => {});
   }, []);
 
   const deleteUser = useCallback((id: number) => {
@@ -571,6 +597,9 @@ export function useCrmStore() {
       ...prev,
       users: prev.users.filter((u) => u.id !== id),
     }));
+
+    // Synchronize to standalone backend REST API
+    api.delete(`/crm/users/${id}`).catch(() => {});
   }, []);
 
   const addClient = useCallback((client: { name: string; phone: string; business: string; partner: string }) => {
@@ -586,6 +615,9 @@ export function useCrmStore() {
         manualClients: [newClient, ...prev.manualClients],
       };
     });
+
+    // Synchronize to standalone backend REST API
+    api.post("/crm/clients", client).catch(() => {});
   }, []);
 
   const updateClient = useCallback((oldName: string, updates: Partial<ClientModel>) => {
@@ -664,6 +696,9 @@ export function useCrmStore() {
         partners: [newPartner, ...prev.partners],
       };
     });
+
+    // Synchronize to standalone backend REST API
+    api.post("/partners/register", partner).catch(() => {});
   }, []);
 
   const updatePartner = useCallback((partnerId: string, updates: Partial<PartnerModel>) => {
@@ -675,6 +710,9 @@ export function useCrmStore() {
           : p
       ),
     }));
+
+    // Synchronize to standalone backend REST API
+    api.put(`/partners/${partnerId}`, updates).catch(() => {});
   }, []);
 
   const togglePartnerStatus = useCallback((partnerId: string) => {
@@ -686,6 +724,9 @@ export function useCrmStore() {
           : p
       ),
     }));
+
+    // Synchronize to standalone backend REST API
+    api.patch(`/partners/${partnerId}/toggle-status`).catch(() => {});
   }, []);
 
   const deletePartner = useCallback((partnerId: string) => {

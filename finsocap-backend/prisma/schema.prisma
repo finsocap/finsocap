@@ -1,0 +1,446 @@
+// =======================================================
+// Prisma Schema for Finsocap MySQL Database
+// Serves both Web Dashboard and Flutter Mobile App
+// =======================================================
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+// -------------------------------------------------------
+// 1. ADMIN & SERVICE TEAM USERS
+// -------------------------------------------------------
+enum UserRole {
+  Admin
+  Manager
+  Executive
+  CA
+  CS
+  LegalExecutive
+}
+
+enum UserStatus {
+  Active
+  Deactivated
+}
+
+model User {
+  id          Int        @id @default(autoincrement())
+  name        String
+  email       String     @unique
+  phone       String
+  password    String     // Hashed with bcrypt
+  role        String     @default("Executive")
+  dept        String     @default("Operations")
+  skill       String     @default("Compliance")
+  skills      String?    @db.Text // JSON or comma separated service names
+  status      UserStatus @default(Active)
+  access      String     @default("Employee") // Employee | Admin | Manager
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+
+  assignedTasks Task[]   @relation("TaskAssignee")
+  salesTasks    Task[]   @relation("TaskSales")
+
+  @@map("users")
+}
+
+// -------------------------------------------------------
+// 2. FRANCHISE PARTNERS (Registered via Flutter App / Admin)
+// -------------------------------------------------------
+enum PartnerStatus {
+  Active
+  Pending      // Newly registered awaiting admin approval
+  Deactivated
+}
+
+model Partner {
+  id                  String        @id @default(uuid())
+  partnerId           String        @unique // e.g. P-101, P-102
+  name                String
+  shortName           String
+  phone               String        @unique // acts as login User ID
+  userId              String?       @unique // defaults to phone
+  email               String?
+  password            String?       // Hashed password for Flutter App
+  dob                 String?
+  shopName            String?
+  currentAddress      String?       @db.Text // GPS exact coordinates or landmark
+  completeShopAddress String?       @db.Text
+  panNumber           String?
+  adhaarNumber        String?
+  city                String        @default("Patna")
+  state               String        @default("Bihar")
+  tier                String        @default("Gold Franchise")
+  status              PartnerStatus @default(Pending)
+  registeredAt        String?
+  leadsCount          Int           @default(0)
+  revenueStr          String        @default("₹0")
+  activeTasks         Int           @default(0)
+  createdAt           DateTime      @default(now())
+  updatedAt           DateTime      @updatedAt
+
+  documents           PartnerDocument[]
+  tasks               Task[]
+  clients             Client[]
+  licences            Licence[]
+  wallet              Wallet?
+
+  @@map("partners")
+}
+
+model PartnerDocument {
+  id         String   @id @default(uuid())
+  partnerId  String
+  type       String   // panDoc | adhaarDoc | shopDoc
+  fileName   String
+  fileUrl    String
+  createdAt  DateTime @default(now())
+
+  partner    Partner  @relation(fields: [partnerId], references: [id], onDelete: Cascade)
+
+  @@map("partner_documents")
+}
+
+// -------------------------------------------------------
+// 3. PRODUCTS & SERVICES CATALOG
+// -------------------------------------------------------
+enum ServiceStatus {
+  Active
+  Inactive
+  Draft
+}
+
+model Service {
+  id          Int           @id @default(autoincrement())
+  name        String        @unique
+  category    String
+  recurring   Boolean       @default(false)
+  frequency   String        @default("One Time") // One Time | Monthly | Yearly
+  price       Float         @default(0)
+  gov         Float         @default(0)
+  time        String        @default("3 - 5 Days")
+  status      ServiceStatus @default(Active)
+  description String?       @db.Text
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+
+  tasks       Task[]
+
+  @@map("services")
+}
+
+// -------------------------------------------------------
+// 4. CLIENTS
+// -------------------------------------------------------
+model Client {
+  id        String   @id @default(uuid())
+  name      String
+  phone     String
+  business  String?
+  partner   String?  // Partner name or ID
+  partnerId String?
+  tasks     Int      @default(0)
+  last      String?
+  status    String   @default("Active")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  partnerRef Partner? @relation(fields: [partnerId], references: [id], onDelete: SetNull)
+  taskList   Task[]
+
+  @@map("clients")
+}
+
+// -------------------------------------------------------
+// 5. TASKS / SERVICE APPLICATIONS
+// -------------------------------------------------------
+enum TaskStatus {
+  Pending
+  InProgress
+  SentForReview
+  PendingFromClient
+  PendingFromDepartment
+  Completed
+  Cancelled
+}
+
+enum TaskPriority {
+  High
+  Medium
+  Normal
+  Low
+}
+
+model Task {
+  id           String       @id // e.g. T-1001
+  partner      String       // Partner Name
+  partnerPhone String?
+  partnerId    String?      // Reference to Partner
+  client       String       // Client Name
+  phone        String       // Client Phone
+  business     String
+  category     String
+  service      String
+  serviceId    Int?
+  status       TaskStatus   @default(Pending)
+  date         String
+  due          String
+  assignee     String?
+  assigneeId   Int?
+  priority     TaskPriority @default(Normal)
+  sales        String?
+  salesId      Int?
+  license      String?
+  createdAt    DateTime     @default(now())
+  updatedAt    DateTime     @updatedAt
+
+  partnerRef   Partner?     @relation(fields: [partnerId], references: [id], onDelete: SetNull)
+  serviceRef   Service?     @relation(fields: [serviceId], references: [id], onDelete: SetNull)
+  clientRef    Client?      @relation(fields: [clientId], references: [id], onDelete: SetNull)
+  clientId     String?
+  assigneeUser User?        @relation("TaskAssignee", fields: [assigneeId], references: [id], onDelete: SetNull)
+  salesUser    User?        @relation("TaskSales", fields: [salesId], references: [id], onDelete: SetNull)
+
+  comments     TaskComment[]
+  files        TaskAttachment[]
+  licences     Licence[]
+
+  @@map("tasks")
+}
+
+model TaskComment {
+  id        String   @id @default(uuid())
+  taskId    String
+  author    String   @default("Admin")
+  text      String   @db.Text
+  createdAt DateTime @default(now())
+
+  task      Task     @relation(fields: [taskId], references: [id], onDelete: Cascade)
+
+  @@map("task_comments")
+}
+
+model TaskAttachment {
+  id        String   @id @default(uuid())
+  taskId    String
+  fileName  String
+  fileUrl   String
+  fileSize  String?
+  createdAt DateTime @default(now())
+
+  task      Task     @relation(fields: [taskId], references: [id], onDelete: Cascade)
+
+  @@map("task_attachments")
+}
+
+// -------------------------------------------------------
+// 6. LICENCES & COMPLIANCE CERTS
+// -------------------------------------------------------
+enum LicenceStatus {
+  Active
+  ExpiringSoon
+  ExpiringIn30Days
+  Expired
+}
+
+model Licence {
+  id               String        @id @default(uuid())
+  task             String        // e.g. T-1001
+  taskId           String?
+  partner          String
+  partnerPhone     String?
+  partnerNumber    String?
+  partnerId        String?
+  client           String
+  clientName       String?
+  phone            String
+  clientNumber     String?
+  type             String
+  category         String
+  service          String
+  number           String        @unique // License number
+  issue            String
+  issueDate        String?
+  expiry           String
+  expiryDate       String?
+  user             String
+  userId           String?
+  password         String?
+  status           LicenceStatus @default(Active)
+  url              Boolean       @default(true)
+  files            Int           @default(1)
+  attachmentsCount Int           @default(1)
+  assignedTo       String?
+  createdAt        DateTime      @default(now())
+  updatedAt        DateTime      @updatedAt
+
+  taskRef          Task?         @relation(fields: [taskId], references: [id], onDelete: SetNull)
+  partnerRef       Partner?      @relation(fields: [partnerId], references: [id], onDelete: SetNull)
+
+  @@map("licences")
+}
+
+// -------------------------------------------------------
+// 7. NOTIFICATIONS
+// -------------------------------------------------------
+enum NotificationType {
+  chat
+  support
+  blog
+  task
+  social
+  payment
+  invoice
+  service
+  compliance
+}
+
+model Notification {
+  id        String           @id @default(uuid())
+  type      NotificationType @default(compliance)
+  title     String
+  message   String           @db.Text
+  time      String?
+  isRead    Boolean          @default(false)
+  actionUrl String           @default("/dashboard")
+  createdAt DateTime         @default(now())
+
+  @@map("notifications")
+}
+
+// -------------------------------------------------------
+// 8. BLOG POSTS (Marketing & SEO)
+// -------------------------------------------------------
+model BlogPost {
+  id          String   @id @default(uuid())
+  slug        String   @unique
+  title       String
+  excerpt     String?  @db.Text
+  content     String   @db.LongText
+  category    String   @default("Finance")
+  author      String   @default("FinSoCap Editorial")
+  tags        String?  // comma separated
+  coverImage  String?
+  published   Boolean  @default(false)
+  publishedAt DateTime?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@map("blog_posts")
+}
+
+// -------------------------------------------------------
+// 9. WALLETS, LEDGERS & QR PAYMENTS (Flutter App & Dashboard)
+// -------------------------------------------------------
+enum TransactionType {
+  CREDIT
+  DEBIT
+}
+
+enum TransactionStatus {
+  SUCCESS
+  PENDING
+  FAILED
+}
+
+model Wallet {
+  id           String        @id @default(uuid())
+  partnerId    String        @unique
+  balance      Float         @default(0.0) // Net balance in wallet
+  pendingDues  Float         @default(0.0) // Unsettled FinSoCap share
+  lifetimeEarn Float         @default(0.0)
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+
+  partner      Partner       @relation(fields: [partnerId], references: [id], onDelete: Cascade)
+  transactions Transaction[]
+
+  @@map("wallets")
+}
+
+model Transaction {
+  id          String            @id @default(uuid())
+  walletId    String
+  amount      Float
+  type        TransactionType   @default(CREDIT)
+  status      TransactionStatus @default(SUCCESS)
+  description String
+  referenceId String?           // UPI reference or Task ID
+  utrNumber   String?           // Bank UTR
+  createdAt   DateTime          @default(now())
+
+  wallet      Wallet            @relation(fields: [walletId], references: [id], onDelete: Cascade)
+
+  @@map("transactions")
+}
+
+// -------------------------------------------------------
+// 10. DIGITAL SIGNATURE CERTIFICATES (DSC HUB)
+// -------------------------------------------------------
+enum DscStatus {
+  Active
+  ExpiringSoon
+  Expired
+}
+
+model DscRecord {
+  id                  String    @id @default(uuid())
+  dscNumber           String    @unique // e.g. DSC-801
+  holderName          String
+  pan                 String
+  businessName        String
+  dscClass            String    @default("Class 3 - Combo (Sign & Encrypt)")
+  usbSerial           String    // e.g. HYP2003-89410
+  certifyingAuthority String    @default("eMudhra") // eMudhra | Vsign | Capricorn | Sify
+  expiryDate          String
+  daysRemaining       Int       @default(365)
+  status              DscStatus @default(Active)
+  createdAt           DateTime  @default(now())
+  updatedAt           DateTime  @updatedAt
+
+  @@map("dsc_records")
+}
+
+// -------------------------------------------------------
+// 11. LIVE CHAT & SUPPORT MESSAGING
+// -------------------------------------------------------
+enum ChatType {
+  DIRECT
+  GROUP
+  VISITOR
+}
+
+model Conversation {
+  id        String    @id @default(uuid())
+  type      ChatType  @default(DIRECT)
+  name      String?   // Group name or Visitor name
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+
+  messages  Message[]
+
+  @@map("chat_conversations")
+}
+
+model Message {
+  id             String       @id @default(uuid())
+  conversationId String
+  senderId       String
+  senderName     String       @default("User")
+  senderRole     String       @default("Executive")
+  text           String       @db.Text
+  isDelivered    Boolean      @default(true)
+  isRead         Boolean      @default(false)
+  createdAt      DateTime     @default(now())
+
+  conversation   Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+
+  @@map("chat_messages")
+}
+
