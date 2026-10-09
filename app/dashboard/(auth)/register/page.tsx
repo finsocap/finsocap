@@ -187,7 +187,7 @@ export default function RegisterPage() {
                   Request Submitted!
                 </h2>
                 <p className="text-xs sm:text-sm text-slate-600 font-medium max-w-sm mx-auto leading-relaxed">
-                  Aapka registration request submit ho chuka hai. Hamare administrator ke pass approval request bhej di gayi hai.
+                  Your branch application has been submitted successfully. An approval request has been sent to our administration team for review.
                 </p>
               </div>
 

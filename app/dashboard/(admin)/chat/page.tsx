@@ -526,8 +526,8 @@ export default function ChatPage() {
   if (session && userRole === "WRITER") {
     return (
       <AccessDenied 
-        title="You Don't Have Access to Live Chat"
-        description="Aapke paas Live Chat ka access nahi hai. Ye section administrators aur managers ke liye reserved hai."
+        title="Access Denied to Live Chat"
+        description="You do not have permission to access Live Chat. This section is reserved for administrators and operations managers."
       />
     );
   }

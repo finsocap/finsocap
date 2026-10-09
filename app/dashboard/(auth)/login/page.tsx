@@ -356,11 +356,11 @@ export default function LoginPage() {
             </div>
 
             <h3 className="text-xl font-black text-slate-900 mb-2">
-              Admin Not Accepted Your Request
+              Account Approval Pending
             </h3>
 
             <p className="text-xs sm:text-sm text-slate-600 leading-relaxed mb-5">
-              Aapka registration request submit ho chuka hai, lekin administrator ne abhi tak aapka account accept/approve nahi kiya hai. Jab admin approve karenge, tabhi aap dashboard me login kar payenge.
+              Your franchise registration request has been submitted successfully. However, your account is currently awaiting review and approval by an administrator. Once approved, you will be able to sign in to the dashboard.
             </p>
 
             <div className="p-3.5 bg-slate-50 rounded-2xl border border-slate-200/70 text-xs text-slate-600 mb-5 text-left space-y-1.5">
@@ -383,7 +383,7 @@ export default function LoginPage() {
                 onClick={() => setShowNotApprovedModal(false)}
                 className="w-full py-3.5 px-5 rounded-2xl bg-gradient-to-r from-[#1b2b5a] to-[#243b78] hover:opacity-95 text-white font-bold text-sm transition-all shadow-md active:scale-[0.98]"
               >
-                Theek Hai / Understood
+                Understood
               </button>
               <a
                 href="mailto:care@finsocap.com?subject=Finsocap%20Account%20Approval%20Inquiry"
