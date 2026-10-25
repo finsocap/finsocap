@@ -304,10 +304,10 @@ export default function AllocationPage() {
                     </div>
                     <div>
                       <h4 className="text-xs font-black text-slate-900 dark:text-white leading-tight">
-                        Client Uploaded Documents
+                        Partner Uploaded Documents
                       </h4>
                       <p className="text-[10px] text-slate-500 dark:text-slate-400">
-                        Submitted by partner ({selectedTask.partner}) for {selectedTask.client}
+                        Uploaded by partner ({selectedTask.partner}) for client work ({selectedTask.client})
                       </p>
                     </div>
                   </div>
@@ -649,7 +649,7 @@ export default function AllocationPage() {
                     {previewDoc}
                   </h3>
                   <p className="text-[10px] text-slate-400">
-                    Uploaded by client partner · Verified Government Proof
+                    Uploaded by partner for client work · Verified Proof
                   </p>
                 </div>
               </div>
