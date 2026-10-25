@@ -279,9 +279,24 @@ function loadInitialData(): CrmData {
       const storedLicences: LicenceModel[] = parsed.licences || [];
       const hasFullLicences = storedLicences.length >= 10 && storedLicences.some((l) => !!l.password);
       
+      // Ensure tasks are merged so enriched client documents & unassigned requests are always active
+      const storedTasks: TaskModel[] = parsed.tasks && parsed.tasks.length > 0 ? parsed.tasks : defaultTasks;
+      const mergedTasks = storedTasks.map((st) => {
+        const def = defaultTasks.find((dt) => dt.id === st.id);
+        if (def && (!st.files || st.files.length === 0)) {
+          return { ...st, files: def.files };
+        }
+        return st;
+      });
+      // If no tasks were unassigned in stored cache, re-include default unassigned tasks
+      const hasUnassigned = mergedTasks.some((t) => !t.assignee && t.status !== "Completed");
+      const finalTasks = hasUnassigned 
+        ? mergedTasks 
+        : [...defaultTasks.filter((dt) => !dt.assignee), ...mergedTasks.filter((t) => t.assignee)];
+
       return {
         services: parsed.services && parsed.services.length > 0 ? parsed.services : defaultServices,
-        tasks: parsed.tasks && parsed.tasks.length > 0 ? parsed.tasks : defaultTasks,
+        tasks: finalTasks,
         users: parsed.users && parsed.users.length > 0 ? parsed.users : defaultUsers,
         licences: hasFullLicences ? storedLicences : defaultLicences,
         manualClients: parsed.manualClients || [],

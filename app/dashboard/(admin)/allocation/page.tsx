@@ -570,6 +570,7 @@ export default function AllocationPage() {
                     <th className="py-2.5 px-3">TASK ID</th>
                     <th className="py-2.5 px-3">CLIENT</th>
                     <th className="py-2.5 px-3">SERVICE</th>
+                    <th className="py-2.5 px-3">DOCUMENTS</th>
                     <th className="py-2.5 px-3">ASSIGNED TO</th>
                     <th className="py-2.5 px-3">STATUS</th>
                     <th className="py-2.5 px-3 text-right">ACTION</th>
@@ -586,6 +587,21 @@ export default function AllocationPage() {
                       </td>
                       <td className="py-2 px-3 text-slate-600 dark:text-slate-300">
                         {task.service}
+                      </td>
+                      <td className="py-2 px-3">
+                        {task.files && task.files.length > 0 ? (
+                          <button
+                            type="button"
+                            onClick={() => setPreviewDoc(task.files[0])}
+                            className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-blue-50 dark:bg-blue-950/60 text-blue-600 dark:text-sky-300 border border-blue-200/60 hover:bg-blue-600 hover:text-white transition-colors cursor-pointer"
+                            title={task.files.join(", ")}
+                          >
+                            <Paperclip className="w-2.5 h-2.5" />
+                            <span>{task.files.length} Docs</span>
+                          </button>
+                        ) : (
+                          <span className="text-[10px] text-slate-400 font-normal">None</span>
+                        )}
                       </td>
                       <td className="py-2 px-3 text-slate-700 dark:text-slate-300">
                         <span className="inline-flex items-center gap-1.5 font-bold">
