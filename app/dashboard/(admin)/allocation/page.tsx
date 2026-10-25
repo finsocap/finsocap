@@ -17,7 +17,17 @@ import {
   User,
   Inbox,
   CheckCircle,
-  HelpCircle
+  HelpCircle,
+  Paperclip,
+  Eye,
+  Download,
+  FileSpreadsheet,
+  FileImage,
+  FileCode,
+  ShieldCheck,
+  Building2,
+  Phone,
+  X
 } from "lucide-react";
 import Link from "next/link";
 import AllocationInfographic from "@/components/Charts/AllocationInfographic";
@@ -33,10 +43,14 @@ export default function AllocationPage() {
   const [priority, setPriority] = useState<"High" | "Normal" | "Low">("Normal");
   const [dueDate, setDueDate] = useState<string>("2026-10-05");
   const [note, setNote] = useState<string>("");
+  const [previewDoc, setPreviewDoc] = useState<string | null>(null);
 
   const unassignedTasks = useMemo(() => {
     return tasks.filter((t) => !t.assignee && t.status !== "Completed");
   }, [tasks]);
+
+  // Auto-select first unassigned task if available and none selected
+  const activeSelectedTaskId = selectedTaskId || (unassignedTasks.length > 0 ? unassignedTasks[0].id : "");
 
   const assignedTasks = useMemo(() => {
     return tasks.filter((t) => Boolean(t.assignee));
@@ -51,8 +65,8 @@ export default function AllocationPage() {
   }, [tasks]);
 
   const selectedTask = useMemo(() => {
-    return unassignedTasks.find((t) => t.id === selectedTaskId);
-  }, [unassignedTasks, selectedTaskId]);
+    return unassignedTasks.find((t) => t.id === activeSelectedTaskId);
+  }, [unassignedTasks, activeSelectedTaskId]);
 
   const qualifiedUsers = useMemo(() => {
     if (!selectedTask) return users.filter((u) => u.status === "Active");
@@ -251,12 +265,19 @@ export default function AllocationPage() {
             
             {/* Select Task */}
             <div className="space-y-1">
-              <label className="text-xs font-bold text-slate-700 dark:text-slate-300">
-                Select Task *
-              </label>
+              <div className="flex items-center justify-between">
+                <label className="text-xs font-bold text-slate-700 dark:text-slate-300">
+                  Select Task *
+                </label>
+                {selectedTask && (
+                  <span className="text-[10px] font-bold text-blue-600 dark:text-sky-400">
+                    {selectedTask.business || selectedTask.client}
+                  </span>
+                )}
+              </div>
               <div className="relative">
                 <select
-                  value={selectedTaskId}
+                  value={activeSelectedTaskId}
                   onChange={(e) => setSelectedTaskId(e.target.value)}
                   className="w-full px-3.5 py-2.5 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-semibold focus:outline-none cursor-pointer"
                 >
@@ -273,6 +294,80 @@ export default function AllocationPage() {
               </div>
             </div>
 
+            {/* Client & Partner Uploaded Documents Card (Exact Feature Request) */}
+            {selectedTask && (
+              <div className="p-3.5 bg-gradient-to-br from-blue-50/70 via-indigo-50/40 to-slate-50 dark:from-slate-900 dark:via-blue-950/20 dark:to-slate-900 rounded-2xl border border-blue-200/80 dark:border-blue-900/40 space-y-2.5 animate-in fade-in duration-200">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <div className="w-6 h-6 rounded-lg bg-blue-600 text-white flex items-center justify-center shadow-xs">
+                      <Paperclip className="w-3.5 h-3.5" />
+                    </div>
+                    <div>
+                      <h4 className="text-xs font-black text-slate-900 dark:text-white leading-tight">
+                        Client Uploaded Documents
+                      </h4>
+                      <p className="text-[10px] text-slate-500 dark:text-slate-400">
+                        Submitted by partner ({selectedTask.partner}) for {selectedTask.client}
+                      </p>
+                    </div>
+                  </div>
+                  <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-blue-100 text-blue-700 dark:bg-blue-900/60 dark:text-sky-300">
+                    {selectedTask.files.length} {selectedTask.files.length === 1 ? "File" : "Files"}
+                  </span>
+                </div>
+
+                {selectedTask.files.length === 0 ? (
+                  <div className="p-2.5 text-center bg-white/80 dark:bg-slate-800/60 rounded-xl border border-dashed border-slate-200 dark:border-slate-700 text-[11px] text-slate-400">
+                    No documents attached with this request yet.
+                  </div>
+                ) : (
+                  <div className="space-y-1.5 max-h-40 overflow-y-auto pr-1">
+                    {selectedTask.files.map((file, idx) => {
+                      const isPdf = file.toLowerCase().endsWith(".pdf");
+                      const isImg = file.toLowerCase().match(/\.(jpg|jpeg|png|webp)$/);
+                      return (
+                        <div
+                          key={idx}
+                          className="flex items-center justify-between p-2 rounded-xl bg-white dark:bg-slate-800/80 border border-slate-200/80 dark:border-slate-700 text-xs hover:border-blue-300 transition-colors"
+                        >
+                          <div className="flex items-center gap-2 min-w-0 pr-2">
+                            {isPdf ? (
+                              <FileText className="w-4 h-4 text-rose-500 shrink-0" />
+                            ) : isImg ? (
+                              <FileImage className="w-4 h-4 text-emerald-500 shrink-0" />
+                            ) : (
+                              <Paperclip className="w-4 h-4 text-blue-500 shrink-0" />
+                            )}
+                            <span className="font-bold text-slate-800 dark:text-slate-200 truncate text-[11px]">
+                              {file}
+                            </span>
+                          </div>
+                          <div className="flex items-center gap-1 shrink-0">
+                            <button
+                              type="button"
+                              onClick={() => setPreviewDoc(file)}
+                              title="Preview Document"
+                              className="w-6 h-6 rounded-lg bg-sky-50 dark:bg-sky-950/60 text-sky-600 dark:text-sky-400 hover:bg-sky-500 hover:text-white flex items-center justify-center transition-colors cursor-pointer"
+                            >
+                              <Eye className="w-3 h-3" />
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => toast.success(`Downloading ${file}...`, "Download Started")}
+                              title="Download Document"
+                              className="w-6 h-6 rounded-lg bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300 hover:bg-blue-600 hover:text-white flex items-center justify-center transition-colors cursor-pointer"
+                            >
+                              <Download className="w-3 h-3" />
+                            </button>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            )}
+
             {/* Assign to Employee */}
             <div className="space-y-1">
               <label className="text-xs font-bold text-slate-700 dark:text-slate-300">
@@ -284,7 +379,7 @@ export default function AllocationPage() {
                   onChange={(e) => setSelectedAssignee(e.target.value)}
                   className="w-full px-3.5 py-2.5 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-semibold focus:outline-none cursor-pointer"
                 >
-                  <option value="Ankit Kumar">Ankit Kumar (Executive — Knowledge: Food & Beverage, Compliance, ...)</option>
+                  <option value="">-- Choose certified specialist --</option>
                   {qualifiedUsers.map((u) => (
                     <option key={u.id} value={u.name}>
                       {u.name} ({u.role} — Knowledge: {u.skills?.join(", ") || u.skill})
@@ -339,8 +434,8 @@ export default function AllocationPage() {
                 placeholder="Add any special notes or filing instructions for the assignee..."
                 value={note}
                 onChange={(e) => setNote(e.target.value)}
-                rows={3}
-                className="w-full px-4 py-2.5 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl text-xs min-h-[92px] focus:outline-none resize-none"
+                rows={2}
+                className="w-full px-4 py-2 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl text-xs min-h-[72px] focus:outline-none resize-none"
               />
             </div>
 
@@ -361,11 +456,14 @@ export default function AllocationPage() {
           {/* Table 1: Unassigned Tasks */}
           <div className="bg-white dark:bg-[#0c1427] rounded-3xl border border-slate-200/90 dark:border-slate-800 p-5 shadow-sm space-y-3">
             <div className="flex items-center justify-between pb-1">
-              <h3 className="font-black text-slate-900 dark:text-white text-sm tracking-tight">
-                Unassigned Tasks
+              <h3 className="font-black text-slate-900 dark:text-white text-sm tracking-tight flex items-center gap-2">
+                <span>Unassigned Tasks</span>
+                <span className="text-[10px] font-bold text-slate-400">
+                  (Click row to allocate)
+                </span>
               </h3>
               <span className="text-[10px] font-bold text-amber-700 dark:text-amber-400 px-2.5 py-0.5 rounded-full bg-amber-50 dark:bg-amber-950/60 border border-amber-300/40">
-                0 pending allocation
+                {unassignedTasks.length} pending allocation
               </span>
             </div>
 
@@ -376,22 +474,79 @@ export default function AllocationPage() {
                     <th className="py-2.5 px-3">TASK ID</th>
                     <th className="py-2.5 px-3">CLIENT</th>
                     <th className="py-2.5 px-3">SERVICE</th>
+                    <th className="py-2.5 px-3">DOCUMENTS</th>
                     <th className="py-2.5 px-3">FRANCHISE PARTNER</th>
                     <th className="py-2.5 px-3">DUE DATE</th>
                     <th className="py-2.5 px-3 text-right">ACTION</th>
                   </tr>
                 </thead>
-                <tbody>
-                  <tr>
-                    <td colSpan={6} className="py-6 text-center text-slate-400">
-                      <div className="w-9 h-9 rounded-xl bg-slate-50 dark:bg-slate-900 mx-auto flex items-center justify-center text-slate-400 mb-1.5 border border-slate-100 dark:border-slate-800">
-                        <Inbox className="w-4 h-4" />
-                      </div>
-                      <p className="text-xs font-semibold text-slate-500 dark:text-slate-400">
-                        All tasks are assigned! Great job.
-                      </p>
-                    </td>
-                  </tr>
+                <tbody className="divide-y divide-slate-100 dark:divide-slate-800/60 font-medium">
+                  {unassignedTasks.length === 0 ? (
+                    <tr>
+                      <td colSpan={7} className="py-6 text-center text-slate-400">
+                        <div className="w-9 h-9 rounded-xl bg-slate-50 dark:bg-slate-900 mx-auto flex items-center justify-center text-slate-400 mb-1.5 border border-slate-100 dark:border-slate-800">
+                          <Inbox className="w-4 h-4" />
+                        </div>
+                        <p className="text-xs font-semibold text-slate-500 dark:text-slate-400">
+                          All tasks are assigned! Great job.
+                        </p>
+                      </td>
+                    </tr>
+                  ) : (
+                    unassignedTasks.map((t) => {
+                      const isSelected = t.id === activeSelectedTaskId;
+                      return (
+                        <tr
+                          key={t.id}
+                          onClick={() => setSelectedTaskId(t.id)}
+                          className={`cursor-pointer transition-all ${
+                            isSelected
+                              ? "bg-blue-50/80 dark:bg-blue-950/40 font-bold border-l-4 border-l-blue-600"
+                              : "hover:bg-slate-50/80 dark:hover:bg-slate-800/40"
+                          }`}
+                        >
+                          <td className="py-2.5 px-3 font-bold text-blue-600 dark:text-sky-400">
+                            {t.id}
+                          </td>
+                          <td className="py-2.5 px-3">
+                            <span className="font-bold text-slate-900 dark:text-white block">
+                              {t.client}
+                            </span>
+                            <span className="text-[10px] text-slate-400 block font-normal">
+                              {t.business}
+                            </span>
+                          </td>
+                          <td className="py-2.5 px-3 text-slate-700 dark:text-slate-300">
+                            {t.service}
+                          </td>
+                          <td className="py-2.5 px-3">
+                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-blue-50 dark:bg-blue-950/60 text-blue-600 dark:text-sky-400 border border-blue-200 dark:border-blue-900/40">
+                              <Paperclip className="w-3 h-3" />
+                              <span>{t.files.length} Docs</span>
+                            </span>
+                          </td>
+                          <td className="py-2.5 px-3 text-slate-600 dark:text-slate-400">
+                            {t.partner}
+                          </td>
+                          <td className="py-2.5 px-3 text-slate-500 font-mono text-[11px]">
+                            {t.due}
+                          </td>
+                          <td className="py-2.5 px-3 text-right">
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setSelectedTaskId(t.id);
+                              }}
+                              className="px-2.5 py-1 rounded-lg text-xs font-bold bg-blue-600 hover:bg-blue-700 text-white cursor-pointer shadow-xs transition-colors"
+                            >
+                              Assign
+                            </button>
+                          </td>
+                        </tr>
+                      );
+                    })
+                  )}
                 </tbody>
               </table>
             </div>
@@ -404,7 +559,7 @@ export default function AllocationPage() {
                 Recently Assigned Tasks
               </h3>
               <span className="text-[10px] font-bold text-emerald-700 dark:text-emerald-400 px-2.5 py-0.5 rounded-full bg-emerald-50 dark:bg-emerald-950/60 border border-emerald-300/40">
-                8 active
+                {assignedTasks.length} active
               </span>
             </div>
 
@@ -421,13 +576,7 @@ export default function AllocationPage() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100 dark:divide-slate-800/60 font-medium">
-                  {[
-                    { id: "T-1001", client: "Amit Kumar", service: "FSSAI Registration (Basic)", assignee: "Ankit Kumar", status: "Pending" },
-                    { id: "T-1002", client: "Neha Verma", service: "GST Registration", assignee: "Pooja Mehta", status: "In Progress" },
-                    { id: "T-1003", client: "Rohit Sharma", service: "Shop Act / Trade License", assignee: "Neha Verma", status: "See Full Review" },
-                    { id: "T-1004", client: "Pooja Mehta", service: "FSSAI State License", assignee: "Ankit Kumar", status: "Pending from Client" },
-                    { id: "T-1005", client: "Vikram Singh", service: "Import Export (IEC Registration)", assignee: "Gaurav Sharma", status: "Pending from Department" },
-                  ].map((task) => (
+                  {assignedTasks.slice(0, 6).map((task) => (
                     <tr key={task.id} className="hover:bg-slate-50/80 dark:hover:bg-slate-800/40 transition-colors">
                       <td className="py-2 px-3 font-bold text-blue-600 dark:text-sky-400">
                         {task.id}
@@ -439,17 +588,25 @@ export default function AllocationPage() {
                         {task.service}
                       </td>
                       <td className="py-2 px-3 text-slate-700 dark:text-slate-300">
-                        {task.assignee}
+                        <span className="inline-flex items-center gap-1.5 font-bold">
+                          <span className="w-5 h-5 rounded-full bg-blue-500/10 text-blue-600 dark:text-sky-400 text-[10px] font-black flex items-center justify-center">
+                            {task.assignee.charAt(0)}
+                          </span>
+                          <span>{task.assignee}</span>
+                        </span>
                       </td>
-                      <td className="py-3 px-3">
+                      <td className="py-2 px-3">
                         <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold ${getStatusBadge(task.status)}`}>
                           {task.status}
                         </span>
                       </td>
-                      <td className="py-3 px-3 text-right">
-                        <button className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200">
+                      <td className="py-2 px-3 text-right">
+                        <Link
+                          href={`/dashboard/tasks/${task.id}`}
+                          className="text-slate-400 hover:text-blue-600 dark:hover:text-sky-400 inline-flex items-center"
+                        >
                           <ChevronRight className="w-4 h-4 ml-auto" />
-                        </button>
+                        </Link>
                       </td>
                     </tr>
                   ))}
@@ -461,6 +618,76 @@ export default function AllocationPage() {
         </div>
 
       </div>
+
+      {/* Document Quick Preview Modal */}
+      {previewDoc && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-in fade-in">
+          <div className="bg-white dark:bg-[#0c1427] border border-slate-200 dark:border-slate-800 rounded-3xl p-6 w-full max-w-lg shadow-2xl relative space-y-4">
+            <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-800">
+              <div className="flex items-center gap-2.5">
+                <div className="w-9 h-9 rounded-xl bg-blue-50 dark:bg-blue-950/60 text-blue-600 dark:text-sky-400 flex items-center justify-center font-bold">
+                  <FileText className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="text-sm font-black text-slate-900 dark:text-white truncate max-w-xs">
+                    {previewDoc}
+                  </h3>
+                  <p className="text-[10px] text-slate-400">
+                    Uploaded by client partner · Verified Government Proof
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setPreviewDoc(null)}
+                className="w-8 h-8 rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-400 hover:text-slate-700 dark:hover:text-white flex items-center justify-center cursor-pointer transition-colors"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            {/* Simulated Verified Document Card */}
+            <div className="p-6 bg-slate-50 dark:bg-slate-900/80 rounded-2xl border border-slate-200 dark:border-slate-800 text-center space-y-3">
+              <div className="w-14 h-14 rounded-2xl bg-blue-600/10 text-blue-600 dark:text-sky-400 mx-auto flex items-center justify-center border border-blue-500/20">
+                <ShieldCheck className="w-7 h-7" />
+              </div>
+              <div>
+                <p className="text-xs font-black text-slate-900 dark:text-white">
+                  {previewDoc}
+                </p>
+                <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">
+                  UIDAI / Income Tax Department / Commercial Power Proof
+                </p>
+              </div>
+              <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-50 dark:bg-emerald-950/50 text-emerald-600 dark:text-emerald-400 text-[10px] font-bold border border-emerald-200 dark:border-emerald-800/40">
+                <CheckCircle2 className="w-3.5 h-3.5" />
+                <span>Legible & Verified Document Attachment</span>
+              </div>
+            </div>
+
+            <div className="flex items-center justify-end gap-2 pt-2">
+              <button
+                type="button"
+                onClick={() => setPreviewDoc(null)}
+                className="px-4 py-2 rounded-xl text-xs font-bold text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 cursor-pointer"
+              >
+                Close
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  toast.success(`Downloading ${previewDoc}...`, "Downloaded");
+                  setPreviewDoc(null);
+                }}
+                className="btn-primary-vibrant text-xs py-2 px-4 cursor-pointer inline-flex items-center gap-1.5"
+              >
+                <Download className="w-3.5 h-3.5" />
+                <span>Download Document</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
     </div>
   );
