@@ -157,7 +157,7 @@ export default function LeadsRevenueChart({
   };
 
   return (
-    <div className="bg-white dark:bg-[#0c1427] rounded-2xl border border-slate-200/90 dark:border-slate-800 p-5 shadow-sm flex flex-col justify-between h-full relative">
+    <div className="bg-white dark:bg-[#0c1427] rounded-3xl border border-slate-200/90 dark:border-slate-800 p-5 shadow-sm flex flex-col justify-between h-full relative">
       {/* Chart Header */}
       <div className="flex items-center justify-between gap-3 border-b border-slate-100 dark:border-slate-800/80 pb-3">
         <div className="flex items-center gap-2">

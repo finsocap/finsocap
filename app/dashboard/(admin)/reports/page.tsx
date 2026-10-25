@@ -12,6 +12,8 @@ import {
 } from "lucide-react";
 import DateRangeFilter from "@/components/Dashboard/DateRangeFilter";
 import { useCrmStore, LicenceModel } from "@/lib/crmStore";
+import { useToast } from "@/components/Global/ToastNotification";
+import ModalHeaderBanner from "@/components/Dashboard/ModalHeaderBanner";
 
 // ============================================================================
 // DATA MODELS & MOCK DATA (100% Exact Match with User Screenshots)
@@ -168,8 +170,8 @@ function ReportsPageContent() {
   const [selectedLicenceModal, setSelectedLicenceModal] = useState<LicenceRow | null>(null);
   const [modifyModalLicence, setModifyModalLicence] = useState<LicenceRow | null>(null);
   const [deleteConfirmLicence, setDeleteConfirmLicence] = useState<LicenceRow | null>(null);
+  const toast = useToast();
   const [copiedKey, setCopiedKey] = useState<string | null>(null);
-  const [toastMsg, setToastMsg] = useState<string | null>(null);
 
   // Modify form states
   const [editNumber, setEditNumber] = useState("");
@@ -184,8 +186,7 @@ function ReportsPageContent() {
   const [showEditPassword, setShowEditPassword] = useState(false);
 
   const showToast = (msg: string) => {
-    setToastMsg(msg);
-    setTimeout(() => setToastMsg(null), 3000);
+    toast.success(msg, "Success!");
   };
 
   const handleOpenModify = (lic: LicenceRow) => {
@@ -935,76 +936,184 @@ function ReportsPageContent() {
           </div>
 
           {/* Middle 3 Visuals Row: Donut 1 + Donut 2 + Bar Chart matching Screenshot 2 */}
+          {/* Middle 3 Visuals Row: Donut 1 + Donut 2 + Bar Chart matching colorful Donut screenshot */}
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-5">
-            {/* Donut 1: Task Status (Franchise Partner) */}
+            {/* Donut 1: Task Status (Franchise Partner) - Colorful segmented donut */}
             <div className="lg:col-span-4 bg-white dark:bg-[#0c1427] rounded-3xl border border-slate-200/90 dark:border-slate-800 p-5 shadow-sm flex flex-col justify-between">
-              <div className="border-b border-slate-100 dark:border-slate-800 pb-2.5">
+              <div className="border-b border-slate-100 dark:border-slate-800 pb-2.5 flex items-center justify-between">
                 <h3 className="font-black text-slate-900 dark:text-white text-sm tracking-tight flex items-center gap-2">
-                  <span className="w-2 h-2 rounded-full bg-purple-500" />
+                  <span className="w-2.5 h-2.5 rounded-full bg-purple-500 ring-4 ring-purple-500/20" />
                   <span>Task Status (Franchise Partner)</span>
                 </h3>
+                <span className="text-[10px] font-black uppercase tracking-wider text-purple-600 bg-purple-50 dark:bg-purple-950/60 px-2 py-0.5 rounded-lg border border-purple-200/50">
+                  Performance
+                </span>
               </div>
 
-              <div className="flex items-center justify-around py-4">
-                <div 
-                  className="relative w-32 h-32 rounded-full flex items-center justify-center shrink-0 shadow-inner" 
-                  style={{ background: "conic-gradient(#10b981 0% 89.1%, #f59e0b 89.1% 100%)" }}
-                >
-                  <div className="w-22 h-22 rounded-full bg-white dark:bg-[#0c1427] flex flex-col items-center justify-center shadow-xs">
-                    <span className="text-xl font-black text-slate-900 dark:text-white leading-none">660</span>
-                    <span className="text-[9px] text-slate-400 font-bold uppercase mt-0.5">Tasks</span>
+              <div className="flex flex-col sm:flex-row items-center justify-around py-4 gap-4">
+                {/* SVG Segmented Donut matching Screenshot 1 Donut style */}
+                <div className="relative w-36 h-36 flex items-center justify-center shrink-0">
+                  <svg viewBox="0 0 120 120" className="w-full h-full transform -rotate-90">
+                    {/* Background circle track */}
+                    <circle cx="60" cy="60" r="46" fill="transparent" stroke="#f1f5f9" strokeWidth="15" className="dark:stroke-slate-800" />
+                    
+                    {/* Segment 1: Completed Tasks (89.1% -> ~257.5px) Emerald */}
+                    <circle
+                      cx="60"
+                      cy="60"
+                      r="46"
+                      fill="transparent"
+                      stroke="#10b981"
+                      strokeWidth="15"
+                      strokeDasharray="255 289"
+                      strokeDashoffset="0"
+                      strokeLinecap="round"
+                      className="transition-all duration-700 drop-shadow-xs"
+                    />
+                    
+                    {/* Segment 2: In Progress / Pending Tasks (10.9% -> ~31.5px) Amber/Orange */}
+                    <circle
+                      cx="60"
+                      cy="60"
+                      r="46"
+                      fill="transparent"
+                      stroke="#f59e0b"
+                      strokeWidth="15"
+                      strokeDasharray="29 289"
+                      strokeDashoffset="-257"
+                      strokeLinecap="round"
+                      className="transition-all duration-700 drop-shadow-xs"
+                    />
+                  </svg>
+
+                  {/* Center Readout with Trend Badge */}
+                  <div className="absolute inset-0 flex flex-col items-center justify-center text-center pointer-events-none select-none">
+                    <span className="text-[8px] font-black uppercase tracking-wider text-slate-400">
+                      TOTAL
+                    </span>
+                    <span className="text-2xl font-black text-slate-900 dark:text-white leading-none mt-0.5">
+                      660
+                    </span>
+                    <span className="text-[9px] text-slate-400 font-bold uppercase mt-0.5">
+                      Tasks
+                    </span>
+                    <div className="mt-1 px-1.5 py-0.2 rounded-full bg-emerald-50 dark:bg-emerald-950/60 text-emerald-600 dark:text-emerald-400 text-[9px] font-black border border-emerald-500/20">
+                      89.1% Pass
+                    </div>
                   </div>
                 </div>
 
-                <div className="space-y-2.5 text-xs font-bold">
-                  <div className="flex items-center gap-2">
-                    <span className="w-2.5 h-2.5 rounded-full bg-emerald-500" />
-                    <span className="text-slate-600 dark:text-slate-300 text-[11px]">Completed Tasks</span>
-                    <span className="text-slate-900 dark:text-white font-black ml-auto">588</span>
-                    <span className="text-[10px] text-emerald-600">89.1%</span>
+                {/* Colorful Legend Cards */}
+                <div className="space-y-2 w-full sm:w-auto text-xs font-bold">
+                  <div className="flex items-center justify-between gap-3 p-2 rounded-xl bg-emerald-50/50 dark:bg-emerald-950/20 border border-emerald-200/60 dark:border-emerald-800/40">
+                    <div className="flex items-center gap-2">
+                      <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 shrink-0" />
+                      <span className="text-slate-700 dark:text-slate-300 text-[11px]">Completed Tasks</span>
+                    </div>
+                    <div className="flex items-center gap-1.5 ml-auto">
+                      <span className="text-slate-900 dark:text-white font-black text-xs">588</span>
+                      <span className="text-[10px] font-black text-emerald-600 bg-emerald-100/70 dark:bg-emerald-900/40 px-1.5 py-0.5 rounded-md">89.1%</span>
+                    </div>
                   </div>
-                  <div className="flex items-center gap-2">
-                    <span className="w-2.5 h-2.5 rounded-full bg-amber-500" />
-                    <span className="text-slate-600 dark:text-slate-300 text-[11px]">Pending Tasks</span>
-                    <span className="text-slate-900 dark:text-white font-black ml-auto">72</span>
-                    <span className="text-[10px] text-amber-600">10.9%</span>
+
+                  <div className="flex items-center justify-between gap-3 p-2 rounded-xl bg-amber-50/50 dark:bg-amber-950/20 border border-amber-200/60 dark:border-amber-800/40">
+                    <div className="flex items-center gap-2">
+                      <span className="w-2.5 h-2.5 rounded-full bg-amber-500 shrink-0" />
+                      <span className="text-slate-700 dark:text-slate-300 text-[11px]">Pending Tasks</span>
+                    </div>
+                    <div className="flex items-center gap-1.5 ml-auto">
+                      <span className="text-slate-900 dark:text-white font-black text-xs">72</span>
+                      <span className="text-[10px] font-black text-amber-600 bg-amber-100/70 dark:bg-amber-900/40 px-1.5 py-0.5 rounded-md">10.9%</span>
+                    </div>
                   </div>
                 </div>
               </div>
             </div>
 
-            {/* Donut 2: Collection Status (Franchise Partner) */}
+            {/* Donut 2: Collection Status (Franchise Partner) - Colorful segmented donut */}
             <div className="lg:col-span-4 bg-white dark:bg-[#0c1427] rounded-3xl border border-slate-200/90 dark:border-slate-800 p-5 shadow-sm flex flex-col justify-between">
-              <div className="border-b border-slate-100 dark:border-slate-800 pb-2.5">
+              <div className="border-b border-slate-100 dark:border-slate-800 pb-2.5 flex items-center justify-between">
                 <h3 className="font-black text-slate-900 dark:text-white text-sm tracking-tight flex items-center gap-2">
-                  <span className="w-2 h-2 rounded-full bg-sky-500" />
+                  <span className="w-2.5 h-2.5 rounded-full bg-blue-500 ring-4 ring-blue-500/20" />
                   <span>Collection Status (Franchise Partner)</span>
                 </h3>
+                <span className="text-[10px] font-black uppercase tracking-wider text-blue-600 bg-blue-50 dark:bg-blue-950/60 px-2 py-0.5 rounded-lg border border-blue-200/50">
+                  Revenue
+                </span>
               </div>
 
-              <div className="flex items-center justify-around py-4">
-                <div 
-                  className="relative w-32 h-32 rounded-full flex items-center justify-center shrink-0 shadow-inner" 
-                  style={{ background: "conic-gradient(#0ea5e9 0% 78.5%, #f97316 78.5% 100%)" }}
-                >
-                  <div className="w-22 h-22 rounded-full bg-white dark:bg-[#0c1427] flex flex-col items-center justify-center shadow-xs">
-                    <span className="text-sm font-black text-slate-900 dark:text-white leading-none">₹ 8,56,400</span>
-                    <span className="text-[9px] text-slate-400 font-bold uppercase mt-0.5">Total Fees</span>
+              <div className="flex flex-col sm:flex-row items-center justify-around py-4 gap-4">
+                {/* SVG Segmented Donut matching Screenshot 1 Donut style */}
+                <div className="relative w-36 h-36 flex items-center justify-center shrink-0">
+                  <svg viewBox="0 0 120 120" className="w-full h-full transform -rotate-90">
+                    {/* Background track */}
+                    <circle cx="60" cy="60" r="46" fill="transparent" stroke="#f1f5f9" strokeWidth="15" className="dark:stroke-slate-800" />
+                    
+                    {/* Segment 1: Amount Received (78.5% -> ~227px) Sky/Blue */}
+                    <circle
+                      cx="60"
+                      cy="60"
+                      r="46"
+                      fill="transparent"
+                      stroke="#0284c7"
+                      strokeWidth="15"
+                      strokeDasharray="225 289"
+                      strokeDashoffset="0"
+                      strokeLinecap="round"
+                      className="transition-all duration-700 drop-shadow-xs"
+                    />
+                    
+                    {/* Segment 2: Pending Amount (21.5% -> ~62px) Vibrant Rose/Orange */}
+                    <circle
+                      cx="60"
+                      cy="60"
+                      r="46"
+                      fill="transparent"
+                      stroke="#f97316"
+                      strokeWidth="15"
+                      strokeDasharray="59 289"
+                      strokeDashoffset="-227"
+                      strokeLinecap="round"
+                      className="transition-all duration-700 drop-shadow-xs"
+                    />
+                  </svg>
+
+                  {/* Center Readout with Total Fees */}
+                  <div className="absolute inset-0 flex flex-col items-center justify-center text-center pointer-events-none select-none">
+                    <span className="text-[8px] font-black uppercase tracking-wider text-slate-400">
+                      TOTAL FEES
+                    </span>
+                    <span className="text-sm font-black text-slate-900 dark:text-white leading-tight mt-0.5 px-2">
+                      ₹ 8.56L
+                    </span>
+                    <div className="mt-1 px-1.5 py-0.2 rounded-full bg-blue-50 dark:bg-blue-950/60 text-blue-600 dark:text-sky-400 text-[9px] font-black border border-blue-500/20">
+                      78.5% Recvd
+                    </div>
                   </div>
                 </div>
 
-                <div className="space-y-2.5 text-xs font-bold">
-                  <div className="flex items-center gap-2">
-                    <span className="w-2.5 h-2.5 rounded-full bg-sky-500" />
-                    <span className="text-slate-600 dark:text-slate-300 text-[11px]">Amount Received</span>
-                    <span className="text-[11px] text-sky-600 font-bold">₹ 6,72,300</span>
-                    <span className="text-[10px] text-emerald-600">78.5%</span>
+                {/* Colorful Legend Cards */}
+                <div className="space-y-2 w-full sm:w-auto text-xs font-bold">
+                  <div className="flex items-center justify-between gap-3 p-2 rounded-xl bg-blue-50/50 dark:bg-blue-950/20 border border-blue-200/60 dark:border-blue-800/40">
+                    <div className="flex items-center gap-2">
+                      <span className="w-2.5 h-2.5 rounded-full bg-sky-600 shrink-0" />
+                      <span className="text-slate-700 dark:text-slate-300 text-[11px]">Amount Received</span>
+                    </div>
+                    <div className="flex items-center gap-1.5 ml-auto">
+                      <span className="text-sky-700 dark:text-sky-400 font-black text-[11px]">₹ 6,72,300</span>
+                      <span className="text-[10px] font-black text-emerald-600 bg-emerald-100/70 dark:bg-emerald-900/40 px-1.5 py-0.5 rounded-md">78.5%</span>
+                    </div>
                   </div>
-                  <div className="flex items-center gap-2">
-                    <span className="w-2.5 h-2.5 rounded-full bg-amber-500" />
-                    <span className="text-slate-600 dark:text-slate-300 text-[11px]">Pending Amount</span>
-                    <span className="text-[11px] text-rose-500 font-bold">₹ 1,84,100</span>
-                    <span className="text-[10px] text-rose-500">21.5%</span>
+
+                  <div className="flex items-center justify-between gap-3 p-2 rounded-xl bg-orange-50/50 dark:bg-orange-950/20 border border-orange-200/60 dark:border-orange-800/40">
+                    <div className="flex items-center gap-2">
+                      <span className="w-2.5 h-2.5 rounded-full bg-orange-500 shrink-0" />
+                      <span className="text-slate-700 dark:text-slate-300 text-[11px]">Pending Amount</span>
+                    </div>
+                    <div className="flex items-center gap-1.5 ml-auto">
+                      <span className="text-rose-600 dark:text-rose-400 font-black text-[11px]">₹ 1,84,100</span>
+                      <span className="text-[10px] font-black text-rose-600 bg-rose-100/70 dark:bg-rose-900/40 px-1.5 py-0.5 rounded-md">21.5%</span>
+                    </div>
                   </div>
                 </div>
               </div>
@@ -1465,23 +1574,14 @@ function ReportsPageContent() {
       {selectedLicenceModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 backdrop-blur-xs p-4 animate-in fade-in">
           <div className="bg-white dark:bg-[#0c1427] rounded-3xl border border-slate-200/90 dark:border-slate-800 shadow-2xl max-w-lg w-full p-6 space-y-4">
-            <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-3">
-              <div>
-                <span className="text-[10px] font-mono font-bold text-blue-600 dark:text-sky-400">
-                  {selectedLicenceModal.taskId}
-                </span>
-                <h3 className="text-base font-black text-slate-900 dark:text-white">
-                  {selectedLicenceModal.clientName}
-                </h3>
-              </div>
-              <button
-                type="button"
-                onClick={() => setSelectedLicenceModal(null)}
-                className="w-8 h-8 rounded-full bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-slate-500 hover:text-slate-800 cursor-pointer"
-              >
-                <X className="w-4 h-4" />
-              </button>
-            </div>
+            <ModalHeaderBanner
+              icon={ShieldCheck}
+              badge="REGULATORY REGISTRY"
+              title={`Licence · ${selectedLicenceModal.clientName}`}
+              description={`Task ID: ${selectedLicenceModal.taskId} · ${selectedLicenceModal.serviceName} (${selectedLicenceModal.taskCategory})`}
+              badgeTag={selectedLicenceModal.status}
+              onClose={() => setSelectedLicenceModal(null)}
+            />
 
             <div className="grid grid-cols-2 gap-3 text-xs">
               <div className="p-3 rounded-2xl bg-slate-50 dark:bg-slate-900/60 border border-slate-100 dark:border-slate-800">
@@ -1557,24 +1657,14 @@ function ReportsPageContent() {
       {modifyModalLicence && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 backdrop-blur-xs p-4 animate-in fade-in">
           <div className="bg-white dark:bg-[#0c1427] rounded-3xl border border-slate-200 dark:border-slate-800 shadow-2xl max-w-xl w-full p-6 space-y-4">
-            <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-3">
-              <div className="flex items-center gap-2.5">
-                <div className="w-9 h-9 rounded-xl bg-amber-500/10 text-amber-600 flex items-center justify-center">
-                  <Edit3 className="w-5 h-5" />
-                </div>
-                <div>
-                  <h3 className="text-base font-black text-slate-900 dark:text-white">Modify Licence</h3>
-                  <p className="text-xs text-slate-400">Update regulatory record details and portal credentials</p>
-                </div>
-              </div>
-              <button
-                type="button"
-                onClick={() => setModifyModalLicence(null)}
-                className="w-8 h-8 rounded-full bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-slate-500 hover:text-slate-800 cursor-pointer"
-              >
-                <X className="w-4 h-4" />
-              </button>
-            </div>
+            <ModalHeaderBanner
+              icon={Edit3}
+              badge="STATUTORY AMENDMENT"
+              title="Modify Licence Details"
+              description="Update regulatory record details, validity dates, and government portal credentials."
+              badgeTag="Record Sync"
+              onClose={() => setModifyModalLicence(null)}
+            />
 
             <form onSubmit={handleSaveModify} className="space-y-4">
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
@@ -1710,13 +1800,17 @@ function ReportsPageContent() {
       {/* ==================================================================== */}
       {deleteConfirmLicence && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 backdrop-blur-xs p-4 animate-in fade-in">
-          <div className="bg-white dark:bg-[#0c1427] rounded-3xl border border-slate-200 dark:border-slate-800 shadow-2xl max-w-sm w-full p-6 text-center space-y-4">
-            <div className="w-12 h-12 rounded-2xl bg-rose-500/10 text-rose-500 flex items-center justify-center mx-auto">
-              <Trash2 className="w-6 h-6" />
-            </div>
+          <div className="bg-white dark:bg-[#0c1427] rounded-3xl border border-slate-200 dark:border-slate-800 shadow-2xl max-w-sm w-full p-6 space-y-4">
+            <ModalHeaderBanner
+              icon={Trash2}
+              badge="STATUTORY DEREGISTRATION"
+              title="Delete Licence Record"
+              description="Confirm irreversible deletion from analytics report rosters."
+              badgeTag="Irreversible"
+              onClose={() => setDeleteConfirmLicence(null)}
+            />
 
             <div>
-              <h3 className="text-base font-black text-slate-900 dark:text-white">Delete Licence Record?</h3>
               <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
                 Are you sure you want to delete licence{" "}
                 <span className="font-mono font-bold text-slate-800 dark:text-slate-200">
@@ -1743,14 +1837,6 @@ function ReportsPageContent() {
               </button>
             </div>
           </div>
-        </div>
-      )}
-
-      {/* Toast Notification */}
-      {toastMsg && (
-        <div className="fixed bottom-6 right-6 z-50 px-4 py-3 rounded-2xl bg-slate-900 dark:bg-white text-white dark:text-slate-900 text-xs font-bold shadow-2xl flex items-center gap-2 animate-in slide-in-from-bottom duration-200">
-          <Check className="w-4 h-4 text-emerald-400 dark:text-emerald-600" />
-          <span>{toastMsg}</span>
         </div>
       )}
 

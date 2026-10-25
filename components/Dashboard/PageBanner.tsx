@@ -23,11 +23,11 @@ export default function PageBanner({
   bottomMeta,
 }: PageBannerProps) {
   return (
-    <div className="relative rounded-2xl sm:rounded-3xl p-4 sm:p-5 lg:p-6 bg-gradient-to-br from-white via-blue-50/40 to-indigo-50/30 dark:from-[#0b1226] dark:via-[#0e1c44]/80 dark:to-[#080d1a] border border-blue-200/70 dark:border-blue-900/40 shadow-sm shadow-blue-500/5">
+    <div className="relative rounded-2xl sm:rounded-3xl p-4 sm:p-5 lg:p-6 bg-gradient-to-br from-white via-white to-blue-50/50 border border-slate-200/90 shadow-sm shadow-slate-200/50">
       {/* Ambient Brand Glow Mesh - Strictly clipped inside banner shape without clipping outer dropdowns */}
       <div className="absolute inset-0 overflow-hidden rounded-2xl sm:rounded-3xl pointer-events-none z-0">
-        <div className="absolute -top-24 -left-20 w-72 h-72 bg-blue-500/10 dark:bg-blue-600/15 rounded-full blur-3xl" />
-        <div className="absolute -bottom-24 -right-20 w-72 h-72 bg-indigo-500/10 dark:bg-indigo-600/15 rounded-full blur-3xl" />
+        <div className="absolute -top-20 -left-16 w-64 h-64 bg-blue-400/10 rounded-full blur-3xl" />
+        <div className="absolute -bottom-20 -right-16 w-64 h-64 bg-indigo-400/10 rounded-full blur-3xl" />
       </div>
 
       <div className="relative z-20 flex flex-col xl:flex-row xl:items-center xl:justify-between gap-4 sm:gap-5">

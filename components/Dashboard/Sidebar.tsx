@@ -24,6 +24,13 @@ import {
   ShieldCheck,
   TrendingUp,
   Handshake,
+  MessageSquareQuote,
+  MessageCircle,
+  MessagesSquare,
+  Cpu,
+  Activity,
+  Database,
+  Lock,
   X
 } from "lucide-react";
 import DeveloperProfileModal from "../Global/DeveloperProfileModal";
@@ -194,7 +201,7 @@ export default function Sidebar({ userRole = "ADMIN" }: { userRole?: string }) {
       )}
 
       <aside 
-        className={`fixed lg:sticky top-0 h-screen z-50 flex flex-col bg-white dark:bg-[#0c1222] border-r border-slate-200/90 dark:border-slate-800/90 text-slate-700 dark:text-slate-300 shadow-xl lg:shadow-xs transition-all duration-300 ease-in-out ${
+        className={`fixed lg:sticky top-0 h-screen z-50 flex flex-col bg-white/85 backdrop-blur-xl border-r border-slate-200/80 text-slate-700 shadow-xl lg:shadow-xs transition-all duration-300 ease-in-out ${
           isCollapsed ? "lg:w-20" : "lg:w-64"
         } w-72 max-w-[85vw] ${
           isMobileOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0"
@@ -356,55 +363,67 @@ export default function Sidebar({ userRole = "ADMIN" }: { userRole?: string }) {
           })}
         </div>
 
-        {/* Bottom Section: Operational SLA & Progress Widget - Anchored right above footer */}
+        {/* Bottom Section: Live System Health & Security Telemetry */}
         {!isCollapsed && (
-          <div className="mt-auto pt-4 pb-1">
-            <div className="p-3.5 rounded-2xl bg-gradient-to-b from-slate-50 to-blue-50/30 dark:from-slate-900/60 dark:to-blue-950/20 border border-slate-200/80 dark:border-slate-800/80 shadow-xs space-y-3">
+          <div className="mt-auto pt-3 pb-1">
+            <div className="p-3.5 rounded-2xl bg-gradient-to-b from-slate-50 via-white to-blue-50/20 dark:from-[#0c1427] dark:via-[#0c1427] dark:to-blue-950/20 border border-slate-200/90 dark:border-slate-800 shadow-xs space-y-2.5">
+              
+              {/* Header: System Health status */}
               <div className="flex items-center justify-between">
-                <span className="text-[10px] font-black uppercase tracking-wider text-slate-500 dark:text-slate-400">
-                  Target Progress
-                </span>
-                <span className="text-[10px] font-bold text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/60 px-1.5 py-0.5 rounded-md">
-                  87.2%
+                <div className="flex items-center gap-1.5">
+                  <Activity className="w-3.5 h-3.5 text-blue-600 dark:text-sky-400" />
+                  <span className="text-[10px] font-black uppercase tracking-wider text-slate-700 dark:text-slate-300">
+                    System Health
+                  </span>
+                </div>
+                <span className="inline-flex items-center gap-1 text-[9px] font-black text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/60 px-1.5 py-0.5 rounded-full border border-emerald-500/20">
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                  Optimal
                 </span>
               </div>
 
-              {/* Progress Bar */}
-              <div>
-                <div className="flex items-center justify-between text-[11px] font-bold text-slate-800 dark:text-slate-200 mb-1">
-                  <span>₹8.72L</span>
-                  <span className="text-slate-400 font-medium">₹10.0L Goal</span>
+              {/* Telemetry Metrics Grid */}
+              <div className="grid grid-cols-2 gap-2 pt-0.5 text-[10px]">
+                <div className="p-2 rounded-xl bg-slate-50 dark:bg-slate-900/60 border border-slate-100 dark:border-slate-800/80">
+                  <span className="text-[9px] font-bold text-slate-400 block uppercase tracking-tight">API Latency</span>
+                  <div className="flex items-center gap-1 mt-0.5">
+                    <span className="font-black text-slate-900 dark:text-white">24 ms</span>
+                    <span className="text-[8px] font-bold text-emerald-500">Fast</span>
+                  </div>
                 </div>
-                <div className="w-full h-1.5 bg-slate-200 dark:bg-slate-800 rounded-full overflow-hidden">
-                  <div 
-                    className="h-full bg-gradient-to-r from-blue-600 via-indigo-600 to-emerald-500 rounded-full transition-all duration-500" 
-                    style={{ width: "87.2%" }}
-                  />
+
+                <div className="p-2 rounded-xl bg-slate-50 dark:bg-slate-900/60 border border-slate-100 dark:border-slate-800/80">
+                  <span className="text-[9px] font-bold text-slate-400 block uppercase tracking-tight">Postgres DB</span>
+                  <div className="flex items-center gap-1 mt-0.5">
+                    <span className="font-black text-slate-900 dark:text-white">Synced</span>
+                    <Database className="w-2.5 h-2.5 text-blue-500" />
+                  </div>
                 </div>
               </div>
 
-              {/* Live CA & SLA Counters */}
-              <div className="pt-2 border-t border-slate-200/60 dark:border-slate-800/60 flex items-center justify-between text-[10px]">
-                <div className="flex items-center gap-1.5 text-slate-600 dark:text-slate-400 font-semibold">
-                  <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-                  <span>12/14 CAs Online</span>
+              {/* Security & Uptime Footer */}
+              <div className="pt-2 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between text-[10px]">
+                <div className="flex items-center gap-1 text-slate-500 dark:text-slate-400 font-semibold">
+                  <Lock className="w-2.5 h-2.5 text-slate-400" />
+                  <span>SHA-256 SSL</span>
                 </div>
-                <span className="font-bold text-blue-600 dark:text-sky-400">
-                  99.2% SLA
+                <span className="font-extrabold text-blue-600 dark:text-sky-400 text-[10px]">
+                  99.98% Uptime
                 </span>
               </div>
+
             </div>
           </div>
         )}
       </nav>
 
-      {/* Bottom: "Need Help? Contact Support" matching reference screenshot */}
+      {/* Bottom: Message Center (Team & Partners Chat Hub) */}
       <div className={`p-3 border-t border-slate-200/90 dark:border-slate-800/90 ${isCollapsed ? "px-2" : ""}`}>
         {!isCollapsed ? (
           <Link
             href="/dashboard/chat"
             onClick={() => setOptimisticHref("/dashboard/chat")}
-            className={`relative overflow-hidden flex items-center justify-between p-3.5 rounded-2xl border transition-all duration-300 group cursor-pointer ${
+            className={`relative overflow-hidden flex items-center justify-between p-3 rounded-2xl border transition-all duration-300 group cursor-pointer ${
               normalizePath(pathname) === "/dashboard/chat"
                 ? "bg-gradient-to-r from-blue-600 via-indigo-600 to-blue-700 border-transparent shadow-lg shadow-blue-500/30 scale-[1.02]"
                 : "bg-gradient-to-br from-white via-blue-50/50 to-indigo-50/30 dark:from-[#0b1226] dark:via-[#0e1c44]/60 dark:to-[#080d1a] border-blue-200/80 dark:border-blue-800/60 hover:border-blue-400 dark:hover:border-blue-600 hover:shadow-xl hover:shadow-blue-500/15"
@@ -416,24 +435,30 @@ export default function Sidebar({ userRole = "ADMIN" }: { userRole?: string }) {
               <div className="absolute -bottom-6 -left-6 w-20 h-20 bg-indigo-500/20 dark:bg-indigo-400/20 rounded-full blur-xl" />
             </div>
 
-            <div className="flex items-center gap-3 relative z-10">
-              <div className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 shadow-md transition-all duration-300 group-hover:scale-110 group-hover:rotate-6 ${
+            <div className="flex items-center gap-2.5 relative z-10">
+              <div className={`relative w-9 h-9 rounded-xl flex items-center justify-center shrink-0 shadow-md transition-all duration-300 group-hover:scale-110 group-hover:rotate-3 ${
                 normalizePath(pathname) === "/dashboard/chat"
                   ? "bg-white/25 text-white ring-2 ring-white/30"
-                  : "bg-gradient-to-tr from-blue-600 to-indigo-600 text-white shadow-blue-500/30 ring-2 ring-blue-500/10"
+                  : "bg-gradient-to-tr from-blue-600 via-indigo-600 to-purple-600 text-white shadow-blue-500/30 ring-2 ring-blue-500/10"
               }`}>
-                <Headphones className="w-4 h-4" />
+                <MessagesSquare className="w-4 h-4" />
+                <span className="absolute -top-1 -right-1 w-2.5 h-2.5 bg-emerald-500 rounded-full border-2 border-white dark:border-[#0c1427] animate-pulse" />
               </div>
-              <div className="flex flex-col">
-                <span className={`text-[11px] font-black uppercase tracking-wider leading-tight ${
-                  normalizePath(pathname) === "/dashboard/chat" ? "text-white" : "text-slate-900 dark:text-white"
-                }`}>
-                  Need Help?
-                </span>
-                <span className={`text-[10px] font-bold mt-0.5 ${
+              <div className="flex flex-col min-w-0">
+                <div className="flex items-center gap-1.5">
+                  <span className={`text-[11px] font-black uppercase tracking-wider leading-tight ${
+                    normalizePath(pathname) === "/dashboard/chat" ? "text-white" : "text-slate-900 dark:text-white"
+                  }`}>
+                    Message Center
+                  </span>
+                  <span className={`w-1.5 h-1.5 rounded-full ${
+                    normalizePath(pathname) === "/dashboard/chat" ? "bg-white" : "bg-emerald-500"
+                  }`} />
+                </div>
+                <span className={`text-[10px] font-bold mt-0.5 truncate ${
                   normalizePath(pathname) === "/dashboard/chat" ? "text-blue-100" : "text-blue-600 dark:text-sky-400"
                 }`}>
-                  24/7 Priority Support
+                  Team &amp; Partner Comms
                 </span>
               </div>
             </div>
@@ -447,14 +472,15 @@ export default function Sidebar({ userRole = "ADMIN" }: { userRole?: string }) {
           <Link
             href="/dashboard/chat"
             onClick={() => setOptimisticHref("/dashboard/chat")}
-            title="Need Help? Contact Support"
-            className={`w-10 h-10 mx-auto rounded-xl flex items-center justify-center cursor-pointer transition-all ${
+            title="Message Center: Team & Partner Comms"
+            className={`relative w-10 h-10 mx-auto rounded-xl flex items-center justify-center cursor-pointer transition-all ${
               normalizePath(pathname) === "/dashboard/chat"
                 ? "bg-blue-600 text-white shadow-md shadow-blue-500/20"
                 : "bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-blue-50 hover:text-blue-600"
             }`}
           >
-            <Headphones className="w-4 h-4" />
+            <MessagesSquare className="w-4 h-4" />
+            <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-emerald-500 rounded-full ring-2 ring-white dark:ring-slate-900" />
           </Link>
         )}
       </div>

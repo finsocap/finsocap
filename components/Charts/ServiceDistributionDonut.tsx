@@ -1,207 +1,363 @@
 "use client";
 
 import { useState, useMemo } from "react";
+import {
+  Users,
+  ChevronDown,
+  MoreHorizontal,
+  ChevronRight,
+  TrendingUp,
+  FileText,
+  ShieldCheck,
+  Award,
+  Layers,
+  Store,
+  Compass,
+  CheckCircle2,
+  BarChart2
+} from "lucide-react";
 
-interface CategorySlice {
+interface ServiceSlice {
   id: string;
   name: string;
-  percentage: number;
   leads: number;
+  percentage: number;
   color: string;
+  iconBg: string;
+  barColor: string;
+  icon: any;
+  letter?: string;
+  pointerAngle: number; // In degrees for callout leader lines
+  calloutPos: "top-right" | "top-left" | "bottom-right" | "bottom-left" | "middle-left";
+  leadsLabel: string;
 }
-
-const defaultSlices: CategorySlice[] = [
-  { id: "fssai", name: "FSSAI Registration", percentage: 24, leads: 231, color: "#0ea5e9" },
-  { id: "gst", name: "GST Registration", percentage: 18, leads: 174, color: "#10b981" },
-  { id: "tm", name: "Trademark", percentage: 12, leads: 116, color: "#f59e0b" },
-  { id: "itr", name: "ITR Filing", percentage: 10, leads: 96, color: "#8b5cf6" },
-  { id: "trade", name: "Shop Act / Trade License", percentage: 8, leads: 77, color: "#ec4899" },
-  { id: "other", name: "Other Services", percentage: 28, leads: 270, color: "#64748b" },
-];
 
 interface ServiceDistributionDonutProps {
   selectedBranch?: string;
 }
 
 export default function ServiceDistributionDonut({
-  selectedBranch = "All Branches",
+  selectedBranch = "All Partners",
 }: ServiceDistributionDonutProps) {
-  const [hoveredSlice, setHoveredSlice] = useState<CategorySlice | null>(null);
+  const [partnerFilter, setPartnerFilter] = useState(selectedBranch || "All Partners");
+  const [hoveredId, setHoveredId] = useState<string | null>(null);
+  const [isPartnerDropdownOpen, setIsPartnerDropdownOpen] = useState(false);
 
-  const activeSlices = useMemo(() => {
-    if (selectedBranch === "Delhi HQ") {
-      return [
-        { id: "fssai", name: "FSSAI Registration", percentage: 32, leads: 164, color: "#0ea5e9" },
-        { id: "gst", name: "GST Registration", percentage: 22, leads: 112, color: "#10b981" },
-        { id: "tm", name: "Trademark", percentage: 14, leads: 72, color: "#f59e0b" },
-        { id: "itr", name: "ITR Filing", percentage: 12, leads: 61, color: "#8b5cf6" },
-        { id: "trade", name: "Shop Act / Trade License", percentage: 10, leads: 51, color: "#ec4899" },
-        { id: "other", name: "Other Services", percentage: 10, leads: 52, color: "#64748b" },
-      ];
-    }
-    if (selectedBranch === "Mumbai Regional") {
-      return [
-        { id: "fssai", name: "FSSAI Registration", percentage: 16, leads: 46, color: "#0ea5e9" },
-        { id: "gst", name: "GST Registration", percentage: 24, leads: 68, color: "#10b981" },
-        { id: "tm", name: "Trademark", percentage: 28, leads: 80, color: "#f59e0b" },
-        { id: "itr", name: "ITR Filing", percentage: 14, leads: 40, color: "#8b5cf6" },
-        { id: "trade", name: "Shop Act / Trade License", percentage: 6, leads: 18, color: "#ec4899" },
-        { id: "other", name: "Other Services", percentage: 12, leads: 34, color: "#64748b" },
-      ];
-    }
-    if (selectedBranch === "Noida Branch") {
-      return [
-        { id: "fssai", name: "FSSAI Registration", percentage: 28, leads: 63, color: "#0ea5e9" },
-        { id: "gst", name: "GST Registration", percentage: 26, leads: 58, color: "#10b981" },
-        { id: "tm", name: "Trademark", percentage: 10, leads: 22, color: "#f59e0b" },
-        { id: "itr", name: "ITR Filing", percentage: 16, leads: 36, color: "#8b5cf6" },
-        { id: "trade", name: "Shop Act / Trade License", percentage: 8, leads: 18, color: "#ec4899" },
-        { id: "other", name: "Other Services", percentage: 12, leads: 27, color: "#64748b" },
-      ];
-    }
-    if (selectedBranch === "Bengaluru Tech Hub") {
-      return [
-        { id: "fssai", name: "FSSAI Registration", percentage: 15, leads: 20, color: "#0ea5e9" },
-        { id: "gst", name: "GST Registration", percentage: 20, leads: 27, color: "#10b981" },
-        { id: "tm", name: "Trademark", percentage: 22, leads: 30, color: "#f59e0b" },
-        { id: "itr", name: "ITR Filing", percentage: 18, leads: 25, color: "#8b5cf6" },
-        { id: "trade", name: "Shop Act / Trade License", percentage: 5, leads: 7, color: "#ec4899" },
-        { id: "other", name: "Other Services", percentage: 20, leads: 27, color: "#64748b" },
-      ];
-    }
-    if (selectedBranch === "Kolkata Hub") {
-      return [
-        { id: "fssai", name: "FSSAI Registration", percentage: 30, leads: 27, color: "#0ea5e9" },
-        { id: "gst", name: "GST Registration", percentage: 25, leads: 23, color: "#10b981" },
-        { id: "tm", name: "Trademark", percentage: 8, leads: 7, color: "#f59e0b" },
-        { id: "itr", name: "ITR Filing", percentage: 12, leads: 11, color: "#8b5cf6" },
-        { id: "trade", name: "Shop Act / Trade License", percentage: 15, leads: 13, color: "#ec4899" },
-        { id: "other", name: "Other Services", percentage: 10, leads: 9, color: "#64748b" },
-      ];
-    }
-    return defaultSlices;
-  }, [selectedBranch]);
+  // Slices configured 100% to match the screenshot:
+  // Top right emerald: FSSAI (231, 24%)
+  // Right amber: GST (174, 18%)
+  // Bottom purple: Trademark (116, 12%)
+  // Bottom-left cyan: ITR (96, 10%)
+  // Middle-left rose: Shop Act (77, 8%)
+  // Top-left blue: Other Services (270, 28%)
+  const slices: ServiceSlice[] = useMemo(() => {
+    return [
+      {
+        id: "fssai",
+        name: "FSSAI Registration",
+        leads: 231,
+        percentage: 24,
+        color: "#10b981", // Vibrant Emerald/Green
+        iconBg: "bg-blue-500/10 text-blue-600 dark:text-blue-400 border border-blue-200/60 dark:border-blue-800/60",
+        barColor: "bg-blue-500",
+        icon: FileText,
+        pointerAngle: 45,
+        calloutPos: "top-right",
+        leadsLabel: "231",
+      },
+      {
+        id: "gst",
+        name: "GST Registration",
+        leads: 174,
+        percentage: 18,
+        color: "#f59e0b", // Warm Amber/Orange
+        iconBg: "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-200/60 dark:border-emerald-800/60",
+        barColor: "bg-emerald-500",
+        icon: ShieldCheck,
+        pointerAngle: 345,
+        calloutPos: "bottom-right",
+        leadsLabel: "174",
+      },
+      {
+        id: "tm",
+        name: "Trademark",
+        leads: 116,
+        percentage: 12,
+        color: "#a855f7", // Purple/Violet
+        iconBg: "bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-200/60 dark:border-amber-800/60 font-black",
+        barColor: "bg-amber-500",
+        icon: null,
+        letter: "R",
+        pointerAngle: 285,
+        calloutPos: "bottom-right",
+        leadsLabel: "116",
+      },
+      {
+        id: "itr",
+        name: "ITR Filing",
+        leads: 96,
+        percentage: 10,
+        color: "#06b6d4", // Electric Cyan
+        iconBg: "bg-purple-500/10 text-purple-600 dark:text-purple-400 border border-purple-200/60 dark:border-purple-800/60",
+        barColor: "bg-purple-500",
+        icon: Award,
+        pointerAngle: 225,
+        calloutPos: "bottom-left",
+        leadsLabel: "96",
+      },
+      {
+        id: "trade",
+        name: "Shop Act / Trade License",
+        leads: 77,
+        percentage: 8,
+        color: "#f43f5e", // Rose Pink
+        iconBg: "bg-rose-500/10 text-rose-500 dark:text-rose-400 border border-rose-200/60 dark:border-rose-800/60",
+        barColor: "bg-rose-500",
+        icon: Store,
+        pointerAngle: 185,
+        calloutPos: "middle-left",
+        leadsLabel: "77",
+      },
+      {
+        id: "other",
+        name: "Other Services",
+        leads: 270,
+        percentage: 28,
+        color: "#2563eb", // Vibrant Blue
+        iconBg: "bg-cyan-500/10 text-cyan-600 dark:text-cyan-400 border border-cyan-200/60 dark:border-cyan-800/60",
+        barColor: "bg-cyan-500",
+        icon: Compass,
+        pointerAngle: 135,
+        calloutPos: "top-left",
+        leadsLabel: "270",
+      },
+    ];
+  }, []);
 
-  const totalLeads = useMemo(() => {
-    return activeSlices.reduce((sum, s) => sum + s.leads, 0);
-  }, [activeSlices]);
+  const totalLeads = 964;
 
-  const radius = 54;
-  const strokeWidth = 18;
-  const circumference = 2 * Math.PI * radius; // ~339.29
+  // Donut geometry for SVG
+  const radius = 68;
+  const strokeWidth = 24;
+  const circumference = 2 * Math.PI * radius; // ~427.25
 
   let accumulatedPercent = 0;
-  const renderedSlices = activeSlices.map((slice) => {
-    const sliceLen = (slice.percentage / 100) * circumference - 3;
-    const strokeDasharray = `${sliceLen} ${circumference}`;
+  const renderedSlices = slices.map((slice) => {
+    // Gap subtraction for elegant segmented donut look
+    const sliceLength = (slice.percentage / 100) * circumference - 4;
+    const strokeDasharray = `${Math.max(sliceLength, 0)} ${circumference}`;
     const strokeDashoffset = -((accumulatedPercent / 100) * circumference);
     accumulatedPercent += slice.percentage;
-    return { ...slice, strokeDasharray, strokeDashoffset };
+
+    return {
+      ...slice,
+      strokeDasharray,
+      strokeDashoffset,
+    };
   });
 
+  const activeSlice = useMemo(() => {
+    return slices.find((s) => s.id === hoveredId) || null;
+  }, [slices, hoveredId]);
+
   return (
-    <div className="bg-white dark:bg-[#0c1427] rounded-2xl border border-slate-200/90 dark:border-slate-800 p-5 shadow-sm flex flex-col justify-between h-full">
-      {/* Header matching Reference Screenshot */}
-      <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800/80 pb-3">
-        <h3 className="font-black text-slate-900 dark:text-white text-sm sm:text-base tracking-tight">
-          Service-wise Distribution
-        </h3>
-        {selectedBranch !== "All Branches" && (
-          <span className="text-[10px] font-bold text-slate-400">
-            {selectedBranch}
-          </span>
-        )}
+    <div className="bg-white dark:bg-[#0c1427] rounded-3xl border border-slate-200/90 dark:border-slate-800 p-4 sm:p-5 shadow-sm h-full flex flex-col justify-between relative overflow-hidden transition-all">
+      
+      {/* 1. Header Bar: Service-wise Distribution with Title + Dropdown & 3-Dots */}
+      <div className="flex items-center justify-between pb-2 border-b border-slate-100 dark:border-slate-800/80">
+        <div className="flex items-center gap-2.5 min-w-0">
+          <div className="w-8 h-8 rounded-xl bg-gradient-to-tr from-blue-600 via-indigo-600 to-sky-400 text-white flex items-center justify-center shadow-md shadow-blue-500/20 shrink-0">
+            <Layers className="w-4 h-4" />
+          </div>
+          <div className="min-w-0">
+            <span className="text-[9px] font-black uppercase tracking-wider text-slate-400 dark:text-slate-500 block leading-tight">
+              TASK DISTRIBUTION
+            </span>
+            <h2 className="text-sm font-black text-slate-900 dark:text-white tracking-tight truncate leading-tight">
+              Service-wise Distribution
+            </h2>
+          </div>
+        </div>
+
+        {/* Right Partner Filter Dropdown & Menu Button */}
+        <div className="flex items-center gap-1.5 shrink-0">
+          <div className="relative">
+            <button
+              type="button"
+              onClick={() => setIsPartnerDropdownOpen(!isPartnerDropdownOpen)}
+              className="flex items-center gap-1 px-2.5 py-1 rounded-xl bg-slate-100 dark:bg-slate-800 text-[11px] font-bold text-slate-700 dark:text-slate-300 hover:bg-slate-200/70 transition-colors cursor-pointer"
+            >
+              <Users className="w-3 h-3 text-blue-600 dark:text-sky-400" />
+              <span className="truncate max-w-[80px]">{partnerFilter}</span>
+              <ChevronDown className="w-3 h-3 text-slate-400" />
+            </button>
+
+            {isPartnerDropdownOpen && (
+              <>
+                <div
+                  className="fixed inset-0 z-40"
+                  onClick={() => setIsPartnerDropdownOpen(false)}
+                />
+                <div className="absolute right-0 mt-1 w-40 bg-white dark:bg-[#0c1427] border border-slate-200 dark:border-slate-800 rounded-xl shadow-xl z-50 p-1 text-[11px] font-semibold animate-in fade-in zoom-in-95">
+                  {["All Partners", "Delhi Hub", "Mumbai Branch", "Noida Center", "Bengaluru Tech Hub"].map((p) => (
+                    <button
+                      key={p}
+                      onClick={() => {
+                        setPartnerFilter(p);
+                        setIsPartnerDropdownOpen(false);
+                      }}
+                      className={`w-full text-left px-2.5 py-1.5 rounded-lg transition-colors ${
+                        partnerFilter === p
+                          ? "bg-blue-50 dark:bg-blue-950 text-blue-600 dark:text-sky-400 font-bold"
+                          : "text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800"
+                      }`}
+                    >
+                      {p}
+                    </button>
+                  ))}
+                </div>
+              </>
+            )}
+          </div>
+
+          <button
+            type="button"
+            className="w-7 h-7 rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-400 hover:text-slate-700 flex items-center justify-center transition-colors cursor-pointer"
+          >
+            <MoreHorizontal className="w-3.5 h-3.5" />
+          </button>
+        </div>
       </div>
 
-      {/* Side-by-Side Content matching Reference Screenshot */}
-      <div className="flex items-center justify-between gap-4 py-2 my-auto">
-        {/* Left: Donut with Center Text */}
-        <div className="relative shrink-0 flex items-center justify-center select-none">
-          <svg viewBox="0 0 140 140" className="w-32 h-32 sm:w-36 sm:h-36 transform -rotate-90 overflow-visible">
+      {/* 2. Clean, Premium Donut Chart with Dynamic Hover Readout */}
+      <div className="relative flex items-center justify-center my-auto py-1">
+        
+        {/* Donut Container */}
+        <div className="relative w-44 h-44 sm:w-48 sm:h-48 flex items-center justify-center">
+          
+          {/* Subtle Ambient Glow Behind Donut */}
+          <div 
+            className="absolute inset-4 rounded-full blur-xl opacity-20 transition-all duration-500 pointer-events-none"
+            style={{ 
+              backgroundColor: activeSlice ? activeSlice.color : "#3b82f6" 
+            }}
+          />
+
+          {/* SVG Segmented Donut */}
+          <svg viewBox="0 0 180 180" className="w-full h-full transform -rotate-90 overflow-visible relative z-10">
             {renderedSlices.map((slice) => {
-              const isHovered = hoveredSlice?.id === slice.id;
+              const isHovered = hoveredId === slice.id;
               return (
                 <circle
                   key={slice.id}
                   r={radius}
-                  cx="70"
-                  cy="70"
+                  cx="90"
+                  cy="90"
                   fill="transparent"
                   stroke={slice.color}
-                  strokeWidth={isHovered ? strokeWidth + 4 : strokeWidth}
+                  strokeWidth={isHovered ? strokeWidth + 6 : strokeWidth}
                   strokeDasharray={slice.strokeDasharray}
                   strokeDashoffset={slice.strokeDashoffset}
                   strokeLinecap="round"
                   className="transition-all duration-300 cursor-pointer"
-                  onMouseEnter={() => setHoveredSlice(slice)}
-                  onMouseLeave={() => setHoveredSlice(null)}
+                  style={{
+                    filter: isHovered ? `drop-shadow(0 0 6px ${slice.color}80)` : "none",
+                  }}
+                  onMouseEnter={() => setHoveredId(slice.id)}
+                  onMouseLeave={() => setHoveredId(null)}
                 />
               );
             })}
           </svg>
 
-          {/* Dynamic / Default Center Readout */}
-          <div className="absolute inset-0 flex flex-col items-center justify-center text-center pointer-events-none">
-            {hoveredSlice ? (
-              <div className="animate-in fade-in zoom-in-95 duration-100">
-                <span className="text-xl sm:text-2xl font-black text-slate-900 dark:text-white leading-none">
-                  {hoveredSlice.percentage}%
+          {/* Dynamic Center Readout (Shows active hovered slice OR total) */}
+          <div className="absolute inset-0 flex flex-col items-center justify-center text-center pointer-events-none select-none z-20">
+            {activeSlice ? (
+              <div className="animate-in fade-in zoom-in-95 duration-150">
+                <span className="text-[9px] font-black uppercase tracking-wider text-slate-400 truncate max-w-[110px] block px-1">
+                  {activeSlice.name}
                 </span>
-                <p className="text-[9px] font-bold text-sky-600 dark:text-sky-400 truncate max-w-[85px]">
-                  {hoveredSlice.name}
-                </p>
-                <p className="text-[8px] font-semibold text-slate-400">
-                  {hoveredSlice.leads} leads
-                </p>
+                <span className="text-2xl sm:text-3xl font-black tracking-tight leading-none mt-0.5 block" style={{ color: activeSlice.color }}>
+                  {activeSlice.leads}
+                </span>
+                <div className="inline-flex items-center gap-0.5 mt-1 px-2 py-0.5 rounded-full text-[10px] font-black border"
+                  style={{
+                    backgroundColor: `${activeSlice.color}15`,
+                    color: activeSlice.color,
+                    borderColor: `${activeSlice.color}30`
+                  }}
+                >
+                  <span>{activeSlice.percentage}% of leads</span>
+                </div>
               </div>
             ) : (
-              <div>
-                <span className="text-xl sm:text-2xl font-black text-slate-900 dark:text-white leading-none">
+              <div className="animate-in fade-in zoom-in-95 duration-150">
+                <span className="text-[8px] font-black uppercase tracking-wider text-slate-400">
+                  TOTAL LEADS
+                </span>
+                <span className="text-2xl sm:text-3xl font-black text-slate-900 dark:text-white tracking-tight leading-none mt-0.5 block">
                   {totalLeads}
                 </span>
-                <p className="text-[9px] font-bold text-slate-400 uppercase tracking-tight mt-0.5">
-                  Total Leads
-                </p>
+                <div className="inline-flex items-center gap-1 mt-1 px-2 py-0.5 rounded-full bg-emerald-50 dark:bg-emerald-950/60 text-emerald-600 dark:text-emerald-400 text-[10px] font-black border border-emerald-500/20">
+                  <TrendingUp className="w-3 h-3 text-emerald-500" />
+                  <span>+12%</span>
+                </div>
+                <span className="text-[8px] text-slate-400 font-semibold block mt-0.5">
+                  vs. last period
+                </span>
               </div>
             )}
           </div>
+
         </div>
 
-        {/* Right: Legend list matching Reference Screenshot */}
-        <div className="flex-1 space-y-1.5 text-xs">
-          {activeSlices.map((slice) => {
-            const isHovered = hoveredSlice?.id === slice.id;
-            return (
-              <div
-                key={slice.id}
-                onMouseEnter={() => setHoveredSlice(slice)}
-                onMouseLeave={() => setHoveredSlice(null)}
-                className={`flex items-center justify-between py-0.5 px-1.5 rounded-lg transition-colors cursor-pointer ${
-                  isHovered ? "bg-slate-50 dark:bg-slate-800/80 font-bold" : ""
-                }`}
-              >
-                <div className="flex items-center gap-2 overflow-hidden">
-                  <span
-                    className="w-2 h-2 rounded-full shrink-0"
-                    style={{ backgroundColor: slice.color }}
-                  />
-                  <span className="text-slate-600 dark:text-slate-300 font-semibold text-[11px] truncate">
-                    {slice.name}
-                  </span>
-                </div>
-                <div className="flex items-center gap-1.5 shrink-0 ml-2">
-                  <span className="text-[10px] text-slate-400 font-medium hidden sm:inline">
-                    ({slice.leads})
-                  </span>
-                  <span className="font-bold text-slate-900 dark:text-white text-[11px]">
-                    {slice.percentage}%
-                  </span>
-                </div>
-              </div>
-            );
-          })}
-        </div>
       </div>
+
+      {/* 3. Sleek 2-Column Legend with Micro-Progress Indicator */}
+      <div className="w-full grid grid-cols-2 gap-x-3 gap-y-1.5 pt-2.5 border-t border-slate-100 dark:border-slate-800 text-[11px]">
+        {slices.map((slice) => {
+          const isHovered = hoveredId === slice.id;
+          return (
+            <div
+              key={slice.id}
+              onMouseEnter={() => setHoveredId(slice.id)}
+              onMouseLeave={() => setHoveredId(null)}
+              className={`flex items-center justify-between py-1 px-2 rounded-xl transition-all duration-200 cursor-pointer ${
+                isHovered 
+                  ? "bg-slate-100/90 dark:bg-slate-800 shadow-2xs scale-[1.02]" 
+                  : "hover:bg-slate-50 dark:hover:bg-slate-850"
+              }`}
+            >
+              <div className="flex items-center gap-2 truncate min-w-0">
+                <span
+                  className="w-2.5 h-2.5 rounded-full shrink-0 transition-transform duration-200"
+                  style={{ 
+                    backgroundColor: slice.color,
+                    transform: isHovered ? "scale(1.3)" : "scale(1)"
+                  }}
+                />
+                <span className={`text-[10.5px] truncate font-semibold transition-colors ${
+                  isHovered 
+                    ? "text-slate-900 dark:text-white font-bold" 
+                    : "text-slate-600 dark:text-slate-400"
+                }`}>
+                  {slice.name}
+                </span>
+              </div>
+              <div className="flex items-center gap-1 shrink-0 ml-1.5">
+                <span className="text-[9.5px] text-slate-400 font-medium">({slice.leads})</span>
+                <span 
+                  className="font-black text-[11px]" 
+                  style={{ color: slice.color }}
+                >
+                  {slice.percentage}%
+                </span>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+
     </div>
   );
 }

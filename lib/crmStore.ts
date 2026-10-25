@@ -423,12 +423,18 @@ export function useCrmStore() {
     }));
   }, []);
 
-  const assignTask = useCallback((id: string, assignee: string, priority: TaskModel["priority"], due: string) => {
+  const assignTask = useCallback((id: string, assignee: string, priority?: TaskModel["priority"], due?: string) => {
     updateStore((prev) => ({
       ...prev,
       tasks: prev.tasks.map((t) =>
         t.id === id
-          ? { ...t, assignee, priority, due, status: "In Progress" as const }
+          ? { 
+              ...t, 
+              assignee, 
+              priority: priority || t.priority || "Medium", 
+              due: due || t.due, 
+              status: "In Progress" as const 
+            }
           : t
       ),
     }));
@@ -548,19 +554,19 @@ export function useCrmStore() {
     });
   }, []);
 
-  const toggleUserStatus = useCallback((id: number) => {
+  const toggleUserStatus = useCallback((id: number | string) => {
     updateStore((prev) => ({
       ...prev,
       users: prev.users.map((u) =>
-        u.id === id ? { ...u, status: (u.status === "Active" ? "Deactivated" : "Active") as UserModel["status"] } : u
+        String(u.id) === String(id) ? { ...u, status: (u.status === "Active" ? "Deactivated" : "Active") as UserModel["status"] } : u
       ),
     }));
   }, []);
 
-  const updateUser = useCallback((id: number, updates: Partial<UserModel>) => {
+  const updateUser = useCallback((id: number | string, updates: Partial<UserModel>) => {
     updateStore((prev) => ({
       ...prev,
-      users: prev.users.map((u) => (u.id === id ? { ...u, ...updates } : u)),
+      users: prev.users.map((u) => (String(u.id) === String(id) ? { ...u, ...updates } : u)),
     }));
   }, []);
 

@@ -37,6 +37,8 @@ export const metadata: Metadata = {
   },
 };
 
+import { ToastProvider } from "@/components/Global/ToastNotification";
+
 export default function RootLayout({
   children,
 }: Readonly<{
@@ -52,8 +54,10 @@ export default function RootLayout({
       <body className="min-h-full flex flex-col bg-[#f4f6fa] text-slate-800 font-sans transition-colors duration-200 selection:bg-blue-600 selection:text-white">
         <ThemeProvider>
           <AuthProvider>
-            <GlobalTopProgressBar />
-            {children}
+            <ToastProvider>
+              <GlobalTopProgressBar />
+              {children}
+            </ToastProvider>
           </AuthProvider>
         </ThemeProvider>
       </body>

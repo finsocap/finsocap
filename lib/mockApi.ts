@@ -208,42 +208,144 @@ export async function handleMockApiRequest(url: string, init?: RequestInit): Pro
   // -----------------------------------------------------------
   if (pathname === "/api/chat/users") {
     return jsonResponse([
-      { id: "user-1", name: "Aarav Jha", role: "ADMIN", online: true },
-      { id: "user-2", name: "Priya Sharma", role: "MANAGER", online: true },
-      { id: "user-3", name: "Rahul Verma", role: "WRITER", online: true },
+      { id: "user-1", name: "Aarav Jha", role: "ADMIN", isOnline: true, image: "/Aaravdp.png", phone: "+91 98765 43210", email: "aarav@finsocap.com", city: "Ghaziabad", state: "Uttar Pradesh", about: "Managing partner at Finsocap. Focused on growth, client success and long-term partnerships." },
+      { id: "user-2", name: "Priya Sharma", role: "OPERATIONS", isOnline: true, phone: "+91 98111 22334", email: "priya@finsocap.com", city: "Noida", state: "Uttar Pradesh", about: "Operations head at Finsocap. Driving business execution & corporate partnerships." },
+      { id: "user-3", name: "Rahul Verma", role: "FINANCE", isOnline: true, phone: "+91 98222 33445", email: "rahul@finsocap.com", city: "Delhi", state: "Delhi", about: "Senior Financial Analyst. Specializing in tax compliance and portfolio advisory." },
+      { id: "user-4", name: "Sneha Kapoor", role: "COMPLIANCE", isOnline: true, phone: "+91 98333 44556", email: "sneha@finsocap.com", city: "Gurugram", state: "Haryana", about: "Corporate Secretarial & MCA Compliance Specialist." },
+      { id: "user-5", name: "Vikram Singh", role: "CONSULTANT", isOnline: false, phone: "+91 98444 55667", email: "vikram@finsocap.com", city: "Jaipur", state: "Rajasthan", about: "Business Advisory & Project Financing Consultant." },
+      { id: "user-6", name: "Pooja Mehta", role: "SUPPORT", isOnline: true, phone: "+91 98555 66778", email: "pooja@finsocap.com", city: "Mumbai", state: "Maharashtra", about: "Customer Success Lead at Finsocap." }
     ]);
   }
 
   if (pathname === "/api/chat/groups") {
     return jsonResponse([
-      { id: "grp-1", name: "Executive & Leadership", membersCount: 3 },
-      { id: "grp-2", name: "Editorial & Content", membersCount: 4 },
-      { id: "grp-3", name: "General Discussions", membersCount: 5 },
+      { id: "grp-1", name: "Team Finance", createdBy: "admin-aarav", members: [] },
+      { id: "grp-2", name: "Marketing Team", createdBy: "admin-aarav", members: [] },
+      { id: "grp-3", name: "Executive & Leadership", createdBy: "admin-aarav", members: [] }
     ]);
+  }
+
+  if (pathname === "/api/support/admin" || pathname.startsWith("/api/support/admin")) {
+    if (method === "DELETE") {
+      return jsonResponse({ success: true });
+    }
+    return jsonResponse([
+      {
+        id: "vis-1",
+        visitorName: "Customer Support",
+        email: "support@finsocap.com",
+        phone: "+91 98765 00000",
+        ipAddress: "192.168.1.10",
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString()
+      }
+    ]);
+  }
+
+  if (pathname === "/api/support/visitor" || pathname.startsWith("/api/support/visitor")) {
+    return jsonResponse({
+      id: "vis-1",
+      messages: [
+        { id: "m-1", senderType: "VISITOR", senderName: "Customer Support", message: "Riya: Please check ticket #4821", createdAt: new Date().toISOString() }
+      ]
+    });
   }
 
   if (pathname === "/api/chat" || pathname.includes("/messages")) {
     if (method === "POST") {
+      const msgText = body?.message || body?.text || "Message acknowledged.";
       return jsonResponse({
         id: `msg-${Date.now()}`,
-        sender: "Aarav Jha",
-        text: body?.text || "Message acknowledged.",
-        timestamp: new Date().toISOString(),
+        senderId: "user-1",
+        message: msgText,
+        text: msgText,
+        sender: { id: "user-1", name: "Aarav Jha" },
+        createdAt: new Date().toISOString(),
+        isDelivered: true,
+        isRead: true
       });
     }
     return jsonResponse([
       {
         id: "msg-1",
-        sender: "Rahul Verma",
-        text: "Union budget post draft has been updated with latest direct tax slabs.",
-        timestamp: "10:30 AM",
+        senderId: "user-2",
+        sender: { id: "user-2", name: "Priya Sharma" },
+        message: "Hey, can you share the latest client report for Finsocap?",
+        text: "Hey, can you share the latest client report for Finsocap?",
+        createdAt: new Date(Date.now() - 3600000 * 2).toISOString(),
+        isDelivered: true,
+        isRead: true
       },
       {
         id: "msg-2",
-        sender: "Aarav Jha",
-        text: "Great work! Publishing it on the portal now.",
-        timestamp: "10:35 AM",
+        senderId: "user-1",
+        sender: { id: "user-1", name: "Aarav Jha" },
+        message: "Sure, I'll share the document now.",
+        text: "Sure, I'll share the document now.",
+        createdAt: new Date(Date.now() - 3600000 * 1.8).toISOString(),
+        isDelivered: true,
+        isRead: true
       },
+      {
+        id: "msg-3",
+        senderId: "user-2",
+        sender: { id: "user-2", name: "Priya Sharma" },
+        message: "Also, can you confirm the meeting with the insurance partner today?",
+        text: "Also, can you confirm the meeting with the insurance partner today?",
+        createdAt: new Date(Date.now() - 3600000 * 1.2).toISOString(),
+        isDelivered: true,
+        isRead: true
+      },
+      {
+        id: "msg-4",
+        senderId: "user-1",
+        sender: { id: "user-1", name: "Aarav Jha" },
+        message: "Yes, it's confirmed for 4 PM. I've already shared the calendar invite.",
+        text: "Yes, it's confirmed for 4 PM. I've already shared the calendar invite.",
+        createdAt: new Date(Date.now() - 3600000 * 1).toISOString(),
+        isDelivered: true,
+        isRead: true
+      },
+      {
+        id: "msg-5",
+        senderId: "user-2",
+        sender: { id: "user-2", name: "Priya Sharma" },
+        message: "Great! Also, please update me on the pending KYC approvals.",
+        text: "Great! Also, please update me on the pending KYC approvals.",
+        createdAt: new Date(Date.now() - 1800000).toISOString(),
+        isDelivered: true,
+        isRead: true
+      },
+      {
+        id: "msg-6",
+        senderId: "user-1",
+        sender: { id: "user-1", name: "Aarav Jha" },
+        message: "On it. I'll share the status in the next update. Anything else?",
+        text: "On it. I'll share the status in the next update. Anything else?",
+        createdAt: new Date(Date.now() - 900000).toISOString(),
+        isDelivered: true,
+        isRead: true
+      },
+      {
+        id: "msg-7",
+        senderId: "user-2",
+        sender: { id: "user-2", name: "Priya Sharma" },
+        message: "That's all for now. Thanks!",
+        text: "That's all for now. Thanks!",
+        createdAt: new Date(Date.now() - 400000).toISOString(),
+        isDelivered: true,
+        isRead: true
+      },
+      {
+        id: "msg-8",
+        senderId: "user-1",
+        sender: { id: "user-1", name: "Aarav Jha" },
+        message: "You're welcome! 😊",
+        text: "You're welcome! 😊",
+        createdAt: new Date(Date.now() - 60000).toISOString(),
+        isDelivered: true,
+        isRead: true
+      }
     ]);
   }
 

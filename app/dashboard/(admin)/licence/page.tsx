@@ -11,8 +11,11 @@ import {
 import { useCrmStore, LicenceModel } from "@/lib/crmStore";
 import DateRangeFilter from "@/components/Dashboard/DateRangeFilter";
 import PageBanner from "@/components/Dashboard/PageBanner";
+import { useToast } from "@/components/Global/ToastNotification";
+import ModalHeaderBanner from "@/components/Dashboard/ModalHeaderBanner";
 
 export default function LicenceReportPage() {
+  const toast = useToast();
   const { licences, updateLicence, deleteLicence } = useCrmStore();
 
   // Search & Filter States (Screenshot 3 Exact Match)
@@ -53,8 +56,7 @@ export default function LicenceReportPage() {
   const [showEditPassword, setShowEditPassword] = useState(false);
 
   const showToast = (msg: string) => {
-    setToastMsg(msg);
-    setTimeout(() => setToastMsg(null), 3500);
+    toast.success(msg, "Success!");
   };
 
   const togglePassword = (num: string) => {
@@ -215,14 +217,6 @@ export default function LicenceReportPage() {
 
   return (
     <div className="space-y-6 pb-20 animate-in fade-in duration-300">
-      {/* Toast Alert */}
-      {toastMsg && (
-        <div className="fixed bottom-6 right-6 z-50 flex items-center gap-2.5 px-5 py-3 bg-slate-900/95 dark:bg-slate-100/95 text-white dark:text-slate-900 rounded-2xl shadow-2xl border border-slate-700 dark:border-slate-300 animate-in fade-in slide-in-from-bottom-5">
-          <CheckCircle2 className="w-4 h-4 text-emerald-400 dark:text-emerald-600" />
-          <span className="text-xs font-bold">{toastMsg}</span>
-        </div>
-      )}
-
       {/* 1. Header Banner & Controls (Official Finsocap Theme) */}
       <PageBanner
         icon={Award}
@@ -710,21 +704,14 @@ export default function LicenceReportPage() {
       {viewModalLicence && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/70 backdrop-blur-xs animate-in fade-in">
           <div className="bg-white dark:bg-[#0c1427] border border-slate-200 dark:border-slate-800 rounded-3xl p-6 max-w-lg w-full shadow-2xl space-y-4">
-            <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-800">
-              <div className="flex items-center gap-2">
-                <ShieldCheck className="w-5 h-5 text-emerald-500" />
-                <h3 className="font-black text-slate-900 dark:text-white text-base">
-                  Licence Certificate Preview
-                </h3>
-              </div>
-              <button
-                type="button"
-                onClick={() => setViewModalLicence(null)}
-                className="w-8 h-8 rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-500 hover:text-slate-900 dark:hover:text-white flex items-center justify-center cursor-pointer"
-              >
-                <X className="w-4 h-4" />
-              </button>
-            </div>
+            <ModalHeaderBanner
+              icon={ShieldCheck}
+              badge="GOVERNMENT CREDENTIAL"
+              title="Licence Certificate Preview"
+              description={`Official compliance credential for ${viewModalLicence.client} (${viewModalLicence.service}).`}
+              badgeTag={viewModalLicence.status}
+              onClose={() => setViewModalLicence(null)}
+            />
 
             <div className="p-5 bg-gradient-to-b from-amber-50/50 to-white dark:from-slate-900 dark:to-slate-800/80 rounded-2xl border border-amber-300 dark:border-amber-700/60 text-center space-y-3 relative overflow-hidden">
               <div className="w-12 h-12 rounded-full bg-amber-500/10 text-amber-600 dark:text-amber-400 mx-auto flex items-center justify-center border border-amber-400/30">
@@ -808,21 +795,14 @@ export default function LicenceReportPage() {
       {modifyModalLicence && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/70 backdrop-blur-xs animate-in fade-in">
           <div className="bg-white dark:bg-[#0c1427] border border-slate-200 dark:border-slate-800 rounded-3xl p-6 max-w-lg w-full shadow-2xl space-y-4">
-            <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-800">
-              <div className="flex items-center gap-2">
-                <Edit3 className="w-5 h-5 text-amber-500" />
-                <h3 className="font-black text-slate-900 dark:text-white text-base">
-                  Modify Licence Information
-                </h3>
-              </div>
-              <button
-                type="button"
-                onClick={() => setModifyModalLicence(null)}
-                className="w-8 h-8 rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-500 hover:text-slate-900 dark:hover:text-white flex items-center justify-center cursor-pointer"
-              >
-                <X className="w-4 h-4" />
-              </button>
-            </div>
+            <ModalHeaderBanner
+              icon={Edit3}
+              badge="STATUTORY AMENDMENT"
+              title="Modify Licence Information"
+              description={`Update registration number, validity and portal credentials for ${modifyModalLicence.client}.`}
+              badgeTag="Record Sync"
+              onClose={() => setModifyModalLicence(null)}
+            />
 
             <form onSubmit={handleSaveModify} className="space-y-3.5 text-xs">
               <div className="p-3 bg-amber-50 dark:bg-amber-950/30 rounded-xl border border-amber-200 dark:border-amber-800/40 text-[11px] text-amber-800 dark:text-amber-300 font-medium">
@@ -965,19 +945,14 @@ export default function LicenceReportPage() {
       {deleteConfirmLicence && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/70 backdrop-blur-xs animate-in fade-in">
           <div className="bg-white dark:bg-[#0c1427] border border-slate-200 dark:border-slate-800 rounded-3xl p-6 max-w-md w-full shadow-2xl space-y-4">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-2xl bg-rose-100 dark:bg-rose-950/60 text-rose-600 dark:text-rose-400 flex items-center justify-center">
-                <Trash2 className="w-5 h-5" />
-              </div>
-              <div>
-                <h3 className="font-black text-slate-900 dark:text-white text-base">
-                  Delete Licence Record?
-                </h3>
-                <p className="text-xs text-slate-500 mt-0.5">
-                  This action cannot be undone.
-                </p>
-              </div>
-            </div>
+            <ModalHeaderBanner
+              icon={Trash2}
+              badge="STATUTORY DEREGISTRATION"
+              title="Delete Licence Record"
+              description="Permanently discard this compliance certificate registry entry from CRM records."
+              badgeTag="Irreversible"
+              onClose={() => setDeleteConfirmLicence(null)}
+            />
 
             <div className="p-3.5 bg-rose-50 dark:bg-rose-950/30 border border-rose-200 dark:border-rose-900/40 rounded-2xl text-xs text-rose-800 dark:text-rose-300 font-medium">
               Are you sure you want to permanently delete Licence <strong>#{deleteConfirmLicence.number}</strong> for client <strong>{deleteConfirmLicence.client}</strong>?

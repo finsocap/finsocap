@@ -11,6 +11,8 @@ import { useCrmStore, ServiceModel } from "@/lib/crmStore";
 import { serviceCatalog } from "@/lib/services/serviceCatalog";
 import AnimatedCounter from "@/components/Global/AnimatedCounter";
 import PageBanner from "@/components/Dashboard/PageBanner";
+import { useToast } from "@/components/Global/ToastNotification";
+import ModalHeaderBanner from "@/components/Dashboard/ModalHeaderBanner";
 
 const DEFAULT_CATEGORIES = [
   "Food & Beverage",
@@ -23,6 +25,7 @@ const DEFAULT_CATEGORIES = [
 ];
 
 export default function ServicesPage() {
+  const toast = useToast();
   const { services, addService, updateService, toggleServiceStatus, deleteService } = useCrmStore();
 
   const [categoryList, setCategoryList] = useState<string[]>(() => {
@@ -112,8 +115,7 @@ export default function ServicesPage() {
   };
 
   const showToast = (msg: string) => {
-    setToastMsg(msg);
-    setTimeout(() => setToastMsg(null), 3000);
+    toast.success(msg, "Success!");
   };
 
   const openAddModal = () => {
@@ -254,14 +256,6 @@ export default function ServicesPage() {
 
   return (
     <div className="space-y-6 pb-20">
-      {/* Toast Alert */}
-      {toastMsg && (
-        <div className="fixed bottom-6 right-6 z-50 flex items-center gap-2.5 px-5 py-3 bg-slate-900/95 dark:bg-slate-100/95 text-white dark:text-slate-900 rounded-2xl shadow-2xl border border-slate-700 dark:border-slate-300 animate-in fade-in slide-in-from-bottom-5">
-          <CheckCircle2 className="w-4 h-4 text-emerald-400 dark:text-emerald-600" />
-          <span className="text-xs font-bold">{toastMsg}</span>
-        </div>
-      )}
-
       {/* 1. Executive Branded Command Banner (Signature Finsocap Glassmorphic Gradient) */}
       <PageBanner
         icon={Boxes}
@@ -553,20 +547,17 @@ export default function ServicesPage() {
       {/* Modal: Add / Edit Service */}
       {isAddEditModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-in fade-in overflow-y-auto">
-          <div className="bg-white dark:bg-[#0c1427] border border-slate-200 dark:border-slate-800 rounded-3xl p-6 w-full max-w-2xl shadow-2xl relative my-8">
-            <div className="flex items-center justify-between pb-4 border-b border-slate-100 dark:border-slate-800">
-              <h2 className="text-lg font-black text-slate-900 dark:text-white">
-                {editingServiceId ? "Edit Service" : "Add New Service"}
-              </h2>
-              <button
-                onClick={() => setIsAddEditModalOpen(false)}
-                className="w-8 h-8 rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-500 hover:text-slate-900 dark:hover:text-white flex items-center justify-center cursor-pointer"
-              >
-                <X className="w-4 h-4" />
-              </button>
-            </div>
+          <div className="bg-white dark:bg-[#0c1427] border border-slate-200 dark:border-slate-800 rounded-3xl p-6 w-full max-w-2xl shadow-2xl relative my-8 space-y-4">
+            <ModalHeaderBanner
+              icon={Boxes}
+              badge="CATALOG OPERATIONS"
+              title={editingServiceId ? "Edit Service" : "Add New Service"}
+              description="Configure service metadata, professional pricing, statutory government fees and SLA."
+              badgeTag="Catalog"
+              onClose={() => setIsAddEditModalOpen(false)}
+            />
 
-            <form onSubmit={handleSaveService} className="space-y-4 mt-5">
+            <form onSubmit={handleSaveService} className="space-y-4">
               <div className="p-3 bg-blue-50/70 dark:bg-blue-950/40 rounded-xl text-xs font-bold text-blue-900 dark:text-sky-300">
                 1. Service Details
               </div>
@@ -954,20 +945,17 @@ export default function ServicesPage() {
       {/* Modal: View Service */}
       {viewingService && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-in fade-in">
-          <div className="bg-white dark:bg-[#0c1427] border border-slate-200 dark:border-slate-800 rounded-3xl p-6 w-full max-w-lg shadow-2xl relative">
-            <div className="flex items-center justify-between pb-4 border-b border-slate-100 dark:border-slate-800">
-              <h2 className="text-lg font-black text-slate-900 dark:text-white">
-                {viewingService.name}
-              </h2>
-              <button
-                onClick={() => setViewingService(null)}
-                className="w-8 h-8 rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-500 hover:text-slate-900 dark:hover:text-white flex items-center justify-center cursor-pointer"
-              >
-                <X className="w-4 h-4" />
-              </button>
-            </div>
+          <div className="bg-white dark:bg-[#0c1427] border border-slate-200 dark:border-slate-800 rounded-3xl p-6 w-full max-w-lg shadow-2xl relative space-y-4">
+            <ModalHeaderBanner
+              icon={Eye}
+              badge="SERVICE SPECIFICATIONS"
+              title={viewingService.name}
+              description={`${viewingService.category} · Processing SLA: ${viewingService.time} · ${viewingService.recurring ? "Recurring" : "One-Time"}`}
+              badgeTag={viewingService.status}
+              onClose={() => setViewingService(null)}
+            />
 
-            <div className="space-y-4 mt-5 text-xs">
+            <div className="space-y-4 text-xs">
               <div className="p-3 bg-blue-50/70 dark:bg-blue-950/40 rounded-xl font-bold text-blue-900 dark:text-sky-300">
                 Service Breakdown
               </div>
@@ -1021,26 +1009,18 @@ export default function ServicesPage() {
       {/* Modal: Delete Service Confirmation */}
       {deleteConfirmService && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-in fade-in">
-          <div className="bg-white dark:bg-[#0c1427] border border-slate-200 dark:border-slate-800 rounded-3xl p-6 w-full max-w-md shadow-2xl relative animate-in zoom-in-95 duration-150">
-            <button
-              onClick={() => setDeleteConfirmService(null)}
-              className="absolute top-5 right-5 p-1 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition-colors cursor-pointer"
-            >
-              <X className="w-4 h-4" />
-            </button>
+          <div className="bg-white dark:bg-[#0c1427] border border-slate-200 dark:border-slate-800 rounded-3xl p-6 w-full max-w-md shadow-2xl relative animate-in zoom-in-95 duration-150 space-y-4">
+            <ModalHeaderBanner
+              icon={Trash2}
+              badge="CATALOG MANAGEMENT"
+              title="Delete Service"
+              description="Confirm permanent removal of this service item from catalog and partner rate cards."
+              badgeTag="Critical Action"
+              onClose={() => setDeleteConfirmService(null)}
+            />
 
-            <div className="flex items-start gap-4">
-              <div className="w-12 h-12 rounded-2xl bg-rose-50 dark:bg-rose-950/60 border border-rose-200 dark:border-rose-900/50 flex items-center justify-center shrink-0 text-rose-600 dark:text-rose-400">
-                <Trash2 className="w-6 h-6" />
-              </div>
-              <div className="flex-1 min-w-0 pt-0.5">
-                <h3 className="text-base font-bold text-slate-900 dark:text-white">
-                  Delete Service
-                </h3>
-                <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 leading-relaxed">
-                  Are you sure you want to delete <span className="font-bold text-slate-900 dark:text-white">"{deleteConfirmService.name}"</span>? This will permanently remove this service from your catalog and dashboard.
-                </p>
-              </div>
+            <div className="p-3 bg-rose-50 dark:bg-rose-950/30 rounded-xl border border-rose-200 dark:border-rose-900/50 text-xs text-rose-800 dark:text-rose-300">
+              Are you sure you want to delete <span className="font-bold">"{deleteConfirmService.name}"</span>? This will permanently remove this service from your catalog and dashboard.
             </div>
 
             <div className="mt-6 flex items-center justify-end gap-2.5 pt-4 border-t border-slate-100 dark:border-slate-800">

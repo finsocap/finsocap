@@ -441,7 +441,7 @@ export default function DashboardHome() {
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 items-stretch">
 
         {/* Col 1: Leads & Revenue Overview (5 cols) */}
-        <div className="lg:col-span-5 h-[300px]">
+        <div className="lg:col-span-5 h-[340px]">
           <LeadsRevenueChart
             selectedBranch={selectedPartner}
             dateRange={dateRange}
@@ -449,16 +449,16 @@ export default function DashboardHome() {
         </div>
 
         {/* Col 2: Service-wise Distribution (4 cols) */}
-        <div className="lg:col-span-4 h-[300px]">
+        <div className="lg:col-span-4 h-[340px]">
           <ServiceDistributionDonut
             selectedBranch={selectedPartner}
           />
         </div>
 
         {/* Col 3: Task Summary (3 cols) matching Reference Screenshot */}
-        <div className="lg:col-span-3 h-[300px] bg-white dark:bg-[#0c1427] rounded-2xl border border-slate-200/90 dark:border-slate-800 p-5 shadow-sm flex flex-col justify-between relative">
+        <div className="lg:col-span-3 h-[340px] bg-white dark:bg-[#0c1427] rounded-3xl border border-slate-200/90 dark:border-slate-800 p-5 shadow-sm flex flex-col justify-between relative">
           <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800/80 pb-3">
-            <h3 className="font-black text-slate-900 dark:text-white text-sm sm:text-base tracking-tight">
+            <h3 className="font-black text-slate-900 dark:text-white text-base tracking-tight">
               Task Summary
             </h3>
 

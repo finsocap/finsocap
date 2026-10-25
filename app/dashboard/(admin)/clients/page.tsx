@@ -11,6 +11,8 @@ import { useCrmStore, ClientModel, TaskModel } from "@/lib/crmStore";
 import AnimatedCounter from "@/components/Global/AnimatedCounter";
 import ClientsInfographic from "@/components/Charts/ClientsInfographic";
 import PageBanner from "@/components/Dashboard/PageBanner";
+import { useToast } from "@/components/Global/ToastNotification";
+import ModalHeaderBanner from "@/components/Dashboard/ModalHeaderBanner";
 
 const statuses = [
   "Pending",
@@ -23,6 +25,7 @@ const statuses = [
 ];
 
 export default function ClientsPage() {
+  const toast = useToast();
   const { allClients, tasks, addClient, updateClient } = useCrmStore();
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("ALL");
@@ -30,7 +33,6 @@ export default function ClientsPage() {
   // Modals state
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [selectedClientHistory, setSelectedClientHistory] = useState<string | null>(null);
-  const [toastMsg, setToastMsg] = useState<string | null>(null);
 
   // New Client Form state
   const [formName, setFormName] = useState("");
@@ -47,8 +49,7 @@ export default function ClientsPage() {
   const [editStatus, setEditStatus] = useState("");
 
   const showToast = (msg: string) => {
-    setToastMsg(msg);
-    setTimeout(() => setToastMsg(null), 3000);
+    toast.success(msg, "Success!");
   };
 
   // KPIs
@@ -151,14 +152,6 @@ export default function ClientsPage() {
 
   return (
     <div className="space-y-6 pb-20">
-      {/* Toast Alert */}
-      {toastMsg && (
-        <div className="fixed bottom-6 right-6 z-50 flex items-center gap-2.5 px-5 py-3 bg-slate-900/95 dark:bg-slate-100/95 text-white dark:text-slate-900 rounded-2xl shadow-2xl border border-slate-700 dark:border-slate-300 animate-in fade-in slide-in-from-bottom-5">
-          <CheckCircle2 className="w-4 h-4 text-emerald-400 dark:text-emerald-600" />
-          <span className="text-xs font-bold">{toastMsg}</span>
-        </div>
-      )}
-
       {/* 1. Executive Branded Command Banner (Signature Finsocap Glassmorphic Gradient) */}
       <PageBanner
         icon={Users}
@@ -350,20 +343,17 @@ export default function ClientsPage() {
       {/* Modal: Add Client */}
       {isAddModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-in fade-in">
-          <div className="bg-white dark:bg-[#0c1427] border border-slate-200 dark:border-slate-800 rounded-3xl p-6 w-full max-w-lg shadow-2xl relative">
-            <div className="flex items-center justify-between pb-4 border-b border-slate-100 dark:border-slate-800">
-              <h2 className="text-lg font-black text-slate-900 dark:text-white">
-                Add Client
-              </h2>
-              <button
-                onClick={() => setIsAddModalOpen(false)}
-                className="w-8 h-8 rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-500 hover:text-slate-900 dark:hover:text-white flex items-center justify-center cursor-pointer"
-              >
-                <X className="w-4 h-4" />
-              </button>
-            </div>
+          <div className="bg-white dark:bg-[#0c1427] border border-slate-200 dark:border-slate-800 rounded-3xl p-6 w-full max-w-lg shadow-2xl relative space-y-4">
+            <ModalHeaderBanner
+              icon={UserPlus}
+              badge="CRM ONBOARDING"
+              title="Add New Client"
+              description="Register direct or referral client profiles for business registrations and compliance."
+              badgeTag="Client Dossier"
+              onClose={() => setIsAddModalOpen(false)}
+            />
 
-            <form onSubmit={handleAddClientSubmit} className="space-y-4 mt-5">
+            <form onSubmit={handleAddClientSubmit} className="space-y-4">
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                   <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
@@ -443,25 +433,17 @@ export default function ClientsPage() {
       {/* Modal: Client History */}
       {selectedClientHistory && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-in fade-in">
-          <div className="bg-white dark:bg-[#0c1427] border border-slate-200 dark:border-slate-800 rounded-3xl p-6 w-full max-w-2xl shadow-2xl relative">
-            <div className="flex items-center justify-between pb-4 border-b border-slate-100 dark:border-slate-800">
-              <div>
-                <h2 className="text-lg font-black text-slate-900 dark:text-white">
-                  Client History · {selectedClientHistory}
-                </h2>
-                <p className="text-xs text-slate-400 mt-0.5">
-                  All service applications and status milestones for this customer.
-                </p>
-              </div>
-              <button
-                onClick={() => setSelectedClientHistory(null)}
-                className="w-8 h-8 rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-500 hover:text-slate-900 dark:hover:text-white flex items-center justify-center cursor-pointer"
-              >
-                <X className="w-4 h-4" />
-              </button>
-            </div>
+          <div className="bg-white dark:bg-[#0c1427] border border-slate-200 dark:border-slate-800 rounded-3xl p-6 w-full max-w-2xl shadow-2xl relative space-y-4">
+            <ModalHeaderBanner
+              icon={Clock}
+              badge="SERVICE AUDIT TRAIL"
+              title={`Client History · ${selectedClientHistory}`}
+              description="All statutory service applications, progress history, and milestone logs for this customer."
+              badgeTag="Audit Trail"
+              onClose={() => setSelectedClientHistory(null)}
+            />
 
-            <div className="mt-5 overflow-x-auto">
+            <div className="overflow-x-auto">
               <table className="w-full text-left border-collapse text-xs">
                 <thead>
                   <tr className="border-b border-slate-100 dark:border-slate-800 text-[11px] font-bold text-slate-400 bg-slate-50/60 dark:bg-slate-900/60">
@@ -522,24 +504,17 @@ export default function ClientsPage() {
       {/* Modal: Edit Client */}
       {editingClient && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-in fade-in">
-          <div className="bg-white dark:bg-[#0c1427] border border-slate-200 dark:border-slate-800 rounded-3xl p-6 w-full max-w-lg shadow-2xl relative">
-            <div className="flex items-center justify-between pb-4 border-b border-slate-100 dark:border-slate-800">
-              <div>
-                <h2 className="text-lg font-black text-slate-900 dark:text-white flex items-center gap-2">
-                  <Edit3 className="w-4 h-4 text-blue-500" />
-                  Edit Client
-                </h2>
-                <p className="text-xs text-slate-400 mt-0.5">Modify client details and save changes</p>
-              </div>
-              <button
-                onClick={() => setEditingClient(null)}
-                className="w-8 h-8 rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-500 hover:text-slate-900 dark:hover:text-white flex items-center justify-center cursor-pointer"
-              >
-                <X className="w-4 h-4" />
-              </button>
-            </div>
+          <div className="bg-white dark:bg-[#0c1427] border border-slate-200 dark:border-slate-800 rounded-3xl p-6 w-full max-w-lg shadow-2xl relative space-y-4">
+            <ModalHeaderBanner
+              icon={Edit3}
+              badge="CLIENT PROFILE"
+              title={`Edit Client · ${editingClient.name}`}
+              description="Modify contact coordinates, registered firm or partner allocation."
+              badgeTag="CRM Sync"
+              onClose={() => setEditingClient(null)}
+            />
 
-            <form onSubmit={handleEditClient} className="space-y-4 mt-5">
+            <form onSubmit={handleEditClient} className="space-y-4">
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                   <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">

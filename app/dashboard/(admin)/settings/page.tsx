@@ -8,16 +8,14 @@ import {
 } from "lucide-react";
 import { mockCurrentUser } from "@/lib/mockData";
 import { defaultBrandConfig } from "@/lib/brandConfig";
+import { useToast } from "@/components/Global/ToastNotification";
 
 export default function SettingsPage() {
   const { data: session } = useSession();
-
-  // Toast Notification
-  const [toastMessage, setToastMessage] = useState<string | null>(null);
+  const toast = useToast();
 
   const showToast = (msg: string) => {
-    setToastMessage(msg);
-    setTimeout(() => setToastMessage(null), 3500);
+    toast.success(msg, "Success!");
   };
 
   // Profile & Security State
@@ -171,54 +169,46 @@ export default function SettingsPage() {
   };
 
   return (
-    <div className="space-y-6 max-w-6xl mx-auto pb-16">
+    <div className="space-y-6 pb-16 animate-in fade-in duration-300">
       
-      {/* TOAST POPUP */}
-      {toastMessage && (
-        <div className="fixed top-6 right-6 z-50 bg-[#1b2b5a] text-white px-5 py-3.5 rounded-2xl shadow-xl flex items-center gap-3 border border-emerald-400/30 animate-in fade-in slide-in-from-top-4 duration-300">
-          <CheckCircle2 className="w-5 h-5 text-emerald-400 flex-shrink-0" />
-          <span className="text-xs font-bold">{toastMessage}</span>
-        </div>
-      )}
-
-      {/* TOP HERO BANNER (Matching Screenshot 2 - Official Finsocap Theme) */}
-      <div className="relative rounded-3xl p-5 sm:p-6 bg-gradient-to-br from-white via-blue-50/40 to-indigo-50/30 dark:from-[#0b1226] dark:via-[#0e1c44]/80 dark:to-[#080d1a] border border-blue-200/70 dark:border-blue-900/40 shadow-sm shadow-blue-500/5">
+      {/* TOP HERO BANNER (Full-width matching Screenshot 1 Executive Dashboard) */}
+      <div className="relative rounded-2xl sm:rounded-3xl p-4 sm:p-5 lg:p-6 bg-gradient-to-br from-white via-white to-blue-50/50 border border-slate-200/90 shadow-sm shadow-slate-200/50">
         {/* Ambient Brand Glow Mesh */}
-        <div className="absolute inset-0 overflow-hidden rounded-3xl pointer-events-none z-0">
-          <div className="absolute -top-24 -left-20 w-72 h-72 bg-blue-500/10 dark:bg-blue-600/15 rounded-full blur-3xl" />
-          <div className="absolute -bottom-24 -right-20 w-72 h-72 bg-indigo-500/10 dark:bg-indigo-600/15 rounded-full blur-3xl" />
+        <div className="absolute inset-0 overflow-hidden rounded-2xl sm:rounded-3xl pointer-events-none z-0">
+          <div className="absolute -top-20 -left-16 w-64 h-64 bg-blue-400/10 rounded-full blur-3xl" />
+          <div className="absolute -bottom-20 -right-16 w-64 h-64 bg-indigo-400/10 rounded-full blur-3xl" />
         </div>
 
-        <div className="relative z-20 flex flex-col sm:flex-row sm:items-center justify-between gap-6">
-          <div className="flex items-start sm:items-center gap-3.5">
+        <div className="relative z-20 flex flex-col sm:flex-row sm:items-center justify-between gap-4 sm:gap-5">
+          <div className="flex items-start sm:items-center gap-3 sm:gap-3.5">
             <div className="relative shrink-0">
-              <div className="w-12 h-12 rounded-2xl bg-gradient-to-tr from-[#0e1c44] via-blue-600 to-sky-400 text-white flex items-center justify-center font-bold shadow-lg shadow-blue-500/25 ring-4 ring-blue-500/10">
-                <ShieldCheck className="w-6 h-6 text-white" />
+              <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl sm:rounded-2xl bg-gradient-to-tr from-[#0e1c44] via-blue-600 to-sky-400 text-white flex items-center justify-center font-bold shadow-lg shadow-blue-500/25 ring-2 sm:ring-4 ring-blue-500/10">
+                <ShieldCheck className="w-5 h-5 sm:w-6 sm:h-6 text-white" />
               </div>
-              <span className="absolute -bottom-1 -right-1 w-3.5 h-3.5 bg-emerald-500 border-2 border-white dark:border-[#0b1226] rounded-full ring-2 ring-emerald-500/20 animate-pulse" />
+              <span className="absolute -bottom-0.5 -right-0.5 sm:-bottom-1 sm:-right-1 w-3 h-3 sm:w-3.5 sm:h-3.5 bg-emerald-500 border-2 border-white dark:border-[#0b1226] rounded-full ring-2 ring-emerald-500/20 animate-pulse" />
             </div>
 
             <div>
-              <div className="flex items-center gap-2 mb-1 flex-wrap">
-                <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-blue-100/80 dark:bg-blue-950/80 text-blue-700 dark:text-sky-300 border border-blue-200/60 dark:border-blue-800/60 shadow-2xs">
-                  <Sparkles className="w-3 h-3 text-blue-600 dark:text-sky-400" />
+              <div className="flex items-center gap-1.5 sm:gap-2 mb-0.5 sm:mb-1 flex-wrap">
+                <span className="inline-flex items-center gap-1 sm:gap-1.5 px-2 sm:px-2.5 py-0.5 rounded-full text-[9px] sm:text-[10px] font-black uppercase tracking-wider bg-blue-100/80 dark:bg-blue-950/80 text-blue-700 dark:text-sky-300 border border-blue-200/60 dark:border-blue-800/60 shadow-2xs">
+                  <Sparkles className="w-2.5 h-2.5 sm:w-3 sm:h-3 text-blue-600 dark:text-sky-400" />
                   <span>ACCOUNT &amp; SECURITY SETTINGS</span>
                 </span>
-                <span className="text-[10px] font-semibold text-slate-400 dark:text-slate-500 hidden sm:inline">
+                <span className="text-[9px] sm:text-[10px] font-semibold text-slate-400 dark:text-slate-500 hidden sm:inline">
                   • System Administrator
                 </span>
               </div>
-              <h1 className="text-2xl sm:text-3xl font-black text-slate-900 dark:text-white tracking-tight leading-tight">
+              <h1 className="text-xl sm:text-2xl lg:text-3xl font-black text-slate-900 dark:text-white tracking-tight leading-tight">
                 Profile &amp; Security Settings
               </h1>
-              <p className="text-xs text-slate-500 dark:text-slate-400 font-medium mt-0.5 max-w-xl">
+              <p className="text-[11px] sm:text-xs text-slate-500 dark:text-slate-400 font-medium mt-0.5 max-w-xl">
                 Manage your personal administrative profile, display picture, and login credentials.
               </p>
             </div>
           </div>
 
           {/* User Pill Badge */}
-          <div className="relative z-30 flex items-center gap-3 bg-white/90 dark:bg-[#0c1427]/90 border border-slate-200/90 dark:border-slate-800 px-4 py-2 rounded-2xl shadow-xs">
+          <div className="relative z-30 flex items-center gap-3 bg-white/90 dark:bg-[#0c1427]/90 border border-slate-200/90 dark:border-slate-800 px-4 py-2 rounded-2xl shadow-xs self-start sm:self-auto">
             {userDp ? (
               <img
                 src={userDp}
@@ -254,10 +244,10 @@ export default function SettingsPage() {
       </div>
 
       {/* PROFILE & SECURITY CONTENT */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-stretch">
         
         {/* Left: Profile Summary Card */}
-        <div className="bg-white dark:bg-[#0c1222] p-6 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm space-y-6 transition-colors">
+        <div className="lg:col-span-4 bg-white dark:bg-[#0c1222] p-6 rounded-2xl sm:rounded-3xl border border-slate-200/90 dark:border-slate-800 shadow-sm space-y-6 flex flex-col justify-between transition-colors">
           <div className="text-center space-y-3">
             {/* DP Avatar with Camera Upload Badge */}
             <div className="relative w-24 h-24 mx-auto">
@@ -345,10 +335,11 @@ export default function SettingsPage() {
         </div>
 
         {/* Right: Update Form (Name, Email, Password) */}
-        <div className="lg:col-span-2 bg-white dark:bg-[#0c1222] p-6 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm transition-colors">
-          <h2 className="text-sm font-black uppercase tracking-wider text-slate-800 dark:text-slate-100 flex items-center gap-2 border-b border-slate-100 dark:border-slate-800 pb-3 mb-5">
-            <User className="w-4 h-4 text-teal-600" /> Edit Profile &amp; Security Credentials
-          </h2>
+        <div className="lg:col-span-8 bg-white dark:bg-[#0c1222] p-6 rounded-2xl sm:rounded-3xl border border-slate-200/90 dark:border-slate-800 shadow-sm flex flex-col justify-between transition-colors">
+          <div>
+            <h2 className="text-sm font-black uppercase tracking-wider text-slate-800 dark:text-slate-100 flex items-center gap-2 border-b border-slate-100 dark:border-slate-800 pb-3 mb-5">
+              <User className="w-4 h-4 text-blue-600" /> Edit Profile &amp; Security Credentials
+            </h2>
 
           {profileError && (
             <div className="mb-4 p-3 bg-red-50 dark:bg-red-950/40 border border-red-200 dark:border-red-900 rounded-xl text-xs text-red-700 dark:text-red-300 flex items-center gap-2">
@@ -461,6 +452,7 @@ export default function SettingsPage() {
               </button>
             </div>
           </form>
+          </div>
         </div>
       </div>
 

@@ -11,11 +11,14 @@ import {
 } from "lucide-react";
 import { TaskItem, TaskStatus, TaskComment, TaskAttachment, CommentAttachment, TaskCertificate } from "@/types";
 import { taskService } from "@/lib/services/taskService";
-import { useCrmStore } from "@/lib/crmStore";
 import { useTheme } from "@/components/Providers/ThemeProvider";
+import { useToast } from "@/components/Global/ToastNotification";
+import { useCrmStore } from "@/lib/crmStore";
+import ModalHeaderBanner from "@/components/Dashboard/ModalHeaderBanner";
 
 export default function TaskDetailsClient({ id }: { id: string }) {
   const router = useRouter();
+  const toast = useToast();
   const { config } = useTheme();
   const { completeTask: completeTaskInStore, services, partners } = useCrmStore();
 
@@ -24,7 +27,6 @@ export default function TaskDetailsClient({ id }: { id: string }) {
   const [newCommentText, setNewCommentText] = useState("");
   const [isPostingComment, setIsPostingComment] = useState(false);
   const [statusDropdownOpen, setStatusDropdownOpen] = useState(false);
-  const [toastMsg, setToastMsg] = useState<string | null>(null);
 
   // Mark Task as Completed Modal State (Screenshot 1 & Screenshot 2 Exact Match)
   const [isCompleteModalOpen, setIsCompleteModalOpen] = useState(false);
@@ -121,8 +123,7 @@ export default function TaskDetailsClient({ id }: { id: string }) {
   };
 
   const showToast = (msg: string) => {
-    setToastMsg(msg);
-    setTimeout(() => setToastMsg(null), 3500);
+    toast.success(msg, "Success!");
   };
 
   useEffect(() => {
@@ -346,14 +347,6 @@ export default function TaskDetailsClient({ id }: { id: string }) {
 
   return (
     <div className="space-y-7 pb-24">
-      {/* Toast Notification */}
-      {toastMsg && (
-        <div className="fixed bottom-6 right-6 z-50 flex items-center gap-2.5 px-5 py-3 bg-slate-900/95 dark:bg-slate-100/95 backdrop-blur-xl text-white dark:text-slate-900 rounded-2xl shadow-2xl border border-slate-700 dark:border-slate-300 animate-in fade-in slide-in-from-bottom-5 duration-200">
-          <CheckCircle2 className="w-4 h-4 text-emerald-400 dark:text-emerald-600" />
-          <span className="text-xs font-bold">{toastMsg}</span>
-        </div>
-      )}
-
       {/* 1. Header Banner matching Screenshot 2 (Official Finsocap Theme) */}
       <div className="relative rounded-3xl p-5 sm:p-6 bg-gradient-to-br from-white via-blue-50/40 to-indigo-50/30 dark:from-[#0b1226] dark:via-[#0e1c44]/80 dark:to-[#080d1a] border border-blue-200/70 dark:border-blue-900/40 shadow-sm shadow-blue-500/5">
         {/* Ambient Brand Glow Mesh */}
@@ -1002,21 +995,14 @@ export default function TaskDetailsClient({ id }: { id: string }) {
       {certModalOpen && (
         <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-in fade-in">
           <div className="bg-white dark:bg-[#0c1427] rounded-3xl border border-slate-200 dark:border-slate-800 shadow-2xl max-w-lg w-full p-6 space-y-4 animate-in fade-in zoom-in-95">
-            <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-3">
-              <div className="flex items-center gap-2">
-                <Award className="w-5 h-5 text-amber-500" />
-                <h2 className="text-base font-black text-slate-900 dark:text-white">
-                  Submit Verified Certificate / Licence
-                </h2>
-              </div>
-              <button
-                type="button"
-                onClick={() => setCertModalOpen(false)}
-                className="p-1 rounded-lg text-slate-400 hover:text-slate-600 cursor-pointer"
-              >
-                <X className="w-5 h-5" />
-              </button>
-            </div>
+            <ModalHeaderBanner
+              icon={Award}
+              badge="STATUTORY FILING"
+              title="Submit Verified Certificate"
+              description={`Submit certificate / licence to mark task completed and issue download link for ${task.partnerName}.`}
+              badgeTag="Official Issue"
+              onClose={() => setCertModalOpen(false)}
+            />
 
             <form onSubmit={handleSubmitCertificate} className="space-y-3.5 text-xs">
               <div className="p-3 bg-amber-50 dark:bg-amber-950/30 rounded-xl border border-amber-200 dark:border-amber-800/40 text-[11px] text-amber-800 dark:text-amber-300 font-medium">
@@ -1114,21 +1100,14 @@ export default function TaskDetailsClient({ id }: { id: string }) {
       {previewCertModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/70 backdrop-blur-xs animate-in fade-in">
           <div className="bg-white dark:bg-[#0c1427] border border-slate-200 dark:border-slate-800 rounded-3xl p-6 max-w-md w-full shadow-2xl space-y-4">
-            <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-800">
-              <div className="flex items-center gap-2">
-                <ShieldCheck className="w-5 h-5 text-emerald-500" />
-                <h3 className="font-black text-slate-900 dark:text-white text-sm">
-                  Verified Government Licence
-                </h3>
-              </div>
-              <button
-                type="button"
-                onClick={() => setPreviewCertModal(null)}
-                className="w-8 h-8 rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-500 hover:text-slate-900 dark:hover:text-white flex items-center justify-center cursor-pointer"
-              >
-                <X className="w-4 h-4" />
-              </button>
-            </div>
+            <ModalHeaderBanner
+              icon={ShieldCheck}
+              badge="GOVERNMENT REGISTRY"
+              title="Verified Government Licence"
+              description="Official compliance credential issued and verified by registrar."
+              badgeTag="Certified"
+              onClose={() => setPreviewCertModal(null)}
+            />
 
             {/* Certificate Visual Card */}
             <div className="p-5 bg-gradient-to-b from-amber-50/50 to-white dark:from-slate-900 dark:to-slate-800/80 rounded-2xl border border-amber-300 dark:border-amber-700/60 text-center space-y-3 relative overflow-hidden">
@@ -1201,24 +1180,14 @@ export default function TaskDetailsClient({ id }: { id: string }) {
       {isCompleteModalOpen && (
         <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-3 sm:p-4 overflow-y-auto animate-in fade-in">
           <div className="bg-white dark:bg-[#0c1427] rounded-3xl border border-slate-200 dark:border-slate-800 shadow-2xl max-w-2xl w-full p-5 sm:p-6 space-y-4 my-auto animate-in fade-in zoom-in-95">
-            {/* Modal Header */}
-            <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-3">
-              <div className="flex items-center gap-2.5">
-                <div className="w-8 h-8 rounded-full bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 flex items-center justify-center">
-                  <CheckCircle2 className="w-5 h-5" />
-                </div>
-                <h2 className="text-base sm:text-lg font-black text-slate-900 dark:text-white">
-                  Mark Task as Completed
-                </h2>
-              </div>
-              <button
-                type="button"
-                onClick={() => setIsCompleteModalOpen(false)}
-                className="p-1 rounded-xl text-slate-400 hover:text-slate-600 hover:bg-slate-100 dark:hover:bg-slate-800 cursor-pointer transition-colors"
-              >
-                <X className="w-5 h-5" />
-              </button>
-            </div>
+            <ModalHeaderBanner
+              icon={CheckCircle2}
+              badge="FINAL CLEARANCE"
+              title="Mark Task as Completed"
+              description="Verify statutory approval details and publish certificate link to the partner."
+              badgeTag="Certification"
+              onClose={() => setIsCompleteModalOpen(false)}
+            />
 
             <form onSubmit={handleMarkTaskCompletedSubmit} className="space-y-4 text-xs">
               {/* Section 1: Basic Details */}
@@ -1585,26 +1554,14 @@ export default function TaskDetailsClient({ id }: { id: string }) {
       {isEditTaskModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-in fade-in">
           <div className="bg-white dark:bg-[#0c1427] border border-slate-200 dark:border-slate-800 rounded-3xl p-6 sm:p-7 w-full max-w-2xl shadow-2xl relative space-y-5">
-            <div className="flex items-center justify-between pb-4 border-b border-slate-100 dark:border-slate-800">
-              <div className="flex items-center gap-2.5">
-                <div className="w-9 h-9 rounded-xl bg-blue-500/10 text-blue-600 dark:text-sky-400 flex items-center justify-center font-bold">
-                  <Edit3 className="w-5 h-5" />
-                </div>
-                <div>
-                  <h3 className="text-base font-black text-slate-900 dark:text-white">
-                    Edit Task Details ({task.id})
-                  </h3>
-                  <p className="text-xs text-slate-500">Modify client, category, status, due date and assignment</p>
-                </div>
-              </div>
-              <button
-                type="button"
-                onClick={() => setIsEditTaskModalOpen(false)}
-                className="w-8 h-8 rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-400 hover:text-slate-700 dark:hover:text-white flex items-center justify-center cursor-pointer transition-colors"
-              >
-                <X className="w-4 h-4" />
-              </button>
-            </div>
+            <ModalHeaderBanner
+              icon={Edit3}
+              badge="CASE MODIFICATION"
+              title={`Edit Task Details (${task.id})`}
+              description="Modify client details, category, status, assignment and operational schedules."
+              badgeTag="Task Sync"
+              onClose={() => setIsEditTaskModalOpen(false)}
+            />
 
             <form onSubmit={handleSaveEditTask} className="space-y-4">
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">

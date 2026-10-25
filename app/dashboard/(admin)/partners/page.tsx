@@ -32,14 +32,16 @@ import {
 import { useCrmStore, PartnerModel } from "@/lib/crmStore";
 import AnimatedCounter from "@/components/Global/AnimatedCounter";
 import PageBanner from "@/components/Dashboard/PageBanner";
+import { useToast } from "@/components/Global/ToastNotification";
+import ModalHeaderBanner from "@/components/Dashboard/ModalHeaderBanner";
 
 export default function PartnersManagePage() {
+  const toast = useToast();
   const { partners, tasks, addPartner, updatePartner, togglePartnerStatus, deletePartner } = useCrmStore();
 
   const [search, setSearch] = useState("");
   const [selectedStatus, setSelectedStatus] = useState<string>("ALL");
   const [selectedTier, setSelectedTier] = useState<string>("ALL");
-  const [toastMsg, setToastMsg] = useState<string | null>(null);
 
   // Add Partner Modal State
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
@@ -79,8 +81,7 @@ export default function PartnersManagePage() {
   const [viewingPartner, setViewingPartner] = useState<PartnerModel | null>(null);
 
   const showToast = (msg: string) => {
-    setToastMsg(msg);
-    setTimeout(() => setToastMsg(null), 3000);
+    toast.success(msg, "Success!");
   };
 
   // KPIs
@@ -215,15 +216,7 @@ export default function PartnersManagePage() {
   };
 
   return (
-    <div className="space-y-6 max-w-7xl mx-auto pb-16">
-      {/* Toast Notification */}
-      {toastMsg && (
-        <div className="fixed bottom-6 right-6 z-50 flex items-center gap-2 px-4 py-3 bg-slate-900 text-white text-xs font-semibold rounded-2xl shadow-2xl border border-slate-700 animate-in fade-in slide-in-from-bottom-2">
-          <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
-          <span>{toastMsg}</span>
-        </div>
-      )}
-
+    <div className="space-y-6 pb-16">
       {/* Page Banner */}
       <PageBanner
         icon={Handshake}
@@ -576,31 +569,17 @@ export default function PartnersManagePage() {
       {/* MODAL 1: Enroll / Add Partner */}
       {isAddModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-in fade-in">
-          <div className="bg-white dark:bg-[#0c1427] border border-slate-200 dark:border-slate-800 rounded-3xl p-6 w-full max-w-lg shadow-2xl relative max-h-[90vh] overflow-y-auto no-scrollbar">
-            <div className="flex items-center justify-between pb-4 border-b border-slate-100 dark:border-slate-800">
-              <div className="flex items-center gap-2.5">
-                <div className="w-8 h-8 rounded-full bg-blue-50 dark:bg-blue-950/60 text-blue-600 dark:text-sky-400 flex items-center justify-center">
-                  <UserPlus className="w-4 h-4" />
-                </div>
-                <div>
-                  <h2 className="text-lg font-black text-slate-900 dark:text-white">
-                    Enroll New Franchise Partner
-                  </h2>
-                  <p className="text-[11px] text-slate-400 font-semibold">
-                    Register credentials, hub location, and partner ID
-                  </p>
-                </div>
-              </div>
-              <button
-                type="button"
-                onClick={() => setIsAddModalOpen(false)}
-                className="w-8 h-8 rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-500 hover:text-slate-900 dark:hover:text-white flex items-center justify-center cursor-pointer"
-              >
-                <X className="w-4 h-4" />
-              </button>
-            </div>
+          <div className="bg-white dark:bg-[#0c1427] border border-slate-200 dark:border-slate-800 rounded-3xl p-6 w-full max-w-lg shadow-2xl relative max-h-[90vh] overflow-y-auto no-scrollbar space-y-4">
+            <ModalHeaderBanner
+              icon={UserPlus}
+              badge="FRANCHISE ONBOARDING"
+              title="Enroll New Franchise Partner"
+              description="Register partner identity, hub location, contact phone, and unique partner ID."
+              badgeTag="Franchise Hub"
+              onClose={() => setIsAddModalOpen(false)}
+            />
 
-            <form onSubmit={handleAddSubmit} className="space-y-4 mt-5">
+            <form onSubmit={handleAddSubmit} className="space-y-4">
               <div className="grid grid-cols-2 gap-3">
                 {/* Partner ID */}
                 <div>
@@ -830,31 +809,17 @@ export default function PartnersManagePage() {
       {/* MODAL 2: Modify / Edit Partner */}
       {editingPartner && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-in fade-in">
-          <div className="bg-white dark:bg-[#0c1427] border border-slate-200 dark:border-slate-800 rounded-3xl p-6 w-full max-w-lg shadow-2xl relative max-h-[90vh] overflow-y-auto no-scrollbar">
-            <div className="flex items-center justify-between pb-4 border-b border-slate-100 dark:border-slate-800">
-              <div className="flex items-center gap-2.5">
-                <div className="w-8 h-8 rounded-full bg-blue-50 dark:bg-blue-950/60 text-blue-600 dark:text-sky-400 flex items-center justify-center">
-                  <Edit2 className="w-4 h-4" />
-                </div>
-                <div>
-                  <h2 className="text-lg font-black text-slate-900 dark:text-white">
-                    Modify Partner: {editingPartner.name}
-                  </h2>
-                  <p className="text-[11px] text-slate-400 font-semibold">
-                    Update profile, contact number, status or tier
-                  </p>
-                </div>
-              </div>
-              <button
-                type="button"
-                onClick={() => setEditingPartner(null)}
-                className="w-8 h-8 rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-500 hover:text-slate-900 dark:hover:text-white flex items-center justify-center cursor-pointer"
-              >
-                <X className="w-4 h-4" />
-              </button>
-            </div>
+          <div className="bg-white dark:bg-[#0c1427] border border-slate-200 dark:border-slate-800 rounded-3xl p-6 w-full max-w-lg shadow-2xl relative max-h-[90vh] overflow-y-auto no-scrollbar space-y-4">
+            <ModalHeaderBanner
+              icon={Edit2}
+              badge="PARTNER UPDATE"
+              title={`Modify Partner · ${editingPartner.name}`}
+              description="Update franchise profile, contact telephone, status, or tier allocation."
+              badgeTag="Partner Sync"
+              onClose={() => setEditingPartner(null)}
+            />
 
-            <form onSubmit={handleEditSubmit} className="space-y-4 mt-5">
+            <form onSubmit={handleEditSubmit} className="space-y-4">
               <div className="grid grid-cols-2 gap-3">
                 {/* Partner ID */}
                 <div>
@@ -1079,31 +1044,17 @@ export default function PartnersManagePage() {
       {/* MODAL 3: View Partner Details */}
       {viewingPartner && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-in fade-in">
-          <div className="bg-white dark:bg-[#0c1427] border border-slate-200 dark:border-slate-800 rounded-3xl p-6 w-full max-w-lg shadow-2xl relative">
-            <div className="flex items-center justify-between pb-4 border-b border-slate-100 dark:border-slate-800">
-              <div className="flex items-center gap-2.5">
-                <div className="w-10 h-10 rounded-2xl bg-gradient-to-br from-blue-500 to-indigo-600 text-white font-black text-sm flex items-center justify-center shadow-xs">
-                  {viewingPartner.partnerId}
-                </div>
-                <div>
-                  <h2 className="text-base font-black text-slate-900 dark:text-white">
-                    {viewingPartner.name}
-                  </h2>
-                  <p className="text-[11px] text-slate-400 font-semibold">
-                    {viewingPartner.tier || "Franchise Partner"} &bull; {viewingPartner.city}, {viewingPartner.state}
-                  </p>
-                </div>
-              </div>
-              <button
-                type="button"
-                onClick={() => setViewingPartner(null)}
-                className="w-8 h-8 rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-500 hover:text-slate-900 dark:hover:text-white flex items-center justify-center cursor-pointer"
-              >
-                <X className="w-4 h-4" />
-              </button>
-            </div>
+          <div className="bg-white dark:bg-[#0c1427] border border-slate-200 dark:border-slate-800 rounded-3xl p-6 w-full max-w-lg shadow-2xl relative space-y-4">
+            <ModalHeaderBanner
+              icon={Eye}
+              badge="PARTNER DOSSIER"
+              title={`Franchise · ${viewingPartner.name}`}
+              description={`${viewingPartner.tier || "Franchise Partner"} · ${viewingPartner.city || ""}, ${viewingPartner.state || ""} · ID: ${viewingPartner.partnerId}`}
+              badgeTag={viewingPartner.status}
+              onClose={() => setViewingPartner(null)}
+            />
 
-            <div className="space-y-4 mt-5 text-xs">
+            <div className="space-y-4 text-xs">
               <div className="grid grid-cols-2 gap-3 p-4 bg-slate-50 dark:bg-slate-900/60 rounded-2xl border border-slate-100 dark:border-slate-800">
                 <div>
                   <span className="text-[10px] uppercase font-bold text-slate-400">Partner ID</span>

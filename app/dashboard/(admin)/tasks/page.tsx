@@ -16,6 +16,8 @@ import { initialTasks } from "@/lib/tasksData";
 import AnimatedCounter from "@/components/Global/AnimatedCounter";
 import PageBanner from "@/components/Dashboard/PageBanner";
 import DateRangeFilter, { DateRangeValue } from "@/components/Dashboard/DateRangeFilter";
+import { useToast } from "@/components/Global/ToastNotification";
+import ModalHeaderBanner from "@/components/Dashboard/ModalHeaderBanner";
 
 const allStatuses: { status: TaskStatus; label: string; count: number; color: string; bg: string; icon: any }[] = [
   { status: "Pending", label: "Pending", count: 47, color: "text-blue-500", bg: "bg-blue-500/10 border-blue-500/20", icon: Clock },
@@ -29,6 +31,7 @@ const allStatuses: { status: TaskStatus; label: string; count: number; color: st
 ];
 
 export default function TasksPage() {
+  const toast = useToast();
   const { services, partners } = useCrmStore();
   const [tasks, setTasks] = useState<TaskItem[]>(initialTasks);
   const [loading, setLoading] = useState(true);
@@ -42,7 +45,6 @@ export default function TasksPage() {
 
   // Modals & Feedback
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
-  const [toastMsg, setToastMsg] = useState<string | null>(null);
 
   // Edit Task State
   const [editingTask, setEditingTask] = useState<TaskItem | null>(null);
@@ -76,8 +78,7 @@ export default function TasksPage() {
   }, [services, newServiceName]);
 
   const showToast = (msg: string) => {
-    setToastMsg(msg);
-    setTimeout(() => setToastMsg(null), 3000);
+    toast.success(msg, "Success!");
   };
 
   useEffect(() => {
@@ -237,14 +238,6 @@ export default function TasksPage() {
 
   return (
     <div className="space-y-6 pb-20">
-      {/* Toast Notification */}
-      {toastMsg && (
-        <div className="fixed bottom-6 right-6 z-50 flex items-center gap-2.5 px-5 py-3 bg-slate-900/95 dark:bg-slate-100/95 backdrop-blur-xl text-white dark:text-slate-900 rounded-2xl shadow-2xl border border-slate-700 dark:border-slate-300 animate-in fade-in slide-in-from-bottom-5 duration-200">
-          <CheckCircle2 className="w-4 h-4 text-emerald-400 dark:text-emerald-600" />
-          <span className="text-xs font-bold">{toastMsg}</span>
-        </div>
-      )}
-
       {/* 1. Header Banner */}
       <PageBanner
         icon={ClipboardList}
@@ -548,17 +541,14 @@ export default function TasksPage() {
       {isAddModalOpen && (
         <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-in fade-in">
           <div className="bg-white dark:bg-[#0c1427] rounded-3xl border border-slate-200 dark:border-slate-800 shadow-2xl max-w-lg w-full p-6 space-y-4 animate-in fade-in zoom-in-95">
-            <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-3">
-              <h2 className="text-base font-black text-slate-900 dark:text-white">
-                Create New Task
-              </h2>
-              <button
-                onClick={() => setIsAddModalOpen(false)}
-                className="p-1 rounded-lg text-slate-400 hover:text-slate-600 cursor-pointer"
-              >
-                <X className="w-5 h-5" />
-              </button>
-            </div>
+            <ModalHeaderBanner
+              icon={ClipboardList}
+              badge="TASK DELEGATION"
+              title="Assign a Task"
+              description="Delegate incoming client cases to certified team personnel with priority SLA & automated tracking."
+              badgeTag="Smart Dispatch"
+              onClose={() => setIsAddModalOpen(false)}
+            />
 
             <form onSubmit={handleCreateTask} className="space-y-3.5 text-xs">
               <div className="grid grid-cols-2 gap-3">
@@ -701,21 +691,14 @@ export default function TasksPage() {
       {editingTask && (
         <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-in fade-in">
           <div className="bg-white dark:bg-[#0c1427] rounded-3xl border border-slate-200 dark:border-slate-800 shadow-2xl max-w-lg w-full p-6 space-y-4 animate-in fade-in zoom-in-95">
-            <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-3">
-              <div>
-                <h2 className="text-base font-black text-slate-900 dark:text-white flex items-center gap-2">
-                  <Edit3 className="w-4 h-4 text-blue-500" />
-                  Edit Task · {editingTask.id}
-                </h2>
-                <p className="text-[11px] text-slate-400 mt-0.5">Modify task details and save changes</p>
-              </div>
-              <button
-                onClick={() => setEditingTask(null)}
-                className="p-1 rounded-lg text-slate-400 hover:text-slate-600 cursor-pointer"
-              >
-                <X className="w-5 h-5" />
-              </button>
-            </div>
+            <ModalHeaderBanner
+              icon={Edit3}
+              badge="WORKFLOW EDITOR"
+              title={`Edit Task · ${editingTask.id}`}
+              description="Modify client, partner, service, or statutory schedule."
+              badgeTag="Task Sync"
+              onClose={() => setEditingTask(null)}
+            />
 
             <form onSubmit={handleEditTask} className="space-y-3.5 text-xs">
               <div className="grid grid-cols-2 gap-3">
