@@ -8,10 +8,12 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import { getAssetUrl } from "@/lib/brandConfig";
+import { authService } from "@/lib/api/authService";
+import { formatEmail } from "@/lib/formatters";
 
 export default function LoginPage() {
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
+  const [email, setEmail] = useState("admin@gmail.com");
+  const [password, setPassword] = useState("*Finsocap2026@sam#aarav");
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
@@ -24,24 +26,21 @@ export default function LoginPage() {
     setError("");
 
     try {
-      const userSession = {
-        user: {
-          id: "admin-aarav",
-          name: email.split("@")[0] ? email.split("@")[0].toUpperCase() : "Admin",
-          email: email || "admin@finsocap.com",
-          role: "ADMIN",
-          status: "APPROVED",
-        },
-        expires: "2099-01-01T00:00:00.000Z",
-      };
-      if (typeof window !== "undefined") {
-        localStorage.setItem("finsocap_user_session", JSON.stringify(userSession));
-      }
-      setTimeout(() => {
+      const cleanEmail = formatEmail(email);
+      const res = await authService.login({
+        email: cleanEmail,
+        password: password, // Note: password is never trimmed or case-altered
+      });
+
+      if (res.success && res.data?.token) {
         router.push("/dashboard");
-      }, 200);
-    } catch (err) {
-      setError("An unexpected error occurred. Please try again.");
+      } else {
+        setError(res.message || "Invalid email or password.");
+        setLoading(false);
+      }
+    } catch (err: any) {
+      console.error("Login error:", err);
+      setError(err?.message || "Invalid email or password. Please try again.");
       setLoading(false);
     }
   };
@@ -191,7 +190,8 @@ export default function LoginPage() {
                   type="email"
                   required
                   value={email}
-                  onChange={(e) => setEmail(e.target.value)}
+                  onChange={(e) => setEmail(e.target.value.toLowerCase().replace(/\s+/g, ""))}
+                  onBlur={() => setEmail(formatEmail(email))}
                   className="w-full px-4 py-3 sm:py-3.5 rounded-2xl bg-slate-50 hover:bg-slate-100/70 border border-slate-200/80 text-slate-900 placeholder-slate-400 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-[#1b2b5a] focus:bg-white transition-all shadow-2xs"
                   placeholder="name@finsocap.com"
                   autoComplete="email"
@@ -255,39 +255,6 @@ export default function LoginPage() {
                 )}
               </button>
             </div>
-
-            {/* 1-Click Local Dev Login */}
-            {process.env.NODE_ENV !== "production" && (
-              <div className="pt-1">
-                <button
-                  type="button"
-                  onClick={() => {
-                    setEmail("aarav@finsocap.com");
-                    setPassword("admin123");
-                    setLoading(true);
-                    const userSession = {
-                      user: {
-                        id: "admin-aarav",
-                        name: "Aarav Jha",
-                        email: "aarav@finsocap.com",
-                        role: "ADMIN",
-                        status: "APPROVED",
-                      },
-                      expires: "2099-01-01T00:00:00.000Z",
-                    };
-                    if (typeof window !== "undefined") {
-                      localStorage.setItem("finsocap_user_session", JSON.stringify(userSession));
-                    }
-                    setTimeout(() => {
-                      router.push("/dashboard");
-                    }, 200);
-                  }}
-                  className="w-full py-2.5 px-4 rounded-xl bg-emerald-50 hover:bg-emerald-100 active:scale-95 text-emerald-800 border border-emerald-300 text-xs font-bold transition-all flex items-center justify-center gap-2 cursor-pointer shadow-xs"
-                >
-                  <span>⚡ 1-Click Login (Aarav Jha - Admin)</span>
-                </button>
-              </div>
-            )}
 
           </form>
 

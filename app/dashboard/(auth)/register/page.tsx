@@ -8,6 +8,7 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import { getAssetUrl } from "@/lib/brandConfig";
+import { formatName, formatEmail, validateEmail, validatePersonName } from "@/lib/formatters";
 
 export default function RegisterPage() {
   const [name, setName] = useState("");
@@ -25,6 +26,20 @@ export default function RegisterPage() {
     setLoading(true);
     setError("");
 
+    const nameValidation = validatePersonName(name);
+    if (!nameValidation.isValid) {
+      setError(nameValidation.error || "Please enter a valid legal name.");
+      setLoading(false);
+      return;
+    }
+
+    const emailValidation = validateEmail(email);
+    if (!emailValidation.isValid) {
+      setError(emailValidation.error || "Please enter a valid email address.");
+      setLoading(false);
+      return;
+    }
+
     if (password !== confirmPassword) {
       setError("Passwords do not match. Please re-enter.");
       setLoading(false);
@@ -41,7 +56,7 @@ export default function RegisterPage() {
       const res = await fetch("/api/auth/register", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name, email, password }),
+        body: JSON.stringify({ name: formatName(name), email: formatEmail(email), password }),
       });
 
       const data = await res.json();
@@ -249,6 +264,7 @@ export default function RegisterPage() {
                     required
                     value={name}
                     onChange={(e) => setName(e.target.value)}
+                    onBlur={() => setName(formatName(name))}
                     className="w-full px-4 py-3 rounded-2xl bg-slate-50 hover:bg-slate-100/70 border border-slate-200/80 text-slate-900 placeholder-slate-400 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-[#1b2b5a] focus:bg-white transition-all shadow-2xs"
                     placeholder="e.g. Aarav Sharma"
                     autoComplete="name"
@@ -264,7 +280,8 @@ export default function RegisterPage() {
                     type="email"
                     required
                     value={email}
-                    onChange={(e) => setEmail(e.target.value)}
+                    onChange={(e) => setEmail(e.target.value.toLowerCase().replace(/\s+/g, ""))}
+                    onBlur={() => setEmail(formatEmail(email))}
                     className="w-full px-4 py-3 rounded-2xl bg-slate-50 hover:bg-slate-100/70 border border-slate-200/80 text-slate-900 placeholder-slate-400 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-[#1b2b5a] focus:bg-white transition-all shadow-2xs"
                     placeholder="name@finsocap.com"
                     autoComplete="email"

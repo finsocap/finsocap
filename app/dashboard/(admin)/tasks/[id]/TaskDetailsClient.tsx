@@ -1,20 +1,24 @@
 "use client";
 
-import { useEffect, useState, useRef } from "react";
+import { useEffect, useState, useRef, useMemo } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { 
   ArrowLeft, Phone, Calendar, Clock, Paperclip, AtSign, 
   Send, Upload, Download, CheckCircle2, AlertTriangle, 
   User, Building2, Briefcase, FileCheck, Loader2, Sparkles,
-  ChevronDown, X, ShieldCheck, Award, Eye, EyeOff, FileText, QrCode, Check, Edit3
+  ChevronDown, X, ShieldCheck, Award, Eye, EyeOff, FileText, QrCode, Check, Edit3, Copy
 } from "lucide-react";
-import { TaskItem, TaskStatus, TaskComment, TaskAttachment, CommentAttachment, TaskCertificate } from "@/types";
+import { TaskItem, TaskStatus, TaskComment, TaskAttachment, CommentAttachment, TaskCertificate, ALLOWED_STATUS_TRANSITIONS, canTransitionStatus } from "@/types";
 import { taskService } from "@/lib/services/taskService";
 import { useTheme } from "@/components/Providers/ThemeProvider";
 import { useToast } from "@/components/Global/ToastNotification";
 import { useCrmStore } from "@/lib/crmStore";
+import { teamService } from "@/lib/api/teamService";
 import ModalHeaderBanner from "@/components/Dashboard/ModalHeaderBanner";
+import { formatName, formatIndianPhoneNumber, normalizePhoneForBackend } from "@/lib/formatters";
+import { PhoneInput } from "@/components/Global/PhoneInput";
+import { NameInput } from "@/components/Global/NameInput";
 
 export default function TaskDetailsClient({ id }: { id: string }) {
   const router = useRouter();
@@ -24,6 +28,32 @@ export default function TaskDetailsClient({ id }: { id: string }) {
 
   const [task, setTask] = useState<TaskItem | null>(null);
   const [loading, setLoading] = useState(true);
+  const [currentUser, setCurrentUser] = useState<{ id?: string; name?: string; role?: string; email?: string } | null>(null);
+  const [specialistsList, setSpecialistsList] = useState<Array<{ id: number; fullName: string; designation: string }>>([]);
+
+  useEffect(() => {
+    async function loadSpecialists() {
+      try {
+        const res = await teamService.getSpecialists();
+        if (res?.success && Array.isArray(res?.data)) {
+          setSpecialistsList(res.data.map((s) => ({ id: s.id, fullName: s.fullName, designation: s.designation })));
+        }
+      } catch (e) {}
+    }
+    loadSpecialists();
+  }, []);
+
+  useEffect(() => {
+    try {
+      const sess = localStorage.getItem("finsocap_user_session");
+      if (sess) {
+        const p = JSON.parse(sess);
+        if (p?.user) {
+          setCurrentUser(p.user);
+        }
+      }
+    } catch (e) {}
+  }, []);
   const [newCommentText, setNewCommentText] = useState("");
   const [isPostingComment, setIsPostingComment] = useState(false);
   const [statusDropdownOpen, setStatusDropdownOpen] = useState(false);
@@ -39,13 +69,41 @@ export default function TaskDetailsClient({ id }: { id: string }) {
   const [completeUserId, setCompleteUserId] = useState("UPFSSAI123");
   const [completePassword, setCompletePassword] = useState("Abc@1234");
   const [showCompletePassword, setShowCompletePassword] = useState(false);
-  const [completePartnerId, setCompletePartnerId] = useState("P-101");
+  const [completePartnerId, setCompletePartnerId] = useState("");
   const [completePartnerName, setCompletePartnerName] = useState("");
   const [completePartnerNumber, setCompletePartnerNumber] = useState("");
   const [completeClientName, setCompleteClientName] = useState("");
   const [completeClientNumber, setCompleteClientNumber] = useState("");
   const [completeAttachments, setCompleteAttachments] = useState<string[]>([]);
   const completeFileInputRef = useRef<HTMLInputElement>(null);
+
+  const statusOptions: { status: TaskStatus; dotColor: string }[] = useMemo(() => {
+    const list: { status: TaskStatus; dotColor: string }[] = [
+      { status: "Pending", dotColor: "bg-amber-500" },
+      { status: "In Progress", dotColor: "bg-sky-500" },
+      { status: "Sent for Review", dotColor: "bg-purple-500" },
+      { status: "Pending from Client", dotColor: "bg-orange-500" },
+      { status: "Pending from Department", dotColor: "bg-indigo-500" },
+      { status: "Overdue", dotColor: "bg-red-600" },
+      { status: "Completed", dotColor: "bg-emerald-500" },
+      { status: "Cancelled", dotColor: "bg-slate-500" },
+    ];
+    // Admin cannot mark Completed directly; assigned specialist must complete it
+    if (currentUser?.role === "ADMIN") {
+      return list.filter((item) => item.status !== "Completed");
+    }
+    return list;
+  }, [currentUser]);
+
+  // Allowed next statuses based on current task status (stepwise workflow)
+  const allowedNextStatuses = useMemo<TaskStatus[]>(() => {
+    if (!task) return [];
+    const allowed = ALLOWED_STATUS_TRANSITIONS[task.status] || [];
+    if (currentUser?.role === "ADMIN") {
+      return allowed.filter((s) => s !== "Completed");
+    }
+    return allowed;
+  }, [task, currentUser]);
 
   // Comment Attachment State
   const commentFileInputRef = useRef<HTMLInputElement>(null);
@@ -63,6 +121,16 @@ export default function TaskDetailsClient({ id }: { id: string }) {
   const [certValidTill, setCertValidTill] = useState("2027-09-29");
   const [certFileName, setCertFileName] = useState("");
   const [previewCertModal, setPreviewCertModal] = useState<TaskCertificate | null>(null);
+  const [copiedId, setCopiedId] = useState(false);
+
+  const handleCopyId = () => {
+    if (typeof navigator !== "undefined" && navigator.clipboard && task?.id) {
+      navigator.clipboard.writeText(task.id);
+      setCopiedId(true);
+      showToast(`Task ID "${task.id}" copied to clipboard!`);
+      setTimeout(() => setCopiedId(false), 2000);
+    }
+  };
 
   // Edit Task Modal State
   const [isEditTaskModalOpen, setIsEditTaskModalOpen] = useState(false);
@@ -73,8 +141,8 @@ export default function TaskDetailsClient({ id }: { id: string }) {
   const [editService, setEditService] = useState("");
   const [editDueDate, setEditDueDate] = useState("");
   const [editStatus, setEditStatus] = useState<TaskStatus>("Pending");
-  const [editAssignedTo, setEditAssignedTo] = useState("Rahul Jha");
-  const [editPartnerId, setEditPartnerId] = useState("P-101");
+  const [editAssignedTo, setEditAssignedTo] = useState("");
+  const [editPartnerId, setEditPartnerId] = useState("");
   const [editPartnerName, setEditPartnerName] = useState("");
   const [editPartnerContact, setEditPartnerContact] = useState("");
 
@@ -85,10 +153,19 @@ export default function TaskDetailsClient({ id }: { id: string }) {
     setEditBusinessName(task.nameOfBusiness);
     setEditCategory(task.taskCategory);
     setEditService(task.serviceName);
-    setEditDueDate(task.dueDate);
+    let dueVal = "";
+    if (task.dueDate) {
+      const parsed = new Date(task.dueDate);
+      if (!isNaN(parsed.getTime())) {
+        dueVal = parsed.toISOString().split("T")[0];
+      } else {
+        dueVal = task.dueDate;
+      }
+    }
+    setEditDueDate(dueVal);
     setEditStatus(task.status);
-    setEditAssignedTo(task.assignedTo?.name || "Rahul Jha");
-    setEditPartnerId(task.partnerId || "P-101");
+    setEditAssignedTo(task.assignedTo?.name || "");
+    setEditPartnerId(task.partnerId || "");
     setEditPartnerName(task.partnerName);
     setEditPartnerContact(task.partnerContact);
     setIsEditTaskModalOpen(true);
@@ -97,28 +174,46 @@ export default function TaskDetailsClient({ id }: { id: string }) {
   const handleSaveEditTask = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!task) return;
-    const updated = await taskService.updateTask(task.id, {
-      clientName: editClientName.trim(),
-      clientContact: editClientContact.trim(),
-      nameOfBusiness: editBusinessName.trim(),
-      taskCategory: editCategory,
-      serviceName: editService.trim(),
-      dueDate: editDueDate,
-      status: editStatus,
-      partnerId: editPartnerId,
-      partnerName: editPartnerName.trim(),
-      partnerContact: editPartnerContact.trim(),
-      assignedTo: {
-        id: task.assignedTo?.id || "EMP001",
-        name: editAssignedTo,
-        role: task.assignedTo?.role || "Operations Specialist",
-        avatar: task.assignedTo?.avatar,
-      },
-    });
-    if (updated) {
-      setTask({ ...updated });
-      showToast("Task details updated successfully!");
-      setIsEditTaskModalOpen(false);
+
+    if (editStatus !== task.status && !canTransitionStatus(task.status, editStatus)) {
+      toast.error(
+        `Invalid step transition: "${task.status}" cannot jump directly to "${editStatus}". Work must proceed stepwise.`,
+        "Workflow Rule"
+      );
+      return;
+    }
+    // If Unassigned is selected, pass null/undefined for assignedTo
+    const isUnassigned = !editAssignedTo || editAssignedTo.trim() === "" || editAssignedTo === "Unassigned";
+
+    try {
+      const updated = await taskService.updateTask(task.id, {
+        clientName: editClientName.trim(),
+        clientContact: editClientContact.trim(),
+        nameOfBusiness: editBusinessName.trim(),
+        taskCategory: editCategory,
+        serviceName: editService.trim(),
+        dueDate: editDueDate,
+        status: editStatus,
+        partnerId: editPartnerId,
+        partnerName: editPartnerName.trim(),
+        partnerContact: editPartnerContact.trim(),
+        assignedTo: isUnassigned
+          ? undefined
+          : {
+              id: task.assignedTo?.id || "EMP001",
+              name: editAssignedTo,
+              role: task.assignedTo?.role || "Operations Specialist",
+              avatar: task.assignedTo?.avatar,
+            },
+      });
+      if (updated) {
+        setTask({ ...updated });
+        showToast("Task details updated successfully!");
+        setIsEditTaskModalOpen(false);
+      }
+    } catch (err: any) {
+      console.error("Save task edit error:", err);
+      toast.error(err?.message || "Failed to update task", "Error");
     }
   };
 
@@ -128,20 +223,44 @@ export default function TaskDetailsClient({ id }: { id: string }) {
 
   useEffect(() => {
     async function loadTask() {
+      setLoading(true);
+      // Clean up any stale dummy attachments from localStorage cache so live API is authoritative
+      if (typeof window !== "undefined") {
+        try {
+          const raw = localStorage.getItem("finsocap_tasks_operations_v2");
+          if (raw) {
+            const parsed = JSON.parse(raw);
+            if (Array.isArray(parsed)) {
+              let changed = false;
+              const sanitized = parsed.map((item: any) => {
+                if (item.attachments && item.attachments.some((a: any) => a.fileName === "HHH" || a.id?.startsWith("att-"))) {
+                  changed = true;
+                  return { ...item, attachments: [] };
+                }
+                return item;
+              });
+              if (changed) {
+                localStorage.setItem("finsocap_tasks_operations_v2", JSON.stringify(sanitized));
+              }
+            }
+          }
+        } catch (e) {}
+      }
+
       const data = await taskService.getById(id);
       setTask(data);
       if (data) {
         setCertName(`${data.serviceName} Certificate`);
-        setCertNumber(`${data.serviceName.slice(0, 4).toUpperCase()}-2026-${Math.floor(1000 + Math.random() * 9000)}`);
+        setCertNumber(data.license || "");
         setCertFileName(`${data.serviceName.replace(/\s+/g, "_")}_Official_Certificate.pdf`);
-        setCompletePartnerId(data.partnerId || "P-101");
-        setCompletePartnerName(data.partnerName || "Rahul Jha");
-        setCompletePartnerNumber(data.partnerContact || "9873207632");
-        setCompleteClientName(data.clientName || "Amit Kumar");
-        setCompleteClientNumber(data.clientContact || "9876543210");
-        setCompleteCategory(data.taskCategory || "Compliance");
-        setCompleteServiceName(data.serviceName || "FSSAI Registration");
-        setCompleteLicenceNumber(data.license || `${Math.floor(1000 + Math.random() * 9000)}`);
+        setCompletePartnerId(data.partnerId || "");
+        setCompletePartnerName(data.partnerName || "");
+        setCompletePartnerNumber(data.partnerContact || "");
+        setCompleteClientName(data.clientName || "");
+        setCompleteClientNumber(data.clientContact || "");
+        setCompleteCategory(data.taskCategory || "");
+        setCompleteServiceName(data.serviceName || "");
+        setCompleteLicenceNumber(data.license || "");
       }
       setLoading(false);
     }
@@ -169,9 +288,30 @@ export default function TaskDetailsClient({ id }: { id: string }) {
     );
   }
 
-  // Handle status update
+  // Handle status update with strict stepwise workflow enforcement
   const handleStatusChange = async (newStatus: TaskStatus) => {
     setStatusDropdownOpen(false);
+
+    if (newStatus === task.status) return;
+
+    // Stepwise Workflow Validation:
+    if (!canTransitionStatus(task.status, newStatus)) {
+      toast.error(
+        `Invalid step transition: "${task.status}" cannot jump directly to "${newStatus}". Work must proceed stepwise.`,
+        "Workflow Rule"
+      );
+      return;
+    }
+
+    // Business Rule: Admin cannot directly mark task as Completed; only assigned specialist completes work
+    if (newStatus === "Completed" && currentUser?.role === "ADMIN") {
+      toast.error(
+        "Admin cannot mark task as Completed directly. Only the specialist assigned to this service can submit and complete it.",
+        "Action Restricted"
+      );
+      return;
+    }
+
     if (newStatus === "Completed") {
       setIsCompleteModalOpen(true);
       return;
@@ -334,17 +474,6 @@ export default function TaskDetailsClient({ id }: { id: string }) {
     }
   };
 
-  const statusOptions: { status: TaskStatus; dotColor: string }[] = [
-    { status: "Pending", dotColor: "bg-amber-500" },
-    { status: "In Progress", dotColor: "bg-sky-500" },
-    { status: "Sent for Review", dotColor: "bg-purple-500" },
-    { status: "Pending from Client", dotColor: "bg-orange-500" },
-    { status: "Pending from Department", dotColor: "bg-indigo-500" },
-    { status: "Overdue", dotColor: "bg-red-600" },
-    { status: "Completed", dotColor: "bg-emerald-500" },
-    { status: "Cancelled", dotColor: "bg-slate-500" },
-  ];
-
   return (
     <div className="space-y-7 pb-24">
       {/* 1. Header Banner matching Screenshot 2 (Official Finsocap Theme) */}
@@ -376,10 +505,22 @@ export default function TaskDetailsClient({ id }: { id: string }) {
                 </span>
               </div>
 
-              <h1 className="text-2xl sm:text-3xl font-black text-slate-900 dark:text-white tracking-tight leading-tight flex items-center gap-2.5">
+              <h1 className="text-2xl sm:text-3xl font-black text-slate-900 dark:text-white tracking-tight leading-tight flex items-center gap-2.5 flex-wrap">
                 Task Details
-                <span className="text-xs font-bold px-2.5 py-0.5 rounded-full bg-blue-50 dark:bg-blue-950/80 text-blue-700 dark:text-sky-300 border border-blue-200/80 dark:border-blue-800/80 font-mono">
-                  {task.id}
+                <span className="inline-flex items-center gap-1.5 text-xs font-bold px-2.5 py-1 rounded-full bg-blue-50 dark:bg-blue-950/80 text-blue-700 dark:text-sky-300 border border-blue-200/80 dark:border-blue-800/80 font-mono">
+                  <span>{task.id.length <= 12 ? task.id : `${task.id.slice(0, 10)}...`}</span>
+                  <button
+                    type="button"
+                    onClick={handleCopyId}
+                    title={`Click to copy: ${task.id}`}
+                    className="p-0.5 rounded text-blue-500 hover:text-blue-700 dark:hover:text-white transition-colors cursor-pointer"
+                  >
+                    {copiedId ? (
+                      <Check className="w-3.5 h-3.5 text-emerald-500" />
+                    ) : (
+                      <Copy className="w-3.5 h-3.5" />
+                    )}
+                  </button>
                 </span>
               </h1>
               <p className="text-xs text-slate-500 dark:text-slate-400 font-medium mt-0.5 max-w-xl">
@@ -403,7 +544,7 @@ export default function TaskDetailsClient({ id }: { id: string }) {
               <span>Back to Tasks</span>
             </Link>
 
-            {task.status !== "Completed" && (
+            {task.status !== "Completed" && currentUser?.role !== "ADMIN" && (
               <button
                 type="button"
                 onClick={() => setIsCompleteModalOpen(true)}
@@ -450,11 +591,13 @@ export default function TaskDetailsClient({ id }: { id: string }) {
               Partner ID & Name
             </p>
             <div className="flex items-center gap-1.5 mt-1">
-              <span className="px-2 py-0.5 rounded-md font-mono font-bold text-[10px] bg-amber-500/15 text-amber-700 dark:text-amber-400 border border-amber-500/25">
-                {task.partnerId || "P-101"}
-              </span>
+              {task.partnerId ? (
+                <span className="px-2 py-0.5 rounded-md font-mono font-bold text-[10px] bg-amber-500/15 text-amber-700 dark:text-amber-400 border border-amber-500/25">
+                  {task.partnerId}
+                </span>
+              ) : null}
               <p className="text-sm font-black text-slate-900 dark:text-white truncate">
-                {task.partnerName}
+                {task.partnerName || "—"}
               </p>
             </div>
             <span className="text-[10px] text-amber-600 dark:text-amber-400 font-bold block mt-0.5">Franchise Partner</span>
@@ -540,30 +683,57 @@ export default function TaskDetailsClient({ id }: { id: string }) {
                   onClick={() => setStatusDropdownOpen(false)}
                   aria-hidden="true"
                 />
-                <div className="absolute left-1/2 -translate-x-1/2 sm:translate-x-0 sm:left-auto sm:right-0 top-full mt-2 w-56 max-w-[calc(100vw-2rem)] bg-white dark:bg-[#0c1427] border border-slate-200 dark:border-slate-800 rounded-2xl shadow-2xl z-50 py-1.5 divide-y divide-slate-100 dark:divide-slate-800 animate-in fade-in zoom-in-95 duration-150">
-                  {statusOptions.map((opt) => (
-                    <button
-                      key={opt.status}
-                      type="button"
-                      onClick={() => handleStatusChange(opt.status)}
-                      className={`w-full text-left px-3.5 py-2.5 text-xs font-bold hover:bg-slate-50 dark:hover:bg-slate-800/80 flex items-center justify-between cursor-pointer transition-colors ${
-                        task.status === opt.status ? "bg-blue-50/70 dark:bg-blue-950/40 text-blue-600 dark:text-sky-400" : "text-slate-800 dark:text-slate-200"
-                      }`}
-                    >
-                      <div className="flex items-center gap-2.5">
-                        <span className={`w-2 h-2 rounded-full ${opt.dotColor}`} />
-                        <span>{opt.status}</span>
-                      </div>
-                      {task.status === opt.status && <Check className="w-3.5 h-3.5 text-blue-600 dark:text-sky-400" />}
-                    </button>
-                  ))}
+                <div className="absolute left-1/2 -translate-x-1/2 sm:translate-x-0 sm:left-auto sm:right-0 top-full mt-2 w-64 max-w-[calc(100vw-2rem)] bg-white dark:bg-[#0c1427] border border-slate-200 dark:border-slate-800 rounded-2xl shadow-2xl z-50 py-1.5 divide-y divide-slate-100 dark:divide-slate-800 animate-in fade-in zoom-in-95 duration-150">
+                  <div className="px-3.5 py-1.5 text-[10px] font-black uppercase tracking-wider text-slate-400 bg-slate-50/50 dark:bg-slate-900/50 flex items-center justify-between">
+                    <span>Stepwise Transitions</span>
+                    <span className="font-semibold text-blue-500">Current: {task.status}</span>
+                  </div>
+                  {statusOptions.map((opt) => {
+                    const isCurrent = task.status === opt.status;
+                    const isAllowed = isCurrent || allowedNextStatuses.includes(opt.status);
+
+                    return (
+                      <button
+                        key={opt.status}
+                        type="button"
+                        disabled={!isAllowed}
+                        onClick={() => {
+                          if (isAllowed) handleStatusChange(opt.status);
+                        }}
+                        className={`w-full text-left px-3.5 py-2.5 text-xs font-bold flex items-center justify-between transition-colors ${
+                          isCurrent
+                            ? "bg-blue-50/70 dark:bg-blue-950/40 text-blue-600 dark:text-sky-400 cursor-default"
+                            : isAllowed
+                            ? "text-slate-800 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800/80 cursor-pointer"
+                            : "text-slate-300 dark:text-slate-600 cursor-not-allowed opacity-50 bg-slate-50/30 dark:bg-slate-900/30"
+                        }`}
+                        title={
+                          isCurrent
+                            ? "Current status"
+                            : isAllowed
+                            ? `Transition to ${opt.status}`
+                            : `Stepwise rule: Cannot jump from ${task.status} to ${opt.status}`
+                        }
+                      >
+                        <div className="flex items-center gap-2.5">
+                          <span className={`w-2 h-2 rounded-full ${isAllowed ? opt.dotColor : "bg-slate-300 dark:bg-slate-700"}`} />
+                          <span>{opt.status}</span>
+                        </div>
+                        {isCurrent ? (
+                          <Check className="w-3.5 h-3.5 text-blue-600 dark:text-sky-400" />
+                        ) : !isAllowed ? (
+                          <span className="text-[9px] font-semibold text-slate-400">Locked</span>
+                        ) : null}
+                      </button>
+                    );
+                  })}
                 </div>
               </>
             )}
           </div>
         </div>
 
-        {/* Second Row: Category, Service, Due Date, Overdue */}
+        {/* Second Row: Category, Service, Due Date, Assigned Specialist */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-6 pt-5 border-t border-slate-100 dark:border-slate-800/80 text-xs">
           <div>
             <span className="text-slate-400 font-medium">Task Category: </span>
@@ -573,20 +743,22 @@ export default function TaskDetailsClient({ id }: { id: string }) {
             <span className="text-slate-400 font-medium">Service Name: </span>
             <span className="font-black text-blue-600 dark:text-sky-400">{task.serviceName}</span>
           </div>
-          <div className="flex items-center gap-1.5 text-slate-600 dark:text-slate-400 font-medium">
-            <Clock className="w-3.5 h-3.5 text-amber-500" />
-            <span>Due Date: <strong className="text-slate-900 dark:text-white">{task.dueDate}</strong></span>
-          </div>
           <div>
-            {task.overdueDays && task.overdueDays > 0 ? (
-              <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full font-black text-[11px] bg-red-500/15 text-red-600 dark:text-red-400 border border-red-500/30 animate-pulse">
-                <AlertTriangle className="w-3.5 h-3.5" /> Overdue: {task.overdueDays} days
+            <span className="text-slate-400 font-medium">Assigned Specialist: </span>
+            {task.assignedTo?.name ? (
+              <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full font-bold text-[10px] bg-indigo-50 text-indigo-700 dark:bg-indigo-950/60 dark:text-indigo-300 border border-indigo-200/60">
+                <User className="w-3 h-3 text-indigo-500" />
+                <span>{task.assignedTo.name} ({task.assignedTo.role || "Specialist"})</span>
               </span>
             ) : (
-              <span className="text-emerald-600 dark:text-emerald-400 font-bold text-xs flex items-center gap-1.5">
-                <CheckCircle2 className="w-4 h-4 text-emerald-500" /> SLA On Schedule
+              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md font-bold text-[10px] bg-slate-100 text-slate-500 dark:bg-slate-800 dark:text-slate-400">
+                Unassigned
               </span>
             )}
+          </div>
+          <div className="flex items-center gap-1.5 text-slate-600 dark:text-slate-400 font-medium">
+            <Clock className="w-3.5 h-3.5 text-amber-500" />
+            <span>Due Date: <strong className="text-slate-900 dark:text-white">{task.dueDate || "Not Set"}</strong></span>
           </div>
         </div>
       </div>
@@ -730,49 +902,19 @@ export default function TaskDetailsClient({ id }: { id: string }) {
           {/* Section: Attachments */}
           <div className="card-luxury p-6 space-y-5">
             <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800/80 pb-3">
-              <h3 className="font-black text-slate-900 dark:text-white text-base tracking-tight flex items-center gap-2">
-                <Paperclip className="w-4 h-4 text-sky-500" />
-                <span>Attachments</span>
-              </h3>
-              <button
-                type="button"
-                onClick={() => setUploadModalOpen(true)}
-                className="btn-primary-vibrant text-xs py-1.5 px-3.5 cursor-pointer flex items-center gap-1.5"
-              >
-                <Upload className="w-3.5 h-3.5" />
-                <span>Upload File</span>
-              </button>
-            </div>
-
-            {/* Upload Modal Drawer */}
-            {uploadModalOpen && (
-              <div className="p-4 bg-slate-50 dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 space-y-3 animate-in fade-in zoom-in-95 duration-150">
-                <p className="text-xs font-bold text-slate-800 dark:text-slate-200">Upload Customer Document</p>
-                <input
-                  type="text"
-                  placeholder="Document Title (e.g. Address Proof.pdf)"
-                  value={uploadFileName}
-                  onChange={(e) => setUploadFileName(e.target.value)}
-                  className="w-full px-3.5 py-2 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-semibold"
-                />
-                <div className="flex items-center justify-end gap-2">
-                  <button
-                    type="button"
-                    onClick={() => setUploadModalOpen(false)}
-                    className="px-3 py-1.5 text-slate-500 text-xs font-bold cursor-pointer"
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    type="button"
-                    onClick={handleUploadFile}
-                    className="btn-primary-vibrant text-xs py-1.5 px-3.5 cursor-pointer"
-                  >
-                    Confirm Upload
-                  </button>
-                </div>
+              <div>
+                <h3 className="font-black text-slate-900 dark:text-white text-base tracking-tight flex items-center gap-2">
+                  <Paperclip className="w-4 h-4 text-sky-500" />
+                  <span>Partner Attachments</span>
+                  <span className="px-2 py-0.5 rounded-full text-[10px] font-black bg-blue-50 text-blue-600 dark:bg-blue-950/60 dark:text-sky-300 border border-blue-200/60 dark:border-blue-800/60">
+                    {(task.attachments || []).length} Files
+                  </span>
+                </h3>
+                <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">
+                  Documents uploaded by Franchise Partner ({task.partnerName}) during service request creation.
+                </p>
               </div>
-            )}
+            </div>
 
             {/* Attachments Table matching Screenshot 5 */}
             <div className="overflow-x-auto">
@@ -904,7 +1046,7 @@ export default function TaskDetailsClient({ id }: { id: string }) {
               className="btn-primary-vibrant text-xs py-2 px-4 cursor-pointer inline-flex items-center gap-2 shadow-md shadow-blue-500/20"
             >
               <Award className="w-4 h-4" />
-              <span>+ Submit Certificate / Licence</span>
+              <span>Submit Certificate / Licence</span>
             </button>
           </div>
 
@@ -1565,31 +1707,20 @@ export default function TaskDetailsClient({ id }: { id: string }) {
 
             <form onSubmit={handleSaveEditTask} className="space-y-4">
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-[11px] font-bold text-slate-500 mb-1">
-                    Client Name *
-                  </label>
-                  <input
-                    type="text"
-                    required
-                    value={editClientName}
-                    onChange={(e) => setEditClientName(e.target.value)}
-                    className="w-full px-3.5 py-2 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-semibold text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500/20"
-                  />
-                </div>
+                <NameInput
+                  label="Client Name"
+                  required
+                  value={editClientName}
+                  onChange={setEditClientName}
+                />
 
-                <div>
-                  <label className="block text-[11px] font-bold text-slate-500 mb-1">
-                    Client Contact Mobile *
-                  </label>
-                  <input
-                    type="text"
-                    required
-                    value={editClientContact}
-                    onChange={(e) => setEditClientContact(e.target.value)}
-                    className="w-full px-3.5 py-2 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-semibold text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500/20"
-                  />
-                </div>
+                <PhoneInput
+                  label="Client Contact Mobile"
+                  required
+                  value={editClientContact}
+                  onChange={setEditClientContact}
+                  placeholder="+91 99530 65623"
+                />
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -1601,6 +1732,7 @@ export default function TaskDetailsClient({ id }: { id: string }) {
                     type="text"
                     value={editBusinessName}
                     onChange={(e) => setEditBusinessName(e.target.value)}
+                    onBlur={() => setEditBusinessName(formatName(editBusinessName))}
                     className="w-full px-3.5 py-2 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-semibold text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500/20"
                   />
                 </div>
@@ -1610,12 +1742,11 @@ export default function TaskDetailsClient({ id }: { id: string }) {
                     Due Date *
                   </label>
                   <input
-                    type="text"
+                    type="date"
                     required
                     value={editDueDate}
                     onChange={(e) => setEditDueDate(e.target.value)}
-                    placeholder="e.g. 15 Oct 2026"
-                    className="w-full px-3.5 py-2 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-semibold text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+                    className="w-full px-3.5 py-2 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-semibold text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500/20 cursor-pointer"
                   />
                 </div>
               </div>
@@ -1665,20 +1796,21 @@ export default function TaskDetailsClient({ id }: { id: string }) {
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                   <label className="block text-[11px] font-bold text-slate-500 mb-1">
-                    Task Status
+                    Task Status (Stepwise Allowed)
                   </label>
                   <select
                     value={editStatus}
                     onChange={(e) => setEditStatus(e.target.value as TaskStatus)}
                     className="w-full px-3.5 py-2 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-semibold text-slate-900 dark:text-white cursor-pointer"
                   >
-                    <option value="Assigned">Assigned</option>
-                    <option value="Pending">Pending</option>
-                    <option value="In Progress">In Progress</option>
-                    <option value="Review">Review</option>
-                    <option value="WIP">WIP</option>
-                    <option value="Overdue">Overdue</option>
-                    <option value="Completed">Completed</option>
+                    <option value={task.status}>{task.status} (Current)</option>
+                    {allowedNextStatuses
+                      .filter((s) => s !== task.status)
+                      .map((s) => (
+                        <option key={s} value={s}>
+                          {s}
+                        </option>
+                      ))}
                   </select>
                 </div>
 
@@ -1691,12 +1823,20 @@ export default function TaskDetailsClient({ id }: { id: string }) {
                     onChange={(e) => setEditAssignedTo(e.target.value)}
                     className="w-full px-3.5 py-2 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-semibold text-slate-900 dark:text-white cursor-pointer"
                   >
-                    <option value="Rahul Jha">Rahul Jha (Senior Executive)</option>
-                    <option value="Kanhaiya">Kanhaiya (Compliance Officer)</option>
-                    <option value="Gaurav">Gaurav (Operations Specialist)</option>
-                    <option value="Roshan">Roshan (Case Manager)</option>
-                    <option value="Roshni">Roshni (Tax Associate)</option>
-                    <option value="Asha">Asha (Document Analyst)</option>
+                    <option value="">Unassigned</option>
+                    {specialistsList.length > 0 ? (
+                      specialistsList.map((spec) => (
+                        <option key={spec.id} value={spec.fullName}>
+                          {spec.fullName} ({spec.designation})
+                        </option>
+                      ))
+                    ) : (
+                      task?.assignedTo?.name && (
+                        <option value={task.assignedTo.name}>
+                          {task.assignedTo.name} ({task.assignedTo.role || "Specialist"})
+                        </option>
+                      )
+                    )}
                   </select>
                 </div>
               </div>
@@ -1727,29 +1867,19 @@ export default function TaskDetailsClient({ id }: { id: string }) {
                   </select>
                 </div>
 
-                <div>
-                  <label className="block text-[11px] font-bold text-slate-500 mb-1">
-                    Partner Name
-                  </label>
-                  <input
-                    type="text"
-                    value={editPartnerName}
-                    onChange={(e) => setEditPartnerName(e.target.value)}
-                    className="w-full px-3.5 py-2 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-semibold text-slate-900 dark:text-white"
-                  />
-                </div>
+                <NameInput
+                  label="Partner Name"
+                  value={editPartnerName}
+                  onChange={setEditPartnerName}
+                  isBusinessName={true}
+                />
 
-                <div>
-                  <label className="block text-[11px] font-bold text-slate-500 mb-1">
-                    Partner Contact Number
-                  </label>
-                  <input
-                    type="text"
-                    value={editPartnerContact}
-                    onChange={(e) => setEditPartnerContact(e.target.value)}
-                    className="w-full px-3.5 py-2 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-semibold text-slate-900 dark:text-white"
-                  />
-                </div>
+                <PhoneInput
+                  label="Partner Contact Number"
+                  value={editPartnerContact}
+                  onChange={setEditPartnerContact}
+                  placeholder="+91 99530 65623"
+                />
               </div>
 
               <div className="flex items-center justify-end gap-3 pt-3 border-t border-slate-100 dark:border-slate-800">

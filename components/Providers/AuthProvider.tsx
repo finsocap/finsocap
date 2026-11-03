@@ -2,17 +2,14 @@
 
 import { useEffect, useState } from "react";
 import { SessionProvider } from "next-auth/react";
-import { initMockApi } from "@/lib/mockApi";
-import { mockCurrentUser } from "@/lib/mockData";
-
 export const defaultMockSession = {
   user: {
-    id: mockCurrentUser.id,
-    name: mockCurrentUser.name,
-    email: mockCurrentUser.email,
-    role: mockCurrentUser.role,
-    image: mockCurrentUser.image,
-    status: mockCurrentUser.status,
+    id: "admin-aarav",
+    name: "ADMIN",
+    email: "admin@gmail.com",
+    role: "ADMIN",
+    image: null,
+    status: "ACTIVE",
   },
   expires: "2099-01-01T00:00:00.000Z",
 };
@@ -27,7 +24,6 @@ export function AuthProvider({
   const [activeSession, setActiveSession] = useState(session || defaultMockSession);
 
   useEffect(() => {
-    initMockApi();
 
     // Check if custom session is saved in localStorage (e.g. from custom login)
     try {

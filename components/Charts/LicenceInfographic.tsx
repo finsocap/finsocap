@@ -1,26 +1,56 @@
 "use client";
 
 import { useMemo } from "react";
-import { KeyRound, ShieldCheck, AlertTriangle, Clock, CheckCircle2, Award } from "lucide-react";
-import { LicenceModel } from "@/lib/crmStore";
+import { ShieldCheck } from "lucide-react";
+import { LicenceRegistryRow, LicenceReportMetrics } from "@/types/api";
 
-export default function LicenceInfographic({ licences }: { licences: LicenceModel[] }) {
+interface LicenceInfographicProps {
+  metrics?: LicenceReportMetrics | null;
+  licences?: LicenceRegistryRow[] | any[];
+}
+
+export default function LicenceInfographic({ metrics, licences = [] }: LicenceInfographicProps) {
   const stats = useMemo(() => {
-    const total = licences.length || 100;
-    const active = Math.round(total * 0.94);
-    const expiringSoon = 6;
-    const expired = 0;
-    const healthScore = 98;
+    const rows: LicenceRegistryRow[] = metrics?.rows || (licences as LicenceRegistryRow[]) || [];
+    const total = metrics?.totalLicences ?? rows.length;
+    const active = metrics?.active ?? rows.filter((r) => r.status === "ACTIVE").length;
+    const expiringSoon =
+      metrics?.expiringIn30Days ?? rows.filter((r) => r.status === "EXPIRING_SOON").length;
+    const expired = metrics?.expired ?? rows.filter((r) => r.status === "EXPIRED").length;
+    const healthScore = total > 0 ? Math.round((active / total) * 100) : 100;
+    const vaultDocs = rows.filter((r) => !!r.certificateUrl || !!r.licenceNumber).length;
 
-    return { total, active, expiringSoon, expired, healthScore };
-  }, [licences]);
+    // Dynamically calculate authorities/categories from actual API rows
+    const catCounts: Record<string, number> = {};
+    rows.forEach((r) => {
+      const cat = r.serviceCategory || "General Licensing";
+      const cleanName = cat
+        .replace(/_/g, " ")
+        .toLowerCase()
+        .replace(/\b\w/g, (c) => c.toUpperCase());
+      catCounts[cleanName] = (catCounts[cleanName] || 0) + 1;
+    });
 
-  const authorities = [
-    { name: "FSSAI Food Authority", count: "45", pct: 45, color: "from-emerald-500 to-teal-500" },
-    { name: "GSTN Registration Portal", count: "25", pct: 25, color: "from-blue-600 to-indigo-600" },
-    { name: "Municipal Trade Licences", count: "18", pct: 18, color: "from-purple-600 to-indigo-500" },
-    { name: "DGFT Import-Export IEC", count: "12", pct: 12, color: "from-amber-500 to-orange-500" },
-  ];
+    const colors = [
+      "from-emerald-500 to-teal-500",
+      "from-blue-600 to-indigo-600",
+      "from-purple-600 to-indigo-500",
+      "from-amber-500 to-orange-500",
+      "from-rose-500 to-red-500",
+    ];
+
+    const authoritiesList = Object.entries(catCounts).map(([name, count], idx) => {
+      const pct = total > 0 ? Math.round((count / total) * 100) : 0;
+      return {
+        name,
+        count,
+        pct,
+        color: colors[idx % colors.length],
+      };
+    });
+
+    return { total, active, expiringSoon, expired, healthScore, vaultDocs, authorities: authoritiesList };
+  }, [metrics, licences]);
 
   return (
     <div className="bg-white dark:bg-[#0c1427] rounded-3xl border border-slate-200/90 dark:border-slate-800 p-5 sm:p-6 shadow-sm space-y-5 animate-in fade-in duration-300">
@@ -33,7 +63,7 @@ export default function LicenceInfographic({ licences }: { licences: LicenceMode
               Statutory Licences Lifecycle & Expiry Radar
             </h3>
             <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-blue-50 dark:bg-blue-950/60 text-blue-600 dark:text-sky-400">
-              Auto-Renewal Monitored
+              Real-Time Monitored
             </span>
           </div>
           <p className="text-[11px] text-slate-400 font-medium mt-0.5">
@@ -47,7 +77,7 @@ export default function LicenceInfographic({ licences }: { licences: LicenceMode
         </div>
       </div>
 
-      {/* Grid: 3 Metric Cards + Regulatory Split */}
+      {/* Grid: 4 Metric Cards + Regulatory Split */}
       <div className="grid grid-cols-1 md:grid-cols-12 gap-5 items-center pt-2 border-t border-slate-100 dark:border-slate-800">
         
         {/* Metric Cards (5 cols) */}
@@ -86,7 +116,7 @@ export default function LicenceInfographic({ licences }: { licences: LicenceMode
           <div className="p-4 rounded-2xl bg-slate-50/80 dark:bg-slate-900/60 border border-slate-100 dark:border-slate-800 flex flex-col justify-between">
             <span className="text-[11px] font-bold text-slate-400 uppercase">Vault Docs</span>
             <div className="text-2xl font-black text-indigo-600 dark:text-indigo-400 mt-1">
-              342 Files
+              {stats.vaultDocs} Files
             </div>
             <p className="text-[10px] text-slate-400 font-medium mt-1">
               Encrypted cloud
@@ -105,23 +135,27 @@ export default function LicenceInfographic({ licences }: { licences: LicenceMode
           </div>
 
           <div className="space-y-2.5">
-            {authorities.map((auth) => (
-              <div key={auth.name} className="space-y-1">
-                <div className="flex items-center justify-between text-xs font-bold text-slate-700 dark:text-slate-300">
-                  <span className="truncate">{auth.name}</span>
-                  <div className="flex items-center gap-2 text-[11px] shrink-0">
-                    <span className="font-mono text-slate-900 dark:text-white font-bold">{auth.count} certs</span>
-                    <span className="text-slate-400 font-medium">({auth.pct}%)</span>
+            {stats.authorities.length === 0 ? (
+              <div className="text-xs text-slate-400 py-4 text-center">No licence categories recorded yet.</div>
+            ) : (
+              stats.authorities.map((auth) => (
+                <div key={auth.name} className="space-y-1">
+                  <div className="flex items-center justify-between text-xs font-bold text-slate-700 dark:text-slate-300">
+                    <span className="truncate">{auth.name}</span>
+                    <div className="flex items-center gap-2 text-[11px] shrink-0">
+                      <span className="font-mono text-slate-900 dark:text-white font-bold">{auth.count} certs</span>
+                      <span className="text-slate-400 font-medium">({auth.pct}%)</span>
+                    </div>
+                  </div>
+                  <div className="w-full h-2 rounded-full bg-slate-200 dark:bg-slate-800 overflow-hidden">
+                    <div
+                      className={`h-full rounded-full bg-gradient-to-r ${auth.color}`}
+                      style={{ width: `${auth.pct}%` }}
+                    />
                   </div>
                 </div>
-                <div className="w-full h-2 rounded-full bg-slate-200 dark:bg-slate-800 overflow-hidden">
-                  <div
-                    className={`h-full rounded-full bg-gradient-to-r ${auth.color}`}
-                    style={{ width: `${auth.pct}%` }}
-                  />
-                </div>
-              </div>
-            ))}
+              ))
+            )}
           </div>
         </div>
 

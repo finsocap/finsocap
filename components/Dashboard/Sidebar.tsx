@@ -53,9 +53,22 @@ export default function Sidebar({ userRole = "ADMIN" }: { userRole?: string }) {
   const [optimisticHref, setOptimisticHref] = useState<string | null>(null);
   const { config } = useTheme();
   const { tasks, services } = useCrmStore();
-
   const openTasksCount = tasks.filter(t => !["Completed", "Cancelled"].includes(t.status)).length;
   const unassignedTasksCount = tasks.filter(t => !t.assignee && t.status !== "Completed").length;
+
+  const [activeRole, setActiveRole] = useState(userRole);
+
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem("finsocap_user_session");
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (parsed?.user?.role) {
+          setActiveRole(parsed.user.role);
+        }
+      }
+    } catch (e) {}
+  }, []);
   
   // Track active report tab with fallback to URL query param
   const [activeReportTab, setActiveReportTab] = useState<string>(() => {
@@ -173,21 +186,33 @@ export default function Sidebar({ userRole = "ADMIN" }: { userRole?: string }) {
     );
   };
 
-  const coreNavItems = [
-    { label: "Dashboard", href: "/dashboard", icon: Home },
-    { label: "Products / Services", href: "/dashboard/services", icon: Boxes, badge: services.length ? `${services.length}` : undefined },
-    { label: "Tasks", href: "/dashboard/tasks", icon: ClipboardList, badge: openTasksCount > 0 ? `${openTasksCount}` : undefined },
-    { label: "Task Allocation", href: "/dashboard/allocation", icon: UserCheck, badge: unassignedTasksCount > 0 ? `${unassignedTasksCount}` : undefined },
-    { label: "Partners", href: "/dashboard/partners", icon: Handshake },
-    { label: "Clients", href: "/dashboard/clients", icon: Users },
-    { label: "Team", href: "/dashboard/team", icon: ShieldCheck },
-  ];
+  const isStaff = activeRole === "STAFF";
 
-  const reportNavItems = [
-    { label: "Service Team Report", href: "/dashboard/reports?tab=service", icon: Award },
-    { label: "Franchise Partner Report", href: "/dashboard/reports?tab=sales", icon: TrendingUp },
-    { label: "Licence Report", href: "/dashboard/reports?tab=licence", icon: KeyRound },
-  ];
+  const coreNavItems = isStaff
+    ? [
+        { label: "Dashboard", href: "/dashboard", icon: Home },
+        { label: "My Assigned Tasks", href: "/dashboard/tasks", icon: ClipboardList, badge: openTasksCount > 0 ? `${openTasksCount}` : undefined },
+        { label: "Products / Services", href: "/dashboard/services", icon: Boxes },
+      ]
+    : [
+        { label: "Dashboard", href: "/dashboard", icon: Home },
+        { label: "Products / Services", href: "/dashboard/services", icon: Boxes },
+        { label: "Tasks", href: "/dashboard/tasks", icon: ClipboardList, badge: openTasksCount > 0 ? `${openTasksCount}` : undefined },
+        { label: "Task Allocation", href: "/dashboard/allocation", icon: UserCheck, badge: unassignedTasksCount > 0 ? `${unassignedTasksCount}` : undefined },
+        { label: "Partners", href: "/dashboard/partners", icon: Handshake },
+        { label: "Clients", href: "/dashboard/clients", icon: Users },
+        { label: "Team", href: "/dashboard/team", icon: ShieldCheck },
+      ];
+
+  const reportNavItems = isStaff
+    ? [
+        { label: "Service Team Report", href: "/dashboard/reports?tab=service", icon: Award },
+      ]
+    : [
+        { label: "Service Team Report", href: "/dashboard/reports?tab=service", icon: Award },
+        { label: "Franchise Partner Report", href: "/dashboard/reports?tab=sales", icon: TrendingUp },
+        { label: "Licence Report", href: "/dashboard/reports?tab=licence", icon: KeyRound },
+      ];
 
   return (
     <>
@@ -385,7 +410,7 @@ export default function Sidebar({ userRole = "ADMIN" }: { userRole?: string }) {
               {/* Telemetry Metrics Grid */}
               <div className="grid grid-cols-2 gap-2 pt-0.5 text-[10px]">
                 <div className="p-2 rounded-xl bg-slate-50 dark:bg-slate-900/60 border border-slate-100 dark:border-slate-800/80">
-                  <span className="text-[9px] font-bold text-slate-400 block uppercase tracking-tight">API Latency</span>
+                  <span className="text-[9px] font-bold text-slate-400 block uppercase tracking-tight">Response Time</span>
                   <div className="flex items-center gap-1 mt-0.5">
                     <span className="font-black text-slate-900 dark:text-white">24 ms</span>
                     <span className="text-[8px] font-bold text-emerald-500">Fast</span>
@@ -393,7 +418,7 @@ export default function Sidebar({ userRole = "ADMIN" }: { userRole?: string }) {
                 </div>
 
                 <div className="p-2 rounded-xl bg-slate-50 dark:bg-slate-900/60 border border-slate-100 dark:border-slate-800/80">
-                  <span className="text-[9px] font-bold text-slate-400 block uppercase tracking-tight">Postgres DB</span>
+                  <span className="text-[9px] font-bold text-slate-400 block uppercase tracking-tight">Cloud Data</span>
                   <div className="flex items-center gap-1 mt-0.5">
                     <span className="font-black text-slate-900 dark:text-white">Synced</span>
                     <Database className="w-2.5 h-2.5 text-blue-500" />

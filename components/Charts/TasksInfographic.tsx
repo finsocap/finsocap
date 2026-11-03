@@ -1,31 +1,56 @@
 "use client";
 
 import { useMemo } from "react";
-import { 
-  ClipboardList, CheckCircle2, Clock, AlertTriangle, 
-  ArrowRight, ShieldCheck, Flame, UserCheck 
-} from "lucide-react";
-import { TaskModel } from "@/lib/crmStore";
+import { ShieldCheck } from "lucide-react";
+import { TaskMetrics, BackendTask } from "@/types/api";
 
-export default function TasksInfographic({ tasks }: { tasks: TaskModel[] }) {
+interface TasksInfographicProps {
+  metrics?: TaskMetrics | null;
+  tasks?: BackendTask[] | any[];
+}
+
+export default function TasksInfographic({ metrics, tasks = [] }: TasksInfographicProps) {
   const stats = useMemo(() => {
-    const total = tasks.length;
-    const pending = tasks.filter((t) => t.status === "Pending").length;
-    const inProgress = tasks.filter((t) => t.status === "In Progress").length;
-    const review = tasks.filter((t) => t.status === "Sent for Review").length;
-    const completed = tasks.filter((t) => t.status === "Completed").length;
-    const overdue = tasks.filter((t) => t.priority === "High" && t.status !== "Completed").length;
+    const list = tasks || [];
+    const total = metrics?.totalTasks ?? list.length;
+    const pending = metrics?.pendingReview ?? list.filter((t) => {
+      const s = (t.status || "").toUpperCase();
+      return s === "PENDING" || s === "PENDING_REVIEW";
+    }).length;
+
+    const inProgress = metrics?.inProgress ?? list.filter((t) => {
+      const s = (t.status || "").toUpperCase();
+      return s === "IN_PROGRESS";
+    }).length;
+
+    const queryRaised = metrics?.queryRaised ?? list.filter((t) => {
+      const s = (t.status || "").toUpperCase();
+      return s === "PENDING_FROM_CLIENT" || s.includes("QUERY");
+    }).length;
+
+    const completed = metrics?.completed ?? list.filter((t) => {
+      const s = (t.status || "").toUpperCase();
+      return s === "COMPLETED";
+    }).length;
+
+    const overdue = list.filter((t) => {
+      if (t.dueDate && (t.status || "").toUpperCase() !== "COMPLETED") {
+        const d = new Date(t.dueDate);
+        return !isNaN(d.getTime()) && d < new Date();
+      }
+      return false;
+    }).length;
 
     const completionRate = total > 0 ? Math.round((completed / total) * 100) : 0;
-    const onTimeRate = total > 0 ? Math.round(((total - overdue) / (total || 1)) * 100) : 100;
+    const onTimeRate = total > 0 ? Math.max(0, Math.round(((total - overdue) / total) * 100)) : 100;
 
-    return { total, pending, inProgress, review, completed, overdue, completionRate, onTimeRate };
-  }, [tasks]);
+    return { total, pending, inProgress, queryRaised, completed, overdue, completionRate, onTimeRate };
+  }, [metrics, tasks]);
 
   const stages = [
     { label: "Pending", count: stats.pending, color: "from-rose-500 to-pink-500", border: "border-rose-200 dark:border-rose-900/50" },
     { label: "In Progress", count: stats.inProgress, color: "from-sky-500 to-blue-600", border: "border-sky-200 dark:border-sky-900/50" },
-    { label: "Under Review", count: stats.review, color: "from-amber-500 to-orange-500", border: "border-amber-200 dark:border-amber-900/50" },
+    { label: "Query Raised", count: stats.queryRaised, color: "from-amber-500 to-orange-500", border: "border-amber-200 dark:border-amber-900/50" },
     { label: "Completed", count: stats.completed, color: "from-emerald-500 to-teal-500", border: "border-emerald-200 dark:border-emerald-900/50" },
   ];
 
@@ -52,7 +77,7 @@ export default function TasksInfographic({ tasks }: { tasks: TaskModel[] }) {
           </div>
         </div>
 
-        {/* 4 Pipeline Ribbon Boxes with connecting arrows */}
+        {/* 4 Pipeline Ribbon Boxes */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
           {stages.map((st, idx) => (
             <div
@@ -79,7 +104,7 @@ export default function TasksInfographic({ tasks }: { tasks: TaskModel[] }) {
               <div className="w-full h-1.5 rounded-full bg-slate-200 dark:bg-slate-800 overflow-hidden">
                 <div
                   className={`h-full rounded-full bg-gradient-to-r ${st.color} transition-all duration-500`}
-                  style={{ width: `${Math.min(100, Math.max(12, (st.count / (stats.total || 1)) * 100))}%` }}
+                  style={{ width: `${stats.total > 0 ? Math.min(100, Math.round((st.count / stats.total) * 100)) : 0}%` }}
                 />
               </div>
             </div>
@@ -113,36 +138,32 @@ export default function TasksInfographic({ tasks }: { tasks: TaskModel[] }) {
         {/* Turnaround Velocity */}
         <div className="p-3.5 rounded-2xl bg-slate-50/70 dark:bg-slate-900/60 border border-slate-100 dark:border-slate-800 flex items-center justify-between">
           <div>
-            <span className="text-[11px] font-bold text-slate-400 uppercase tracking-tight">Average Resolution</span>
+            <span className="text-[11px] font-bold text-slate-400 uppercase tracking-tight">Completion Velocity</span>
             <div className="text-xl font-black text-slate-900 dark:text-white mt-0.5">
-              2.4 Days
+              {stats.completionRate}%
             </div>
             <p className="text-[10px] text-blue-600 font-semibold mt-0.5">
-              +18% faster than benchmark
+              {stats.completed} of {stats.total} tasks fulfilled
             </p>
           </div>
-          <div className="flex items-end gap-1 h-8 w-16">
-            {[30, 50, 40, 70, 60, 85, 95, 75].map((h, i) => (
-              <div key={i} className="flex-1 bg-blue-500/70 rounded-full" style={{ height: `${h}%` }} />
-            ))}
+          <div className="w-12 h-12 rounded-2xl bg-blue-50 dark:bg-blue-950/60 flex items-center justify-center text-blue-600 font-bold text-sm">
+            {stats.completionRate}%
           </div>
         </div>
 
-        {/* Completion Rate */}
+        {/* Active In Flight */}
         <div className="p-3.5 rounded-2xl bg-slate-50/70 dark:bg-slate-900/60 border border-slate-100 dark:border-slate-800 flex items-center justify-between">
           <div>
-            <span className="text-[11px] font-bold text-slate-400 uppercase tracking-tight">Closed Pipeline</span>
+            <span className="text-[11px] font-bold text-slate-400 uppercase tracking-tight">Active Workload</span>
             <div className="text-xl font-black text-slate-900 dark:text-white mt-0.5">
-              {stats.completed} Done
+              {stats.inProgress + stats.pending} Active
             </div>
-            <p className="text-[10px] text-slate-400 font-medium mt-0.5">
-              Out of {stats.total} total cases
+            <p className="text-[10px] text-purple-600 font-semibold mt-0.5">
+              Across fulfillment hubs
             </p>
           </div>
-          <div className="flex items-end gap-1 h-8 w-16">
-            {[45, 65, 55, 75, 70, 90, 85, 100].map((h, i) => (
-              <div key={i} className="flex-1 bg-emerald-500/70 rounded-full" style={{ height: `${h}%` }} />
-            ))}
+          <div className="w-12 h-12 rounded-2xl bg-purple-50 dark:bg-purple-950/60 flex items-center justify-center text-purple-600 font-bold text-sm">
+            {stats.inProgress + stats.pending}
           </div>
         </div>
 

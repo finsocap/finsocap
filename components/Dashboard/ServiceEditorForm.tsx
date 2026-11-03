@@ -11,6 +11,10 @@ import {
 } from "lucide-react";
 import { ServiceItem, ServiceDocument, ServiceLink, ServiceMaterial, ServiceFaq, ServiceYearFee } from "@/types";
 import { serviceCatalog } from "@/lib/services/serviceCatalog";
+import { serviceCatalogService } from "@/lib/api/serviceCatalogService";
+import { categoryService, ServiceCategoryItem } from "@/lib/api/categoryService";
+import { CreateServicePayload, normalizeServiceCategory } from "@/types/api";
+import { fetchLiveDbData } from "@/lib/crmStore";
 import { useTheme } from "@/components/Providers/ThemeProvider";
 import RichTextEditor from "@/components/Dashboard/RichTextEditor";
 
@@ -25,34 +29,77 @@ export default function ServiceEditorForm({ initialData, isEditMode = false }: S
 
   // Form State
   const [name, setName] = useState(initialData?.name || "");
-  const [category, setCategory] = useState(initialData?.category || "Food & Beverage");
-  const [categoryList, setCategoryList] = useState<string[]>(() => {
-    const defaultList = [
-      "Food & Beverage",
-      "Taxation",
-      "Business Compliance",
-      "Intellectual Property",
-      "Import Export",
-      "Digital Services",
-      "Business Growth",
-    ];
-    if (initialData?.category && !defaultList.includes(initialData.category)) {
-      defaultList.push(initialData.category);
-    }
-    return defaultList;
-  });
+  const [category, setCategory] = useState(initialData?.category ? normalizeServiceCategory(initialData.category) : "LICENSES");
+  const [selectedCategoryId, setSelectedCategoryId] = useState<number | undefined>(
+    (initialData as any)?.categoryId ? Number((initialData as any).categoryId) : undefined
+  );
+  const [apiCategories, setApiCategories] = useState<ServiceCategoryItem[]>([]);
+  const [isCategoriesLoading, setIsCategoriesLoading] = useState(true);
   const [isAddingNewCategory, setIsAddingNewCategory] = useState(false);
   const [newCategoryName, setNewCategoryName] = useState("");
+  const [isCreatingCategory, setIsCreatingCategory] = useState(false);
 
-  const handleAddNewCategory = () => {
+  // Load categories from API (GET /api/admin/categories)
+  useEffect(() => {
+    let isMounted = true;
+    async function loadCategories() {
+      setIsCategoriesLoading(true);
+      try {
+        const res = await categoryService.getCategories();
+        const list = Array.isArray(res?.data) ? res.data : [];
+        if (isMounted && list.length > 0) {
+          setApiCategories(list);
+          // If no selectedCategoryId, match by name or pick first
+          if (!selectedCategoryId) {
+            const currentNorm = normalizeServiceCategory(category);
+            const matched = list.find((c) => normalizeServiceCategory(c.name) === currentNorm || c.name.toLowerCase() === category.toLowerCase());
+            if (matched) {
+              setSelectedCategoryId(matched.id);
+              setCategory(normalizeServiceCategory(matched.name));
+            } else if (list[0]) {
+              setSelectedCategoryId(list[0].id);
+              setCategory(normalizeServiceCategory(list[0].name));
+            }
+          }
+        }
+      } catch (err) {
+        console.warn("Failed to fetch live categories from API:", err);
+      } finally {
+        if (isMounted) setIsCategoriesLoading(false);
+      }
+    }
+    loadCategories();
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
+  const handleAddNewCategory = async () => {
     const trimmed = newCategoryName.trim();
     if (!trimmed) return;
-    if (!categoryList.includes(trimmed)) {
-      setCategoryList((prev) => [...prev, trimmed]);
+    setIsCreatingCategory(true);
+    try {
+      const res = await categoryService.createCategory(trimmed);
+      const created = res?.data;
+      if (created && created.id) {
+        setApiCategories((prev) => [...prev, created]);
+        setSelectedCategoryId(created.id);
+        setCategory(normalizeServiceCategory(created.name));
+      } else {
+        // Fallback local addition if api returns non-standard
+        const fakeItem = { id: Date.now(), name: trimmed };
+        setApiCategories((prev) => [...prev, fakeItem]);
+        setSelectedCategoryId(fakeItem.id);
+        setCategory(normalizeServiceCategory(trimmed));
+      }
+      setNewCategoryName("");
+      setIsAddingNewCategory(false);
+    } catch (err: any) {
+      console.error("Error creating category:", err);
+      alert(err?.message || "Unable to create category. Please try again.");
+    } finally {
+      setIsCreatingCategory(false);
     }
-    setCategory(trimmed);
-    setNewCategoryName("");
-    setIsAddingNewCategory(false);
   };
 
   const [description, setDescription] = useState(initialData?.description || "");
@@ -60,7 +107,8 @@ export default function ServiceEditorForm({ initialData, isEditMode = false }: S
   const [frequency, setFrequency] = useState<"One Time" | "Monthly" | "Yearly" | "Quarterly">(initialData?.frequency || "One Time");
   const [processingTime, setProcessingTime] = useState(initialData?.processingTime || "3 - 7 Days");
   const [governmentFee, setGovernmentFee] = useState<number>(initialData?.governmentFee ?? 0);
-  const [price, setPrice] = useState<number>(initialData?.price ?? 1500);
+  const [price, setPrice] = useState<number>(initialData?.price ?? 0);
+  const [partnerProfit, setPartnerProfit] = useState<number>(initialData?.partnerProfit ?? 0);
   const [status, setStatus] = useState<"Active" | "Inactive" | "Draft">(initialData?.status || "Active");
   const [content, setContent] = useState(initialData?.content || "");
   const [isContentExpanded, setIsContentExpanded] = useState(true);
@@ -71,12 +119,7 @@ export default function ServiceEditorForm({ initialData, isEditMode = false }: S
   const [yearFees, setYearFees] = useState<ServiceYearFee[]>(
     initialData?.yearFees && initialData.yearFees.length > 0
       ? initialData.yearFees
-      : [
-          { id: "yf-1", year: 1, label: "1 Year", governmentFee: 100, professionalFee: 1400 },
-          { id: "yf-2", year: 2, label: "2 Years", governmentFee: 200, professionalFee: 2300 },
-          { id: "yf-3", year: 3, label: "3 Years", governmentFee: 300, professionalFee: 3200 },
-          { id: "yf-5", year: 5, label: "5 Years", governmentFee: 500, professionalFee: 4500 },
-        ]
+      : []
   );
 
   const handleAddYearTier = () => {
@@ -85,8 +128,8 @@ export default function ServiceEditorForm({ initialData, isEditMode = false }: S
       id: `yf-${Date.now()}`,
       year: nextYear,
       label: `${nextYear} Year${nextYear > 1 ? "s" : ""}`,
-      governmentFee: 100 * nextYear,
-      professionalFee: 1000 + 500 * (nextYear - 1),
+      governmentFee: 0,
+      professionalFee: 0,
     };
     setYearFees([...yearFees, newTier]);
   };
@@ -113,42 +156,29 @@ export default function ServiceEditorForm({ initialData, isEditMode = false }: S
     setYearFees(yearFees.filter((y) => y.id !== id));
   };
 
-  // Dynamic Lists
+  // Dynamic Lists - Clean by default for New Services
   const [highlights, setHighlights] = useState<string[]>(
-    initialData?.highlights || [
-      "100% Online Government Filing",
-      "Immediate ARN generation for bank accounts",
-    ]
+    initialData?.highlights || []
   );
 
   const [steps, setSteps] = useState<string[]>(
-    initialData?.steps || [
-      "Collect PAN, Aadhaar & address proof from client",
-      "Pay official government challan & submit application",
-      "Download verified certificate & issue to client",
-    ]
+    initialData?.steps || []
   );
 
   const [documents, setDocuments] = useState<ServiceDocument[]>(
-    initialData?.documents || [
-      { id: "doc-1", name: "Aadhaar Card / Voter ID", type: "Required", sampleImageName: "aadhaar_sample.png" },
-      { id: "doc-2", name: "Electricity Bill / Shop Agreement", type: "Required", sampleImageName: "electricity_bill_sample.pdf" },
-      { id: "doc-3", name: "Cancelled Cheque / Bank Passbook", type: "Optional" },
-    ]
+    initialData?.documents || []
   );
 
   const [usefulLinks, setUsefulLinks] = useState<ServiceLink[]>(
-    initialData?.usefulLinks || [
-      { id: "link-1", title: "Official Government Portal", url: "https://example.gov.in" },
-    ]
+    initialData?.usefulLinks || []
   );
 
-  const [videoLink, setVideoLink] = useState(initialData?.videoLink || "https://youtube.com/watch?v=sample");
+  const [videoLink, setVideoLink] = useState(initialData?.videoLink || "");
   const [trainingVideos, setTrainingVideos] = useState<Array<{ id: string; title: string; url: string }>>(() => {
     if (initialData?.videoLink) {
       return [{ id: "vid-1", title: "Official Step-by-Step Filing Tutorial", url: initialData.videoLink }];
     }
-    return [{ id: "vid-1", title: "Official Step-by-Step Filing Tutorial", url: "https://youtube.com/watch?v=sample" }];
+    return [];
   });
   const [videoModalOpen, setVideoModalOpen] = useState(false);
   const [editingVideoId, setEditingVideoId] = useState<string | null>(null);
@@ -159,15 +189,11 @@ export default function ServiceEditorForm({ initialData, isEditMode = false }: S
   const [isCustomSla, setIsCustomSla] = useState(false);
 
   const [studyMaterials, setStudyMaterials] = useState<ServiceMaterial[]>(
-    initialData?.studyMaterials || [
-      { id: "mat-1", title: "Filing Process Guide.pdf", fileUrl: "https://example.com/guide.pdf" },
-    ]
+    initialData?.studyMaterials || []
   );
 
   const [faqs, setFaqs] = useState<ServiceFaq[]>(
-    initialData?.faqs || [
-      { id: "faq-1", question: "How long does processing take?", answer: "Standard turnaround time is 3 to 7 business days." },
-    ]
+    initialData?.faqs || []
   );
 
   // Document modal state (Add / Edit)
@@ -175,9 +201,6 @@ export default function ServiceEditorForm({ initialData, isEditMode = false }: S
   const [editingDocId, setEditingDocId] = useState<string | null>(null);
   const [newDocName, setNewDocName] = useState("");
   const [newDocType, setNewDocType] = useState<"Required" | "Optional">("Required");
-  const [newDocSampleUrl, setNewDocSampleUrl] = useState<string>("");
-  const [newDocSampleName, setNewDocSampleName] = useState<string>("");
-  const [previewSpecimenModal, setPreviewSpecimenModal] = useState<{ name: string; url?: string } | null>(null);
 
   // Feedback State
   const [isSaving, setIsSaving] = useState(false);
@@ -219,66 +242,98 @@ export default function ServiceEditorForm({ initialData, isEditMode = false }: S
         faqs: faqs.filter((f) => f.question.trim() !== ""),
       };
 
-      await serviceCatalog.save(payload);
+      const docNames = documents.map((d) => d.name).filter(Boolean);
+      const cleanHighlights = highlights.filter((h) => h.trim() !== "");
+      const cleanSteps = steps.filter((s) => s.trim() !== "");
+      const cleanGovLinks = usefulLinks.map((l) => l.url.trim()).filter(Boolean);
+      const cleanTrainingVideos = trainingVideos.map((v) => v.url.trim()).filter(Boolean);
+      // Backend MySQL study_materials table maps material_link to VARCHAR.
+      // Strip giant base64 strings so SQL statement data truncation error does not occur;
+      // Full document/base64 details are preserved safely in sopsJson.
+      const cleanMaterials = studyMaterials
+        .map((m) => m.fileUrl.trim())
+        .filter((url) => Boolean(url) && !url.startsWith("data:") && url.length < 500);
+      const formattedFaqs = faqs
+        .filter((f) => f.question.trim() !== "")
+        .map((f) => `${f.question.trim()} ${f.answer.trim()}`.trim());
 
-      // Sync with crmStore so services table reflects changes immediately
-      if (typeof window !== "undefined") {
-        try {
-          const raw = localStorage.getItem("finsocap-crm-data");
-          if (raw) {
-            const parsed = JSON.parse(raw);
-            if (Array.isArray(parsed.services)) {
-              const numId = parseInt(String(initialData?.id || "").replace(/\D/g, ""), 10);
-              let found = false;
-              parsed.services = parsed.services.map((srv: any) => {
-                if (
-                  (numId && srv.id === numId) ||
-                  srv.id === initialData?.id ||
-                  srv.name.toLowerCase() === (initialData?.name || name).toLowerCase()
-                ) {
-                  found = true;
-                  return {
-                    ...srv,
-                    name,
-                    category,
-                    price: Number(price) || srv.price,
-                    gov: Number(governmentFee) || srv.gov,
-                    time: processingTime || srv.time,
-                    description,
-                    recurring: recurring === "Yes",
-                    frequency,
-                    status,
-                  };
-                }
-                return srv;
-              });
+      const formattedYearFees = hasYearFees
+        ? yearFees.map((yf) => ({
+            year: String(yf.year || "1"),
+            governmentFee: String(yf.governmentFee ?? 0),
+            professionalFee: String(yf.professionalFee ?? 0),
+            total: String((Number(yf.governmentFee) || 0) + (Number(yf.professionalFee) || 0)),
+          }))
+        : [];
 
-              if (!found && !isEditMode) {
-                parsed.services.push({
-                  id: parsed.services.length + 1,
-                  name,
-                  category,
-                  recurring: recurring === "Yes",
-                  frequency,
-                  price: Number(price) || 0,
-                  gov: Number(governmentFee) || 0,
-                  time: processingTime || "3 - 7 Days",
-                  status: status || "Active",
-                  description,
-                });
-              }
+      // JSON strings for backend storage
+      const sopsJsonPayload = studyMaterials.length > 0 ? JSON.stringify(studyMaterials) : null;
+      const faqsJsonPayload = faqs.length > 0 ? JSON.stringify(faqs) : null;
+      const pricingTiersJsonPayload = hasYearFees && yearFees.length > 0 ? JSON.stringify(formattedYearFees) : null;
 
-              localStorage.setItem("finsocap-crm-data", JSON.stringify(parsed));
-            }
-          }
-        } catch (e) {
-          console.error("Failed to sync crm store", e);
+      // Backend ServiceFrequency Enum accepts: [QUARTERLY, YEARLY, MONTHLY]
+      // When recurring is "NO" or frequency is "One Time", frequency must be null
+      const backendFrequency =
+        recurring === "Yes"
+          ? frequency === "Monthly"
+            ? "MONTHLY"
+            : frequency === "Quarterly"
+            ? "QUARTERLY"
+            : frequency === "Yearly"
+            ? "YEARLY"
+            : null
+          : null;
+
+      const apiPayload: CreateServicePayload = {
+        name: name.trim(),
+        category: normalizeServiceCategory(category),
+        categoryId: selectedCategoryId,
+        subtitle: description.trim(),
+        badges: ["Popular"],
+        startingClientPrice: Number(price) || 0,
+        partnerProfit: Number(partnerProfit) || 0,
+        processingTime: processingTime || "3 - 7 Days",
+        overviewHtml: content || `<p>${description || name}</p>`,
+        eligibilityCriteria: eligibility || "",
+        keyFeatures: cleanHighlights,
+        workflowSteps: cleanSteps,
+        requiredDocuments: docNames,
+        officialGovernmentPortalLinks: cleanGovLinks,
+        trainingVideoTutorials: cleanTrainingVideos.length > 0 ? cleanTrainingVideos : (videoLink ? [videoLink] : []),
+        studyMaterials: cleanMaterials,
+        faqs: formattedFaqs,
+        contentDetails: content || "",
+        yearWiseFeesEnabled: Boolean(hasYearFees),
+        yearWiseFees: formattedYearFees,
+        sopsJson: sopsJsonPayload,
+        faqsJson: faqsJsonPayload,
+        pricingTiersJson: pricingTiersJsonPayload,
+        recurring: recurring === "Yes" ? "YES" : "NO",
+        frequency: backendFrequency,
+        baseGovernmentFee: String(governmentFee || 0),
+      };
+
+      if (isEditMode && initialData?.id) {
+        const numId = typeof initialData.id === "number" ? initialData.id : parseInt(String(initialData.id).replace(/\D/g, ""), 10);
+        if (numId) {
+          await serviceCatalogService.updateService(numId, apiPayload).catch(err => {
+            console.warn("API update service warning:", err);
+          });
+        }
+      } else {
+        const apiRes = await serviceCatalogService.createService(apiPayload);
+        if (apiRes && apiRes.data?.id) {
+          payload.id = String(apiRes.data.id);
         }
       }
 
+      await serviceCatalog.save(payload).catch(() => {});
+      await fetchLiveDbData().catch(() => {});
+
       router.push("/dashboard/services");
     } catch (err: any) {
-      setErrorMsg(err.message || "Failed to save service");
+      console.error("Save service error:", err);
+      setErrorMsg(err.message || "Unable to save service changes. Please try again.");
       setIsSaving(false);
     }
   };
@@ -370,22 +425,16 @@ export default function ServiceEditorForm({ initialData, isEditMode = false }: S
         </div>
       )}
 
-      {/* Main Form 2-Column Grid */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-        {/* =================================================================== */}
-        {/* LEFT COLUMN (Wide): Core Details, Content, Highlights, Steps, Eligibility */}
-        {/* =================================================================== */}
-        <div className="lg:col-span-7 space-y-6">
-          {/* Section 1: Service Details */}
-          <div className="card-luxury p-6 space-y-5">
-            <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800/80 pb-3">
-              <h3 className="font-black text-slate-900 dark:text-white text-base tracking-tight flex items-center gap-2.5">
-                <span className="w-7 h-7 rounded-xl bg-gradient-to-tr from-blue-600 to-indigo-600 text-white flex items-center justify-center text-xs font-black shadow-xs">1</span>
-                <span>Basic Service Information</span>
-              </h3>
-            </div>
+      {/* Section 1: Basic Service Information (Full Width Top Card) */}
+      <div className="card-luxury p-6 space-y-5">
+        <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800/80 pb-3">
+          <h3 className="font-black text-slate-900 dark:text-white text-base tracking-tight flex items-center gap-2.5">
+            <span className="w-7 h-7 rounded-xl bg-gradient-to-tr from-blue-600 to-indigo-600 text-white flex items-center justify-center text-xs font-black shadow-xs">1</span>
+            <span>Basic Service Information</span>
+          </h3>
+        </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
                 <div className="flex items-center justify-between mb-1.5">
                   <label className="block text-[11px] font-black uppercase tracking-wider text-slate-500 dark:text-slate-400">
@@ -426,7 +475,7 @@ export default function ServiceEditorForm({ initialData, isEditMode = false }: S
                       className="text-[11px] font-bold text-blue-600 dark:text-sky-400 hover:text-blue-700 dark:hover:text-sky-300 inline-flex items-center gap-1 transition-colors cursor-pointer"
                     >
                       <Plus className="w-3 h-3" />
-                      + Add New
+                      Add New
                     </button>
                   ) : (
                     <button
@@ -463,10 +512,10 @@ export default function ServiceEditorForm({ initialData, isEditMode = false }: S
                     <button
                       type="button"
                       onClick={handleAddNewCategory}
-                      disabled={!newCategoryName.trim()}
+                      disabled={!newCategoryName.trim() || isCreatingCategory}
                       className="px-3 py-2.5 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white rounded-xl text-xs font-bold shadow-sm transition-all cursor-pointer whitespace-nowrap"
                     >
-                      Add
+                      {isCreatingCategory ? "Saving..." : "Add"}
                     </button>
                     <button
                       type="button"
@@ -482,22 +531,46 @@ export default function ServiceEditorForm({ initialData, isEditMode = false }: S
                   </div>
                 ) : (
                   <select
-                    value={category}
+                    value={selectedCategoryId ?? category}
                     onChange={(e) => {
-                      if (e.target.value === "__ADD_NEW__") {
+                      const val = e.target.value;
+                      if (val === "__ADD_NEW__") {
                         setIsAddingNewCategory(true);
                         setNewCategoryName("");
                       } else {
-                        setCategory(e.target.value);
+                        const numId = Number(val);
+                        if (!isNaN(numId)) {
+                          setSelectedCategoryId(numId);
+                          const matched = apiCategories.find((c) => c.id === numId);
+                          if (matched) {
+                            setCategory(normalizeServiceCategory(matched.name));
+                          }
+                        } else {
+                          setCategory(normalizeServiceCategory(val));
+                        }
                       }
                     }}
                     className="w-full px-3.5 py-2.5 bg-slate-50 dark:bg-slate-900/60 border border-slate-200 dark:border-slate-700/80 rounded-xl text-sm text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 cursor-pointer"
                   >
-                    {categoryList.map((c) => (
-                      <option key={c} value={c}>{c}</option>
-                    ))}
+                    {apiCategories.length > 0 ? (
+                      apiCategories.map((c) => (
+                        <option key={c.id} value={c.id}>
+                          {c.name}
+                        </option>
+                      ))
+                    ) : (
+                      [
+                        { value: "LICENSES", label: "Licenses & Permits (LICENSES)" },
+                        { value: "FOOD_BEVERAGE", label: "Food & Beverage / FSSAI (FOOD_BEVERAGE)" },
+                        { value: "LEGAL_IP", label: "Legal & IP (LEGAL_IP)" },
+                        { value: "TAXATION", label: "Taxation & Accounting (TAXATION)" },
+                        { value: "COMPANY_REG", label: "Company Registration (COMPANY_REG)" },
+                      ].map((c) => (
+                        <option key={c.value} value={c.value}>{c.label}</option>
+                      ))
+                    )}
                     <option value="__ADD_NEW__" className="text-blue-600 dark:text-sky-400 font-bold">
-                      + Add New Category...
+                      Add New Category...
                     </option>
                   </select>
                 )}
@@ -599,7 +672,7 @@ export default function ServiceEditorForm({ initialData, isEditMode = false }: S
               </div>
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 pt-2">
               <div>
                 <label className="block text-xs font-bold uppercase tracking-wider text-slate-600 dark:text-slate-400 mb-1.5">
                   Base Government Fee (₹)
@@ -616,7 +689,7 @@ export default function ServiceEditorForm({ initialData, isEditMode = false }: S
               <div>
                 <div className="flex items-center justify-between mb-1.5">
                   <label className="block text-xs font-bold uppercase tracking-wider text-slate-600 dark:text-slate-400">
-                    Base Professional Fee (₹) <span className="text-rose-500">*</span>
+                    Client Price (₹) <span className="text-rose-500">*</span>
                   </label>
                   <span className="text-[10px] font-bold text-blue-600 dark:text-sky-400 inline-flex items-center gap-1">
                     <Edit3 className="w-2.5 h-2.5" />
@@ -627,12 +700,39 @@ export default function ServiceEditorForm({ initialData, isEditMode = false }: S
                   <input
                     type="number"
                     required
-                    placeholder="1500"
-                    value={price}
-                    onChange={(e) => setPrice(Number(e.target.value))}
+                    placeholder="0"
+                    value={price === 0 ? "" : price}
+                    onChange={(e) => {
+                      const newPrice = Number(e.target.value) || 0;
+                      setPrice(newPrice);
+                      setPartnerProfit(Math.round(newPrice * 0.15));
+                    }}
                     className="w-full px-3.5 py-2.5 pr-8 bg-slate-50 dark:bg-slate-900/60 border border-slate-200 dark:border-slate-700/80 rounded-xl text-sm text-slate-800 dark:text-slate-200 font-bold"
                   />
                   <Edit3 className="w-3.5 h-3.5 text-blue-500/70 absolute right-2.5 top-3 pointer-events-none" />
+                </div>
+              </div>
+
+              <div>
+                <div className="flex items-center justify-between mb-1.5">
+                  <label className="block text-xs font-bold uppercase tracking-wider text-emerald-600 dark:text-emerald-400">
+                    Partner Profit (₹) <span className="text-rose-500">*</span>
+                  </label>
+                  <span className="text-[10px] font-bold text-emerald-600 dark:text-emerald-400 inline-flex items-center gap-1">
+                    <Edit3 className="w-2.5 h-2.5" />
+                    <span>15% Default</span>
+                  </span>
+                </div>
+                <div className="relative">
+                  <input
+                    type="number"
+                    required
+                    placeholder="0"
+                    value={partnerProfit === 0 ? "" : partnerProfit}
+                    onChange={(e) => setPartnerProfit(Number(e.target.value) || 0)}
+                    className="w-full px-3.5 py-2.5 pr-8 bg-emerald-50/50 dark:bg-emerald-950/20 border border-emerald-300 dark:border-emerald-700/80 rounded-xl text-sm text-emerald-900 dark:text-emerald-300 font-bold"
+                  />
+                  <Edit3 className="w-3.5 h-3.5 text-emerald-500/70 absolute right-2.5 top-3 pointer-events-none" />
                 </div>
               </div>
             </div>
@@ -662,10 +762,13 @@ export default function ServiceEditorForm({ initialData, isEditMode = false }: S
                       setHasYearFees(e.target.checked);
                       if (e.target.checked && (!yearFees || yearFees.length === 0)) {
                         setYearFees([
-                          { id: "yf-1", year: 1, label: "1 Year", governmentFee: Number(governmentFee) || 100, professionalFee: Number(price) || 1400 },
-                          { id: "yf-2", year: 2, label: "2 Years", governmentFee: (Number(governmentFee) || 100) * 2, professionalFee: (Number(price) || 1400) + 900 },
-                          { id: "yf-3", year: 3, label: "3 Years", governmentFee: (Number(governmentFee) || 100) * 3, professionalFee: (Number(price) || 1400) + 1800 },
-                          { id: "yf-5", year: 5, label: "5 Years", governmentFee: (Number(governmentFee) || 100) * 5, professionalFee: (Number(price) || 1400) + 3100 },
+                          {
+                            id: `yf-${Date.now()}`,
+                            year: 1,
+                            label: "1 Year",
+                            governmentFee: 0,
+                            professionalFee: 0,
+                          },
                         ]);
                       }
                     }}
@@ -687,7 +790,7 @@ export default function ServiceEditorForm({ initialData, isEditMode = false }: S
                       className="inline-flex items-center gap-1.5 px-3 py-1 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs shadow-xs transition-all cursor-pointer"
                     >
                       <Plus className="w-3.5 h-3.5" />
-                      <span>+ Add Year Tier</span>
+                      <span>Add Year Tier</span>
                     </button>
                   </div>
 
@@ -773,6 +876,12 @@ export default function ServiceEditorForm({ initialData, isEditMode = false }: S
             </div>
           </div>
 
+      {/* Balanced 2-Column Grid: Left (Sections 2 to 5) & Right (Sections 6 to 10) */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-start">
+        {/* =================================================================== */}
+        {/* LEFT COLUMN: Section 2 (Content), Section 3 (Highlights), Section 4 (Steps), Section 5 (Eligibility) */}
+        {/* =================================================================== */}
+        <div className="space-y-6">
           {/* Section 2: Content / Detailed Information (Exact match with user reference screenshot) */}
           <div className="card-luxury p-6 space-y-4">
             <div
@@ -920,7 +1029,7 @@ export default function ServiceEditorForm({ initialData, isEditMode = false }: S
         {/* =================================================================== */}
         {/* RIGHT COLUMN: Documents, Links, Video, Materials, FAQs */}
         {/* =================================================================== */}
-        <div className="lg:col-span-5 space-y-6">
+        <div className="space-y-6">
           {/* Section 6: Documents */}
           <div className="card-luxury p-6 space-y-4">
             <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800/80 pb-3">
@@ -934,14 +1043,12 @@ export default function ServiceEditorForm({ initialData, isEditMode = false }: S
                   setEditingDocId(null);
                   setNewDocName("");
                   setNewDocType("Required");
-                  setNewDocSampleUrl("");
-                  setNewDocSampleName("");
                   setDocModalOpen(true);
                 }}
                 className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold shadow-md shadow-blue-500/25 cursor-pointer transition-all"
               >
                 <Plus className="w-3.5 h-3.5" />
-                <span>+ Add Document</span>
+                <span>Add Document</span>
               </button>
             </div>
 
@@ -992,67 +1099,6 @@ export default function ServiceEditorForm({ initialData, isEditMode = false }: S
                       <option value="Optional">Optional</option>
                     </select>
                   </div>
-
-                  {/* Sample / Specimen Image Upload for Seller / Franchise Dashboard */}
-                  <div className="p-3 bg-blue-50/50 dark:bg-blue-950/20 rounded-xl border border-blue-200/60 dark:border-blue-900/40 space-y-2">
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-1.5 text-xs font-bold text-blue-800 dark:text-blue-300">
-                        <ImageIcon className="w-3.5 h-3.5 text-blue-500" />
-                        <span>Sample Specimen Image (For Seller / Partner Dashboard)</span>
-                      </div>
-                      {newDocSampleName && (
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setNewDocSampleUrl("");
-                            setNewDocSampleName("");
-                          }}
-                          className="text-[10px] text-rose-500 hover:underline font-bold"
-                        >
-                          Remove
-                        </button>
-                      )}
-                    </div>
-                    <p className="text-[11px] text-slate-500 dark:text-slate-400">
-                      Upload an official sample/specimen image so franchise partners can show clients what format is acceptable.
-                    </p>
-
-                    <div className="flex items-center gap-2">
-                      <label className="flex-1 flex items-center justify-center gap-2 px-3 py-2 rounded-xl bg-white dark:bg-slate-800 border border-dashed border-blue-300 dark:border-blue-700 hover:bg-blue-50 dark:hover:bg-slate-800/80 cursor-pointer transition-all text-xs font-semibold text-slate-700 dark:text-slate-300">
-                        <Upload className="w-3.5 h-3.5 text-blue-500" />
-                        <span className="truncate">{newDocSampleName || "Choose Specimen File (Image / PDF)..."}</span>
-                        <input
-                          type="file"
-                          accept="image/*,.pdf"
-                          className="hidden"
-                          onChange={(e) => {
-                            const file = e.target.files?.[0];
-                            if (file) {
-                              setNewDocSampleName(file.name);
-                              const reader = new FileReader();
-                              reader.onload = () => {
-                                setNewDocSampleUrl(reader.result as string);
-                              };
-                              reader.readAsDataURL(file);
-                            }
-                          }}
-                        />
-                      </label>
-                    </div>
-
-                    {newDocSampleUrl && (
-                      <div className="flex items-center gap-2 p-2 rounded-lg bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700">
-                        <img
-                          src={newDocSampleUrl}
-                          alt="Specimen preview"
-                          className="w-10 h-10 object-cover rounded-md border"
-                        />
-                        <span className="text-[11px] font-bold text-emerald-600 dark:text-emerald-400 flex items-center gap-1">
-                          <CheckCircle2 className="w-3.5 h-3.5" /> Specimen Ready
-                        </span>
-                      </div>
-                    )}
-                  </div>
                 </div>
 
                 <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-200 dark:border-slate-800">
@@ -1078,8 +1124,6 @@ export default function ServiceEditorForm({ initialData, isEditMode = false }: S
                                   ...d,
                                   name: newDocName.trim(),
                                   type: newDocType,
-                                  sampleImageUrl: newDocSampleUrl || undefined,
-                                  sampleImageName: newDocSampleName || undefined,
                                 }
                               : d
                           ));
@@ -1090,14 +1134,10 @@ export default function ServiceEditorForm({ initialData, isEditMode = false }: S
                               id: `doc-${Date.now()}`,
                               name: newDocName.trim(),
                               type: newDocType,
-                              sampleImageUrl: newDocSampleUrl || undefined,
-                              sampleImageName: newDocSampleName || undefined,
                             },
                           ]);
                         }
                         setNewDocName("");
-                        setNewDocSampleUrl("");
-                        setNewDocSampleName("");
                         setEditingDocId(null);
                         setDocModalOpen(false);
                       }
@@ -1118,15 +1158,14 @@ export default function ServiceEditorForm({ initialData, isEditMode = false }: S
                     <th className="py-2.5 px-3">#</th>
                     <th className="py-2.5 px-3">Document Name</th>
                     <th className="py-2.5 px-3">Type</th>
-                    <th className="py-2.5 px-3">Sample Specimen</th>
                     <th className="py-2.5 px-3 text-right">Actions</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100 dark:divide-slate-800/60 font-medium">
                   {documents.length === 0 ? (
                     <tr>
-                      <td colSpan={5} className="py-4 text-center text-slate-400">
-                        No documents added yet. Click &quot;+ Add Document&quot; above.
+                      <td colSpan={4} className="py-4 text-center text-slate-400">
+                        No documents added yet. Click &quot;Add Document&quot; above.
                       </td>
                     </tr>
                   ) : (
@@ -1147,25 +1186,6 @@ export default function ServiceEditorForm({ initialData, isEditMode = false }: S
                             {doc.type}
                           </span>
                         </td>
-                        <td className="py-2.5 px-3">
-                          {doc.sampleImageUrl || doc.sampleImageName ? (
-                            <button
-                              type="button"
-                              onClick={() =>
-                                setPreviewSpecimenModal({
-                                  name: doc.name,
-                                  url: doc.sampleImageUrl || "https://images.unsplash.com/photo-1554224155-8d04cb21cd6c?w=600",
-                                })
-                              }
-                              className="inline-flex items-center gap-1.5 px-2 py-1 rounded-lg bg-sky-50 dark:bg-sky-950/40 text-sky-600 dark:text-sky-400 border border-sky-200 dark:border-sky-800 hover:bg-sky-100 font-bold text-[11px] cursor-pointer transition-all"
-                            >
-                              <Eye className="w-3 h-3" />
-                              <span>View Specimen</span>
-                            </button>
-                          ) : (
-                            <span className="text-[11px] text-slate-400 italic">No specimen</span>
-                          )}
-                        </td>
                         <td className="py-2.5 px-3 text-right">
                           <div className="flex items-center justify-end gap-1">
                             <button
@@ -1174,8 +1194,6 @@ export default function ServiceEditorForm({ initialData, isEditMode = false }: S
                                 setEditingDocId(doc.id);
                                 setNewDocName(doc.name);
                                 setNewDocType(doc.type);
-                                setNewDocSampleUrl(doc.sampleImageUrl || "");
-                                setNewDocSampleName(doc.sampleImageName || "");
                                 setDocModalOpen(true);
                               }}
                               className="p-1.5 rounded-lg text-blue-600 dark:text-sky-400 hover:bg-blue-50 dark:hover:bg-blue-950/40 cursor-pointer transition-colors"
@@ -1219,7 +1237,7 @@ export default function ServiceEditorForm({ initialData, isEditMode = false }: S
                 className="btn-primary-vibrant text-xs py-1.5 px-3 cursor-pointer inline-flex items-center gap-1.5"
               >
                 <Plus className="w-3.5 h-3.5" />
-                <span>+ Add Link</span>
+                <span>Add Link</span>
               </button>
             </div>
 
@@ -1302,7 +1320,7 @@ export default function ServiceEditorForm({ initialData, isEditMode = false }: S
                 className="btn-primary-vibrant text-xs py-1.5 px-3 cursor-pointer inline-flex items-center gap-1.5"
               >
                 <Plus className="w-3.5 h-3.5" />
-                <span>+ Add Video</span>
+                <span>Add Video</span>
               </button>
             </div>
 
@@ -1402,7 +1420,7 @@ export default function ServiceEditorForm({ initialData, isEditMode = false }: S
             <div className="space-y-2.5">
               {trainingVideos.length === 0 ? (
                 <div className="p-4 text-center rounded-2xl bg-slate-50 dark:bg-slate-900/40 border border-dashed border-slate-200 dark:border-slate-800 text-slate-400 text-xs">
-                  No training videos added yet. Click &quot;+ Add Video&quot; above.
+                  No training videos added yet. Click &quot;Add Video&quot; above.
                 </div>
               ) : (
                 trainingVideos.map((vid) => (
@@ -1465,69 +1483,145 @@ export default function ServiceEditorForm({ initialData, isEditMode = false }: S
           {/* Section 9: Study Material */}
           <div className="card-luxury p-6 space-y-4">
             <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800/80 pb-3">
-              <h3 className="font-black text-slate-900 dark:text-white text-base tracking-tight flex items-center gap-2.5">
-                <span className="w-7 h-7 rounded-xl bg-gradient-to-tr from-blue-600 to-indigo-600 text-white flex items-center justify-center text-xs font-black shadow-xs">9</span>
-                <span>Study Material & SOPs</span>
-              </h3>
-              <button
-                type="button"
-                onClick={() =>
-                  setStudyMaterials([
-                    ...studyMaterials,
-                    { id: `mat-${Date.now()}`, title: "Standard Operating Procedure.pdf", fileUrl: "#" },
-                  ])
-                }
-                className="btn-primary-vibrant text-xs py-1.5 px-3 cursor-pointer inline-flex items-center gap-1.5"
-              >
+              <div>
+                <h3 className="font-black text-slate-900 dark:text-white text-base tracking-tight flex items-center gap-2.5">
+                  <span className="w-7 h-7 rounded-xl bg-gradient-to-tr from-blue-600 to-indigo-600 text-white flex items-center justify-center text-xs font-black shadow-xs">9</span>
+                  <span>Study Material &amp; SOPs</span>
+                </h3>
+                <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">
+                  Attach official guidelines, PDF materials, or standard operating procedure documents.
+                </p>
+              </div>
+
+              <label className="btn-primary-vibrant text-xs py-1.5 px-3 cursor-pointer inline-flex items-center gap-1.5">
                 <Plus className="w-3.5 h-3.5" />
-                <span>+ Add SOP</span>
-              </button>
+                <span>Attach PDF / SOP</span>
+                <input
+                  type="file"
+                  accept=".pdf,application/pdf"
+                  className="hidden"
+                  onChange={(e) => {
+                    const file = e.target.files?.[0];
+                    if (file) {
+                      const reader = new FileReader();
+                      reader.onload = () => {
+                        const base64Url = reader.result as string;
+                        setStudyMaterials([
+                          ...studyMaterials,
+                          {
+                            id: `mat-${Date.now()}`,
+                            title: file.name,
+                            fileUrl: base64Url,
+                          },
+                        ]);
+                      };
+                      reader.readAsDataURL(file);
+                      e.target.value = "";
+                    }
+                  }}
+                />
+              </label>
             </div>
 
             <div className="space-y-2.5">
-              {studyMaterials.map((mat, idx) => (
-                <div key={mat.id} className="p-3 rounded-2xl bg-slate-50 dark:bg-slate-900/60 border border-slate-200/80 dark:border-slate-800/80 flex items-center justify-between text-xs gap-2">
-                  <div className="flex items-center gap-2 flex-1">
-                    <FileText className="w-4 h-4 text-indigo-500 shrink-0" />
-                    <input
-                      type="text"
-                      value={mat.title}
-                      onChange={(e) => {
-                        const updated = [...studyMaterials];
-                        updated[idx].title = e.target.value;
-                        setStudyMaterials(updated);
-                      }}
-                      placeholder="Material Title / PDF"
-                      className="font-bold bg-transparent text-slate-900 dark:text-white focus:outline-none flex-1 pr-2"
-                    />
-                  </div>
-                  <div className="flex items-center gap-1">
-                    <button
-                      type="button"
-                      onClick={() => {
-                        const newTitle = prompt("Edit SOP / Document Title:", mat.title);
-                        if (newTitle && newTitle.trim()) {
-                          const updated = [...studyMaterials];
-                          updated[idx].title = newTitle.trim();
-                          setStudyMaterials(updated);
-                        }
-                      }}
-                      className="p-1.5 rounded-lg text-blue-600 dark:text-sky-400 hover:bg-blue-50 dark:hover:bg-blue-950/40 cursor-pointer transition-colors"
-                      title="Edit / Modify SOP"
-                    >
-                      <Edit3 className="w-3.5 h-3.5" />
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setStudyMaterials(studyMaterials.filter((m) => m.id !== mat.id))}
-                      className="p-1.5 rounded-lg text-slate-400 hover:text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950/40 cursor-pointer transition-colors"
-                      title="Delete SOP"
-                    >
-                      <Trash2 className="w-3.5 h-3.5" />
-                    </button>
-                  </div>
+              {studyMaterials.length === 0 ? (
+                <div className="p-4 text-center rounded-2xl bg-slate-50 dark:bg-slate-900/40 border border-dashed border-slate-200 dark:border-slate-800 text-slate-400 text-xs">
+                  No PDF/SOP materials attached yet. Click &quot;Attach PDF / SOP&quot; above to upload document files.
                 </div>
-              ))}
+              ) : (
+                studyMaterials.map((mat, idx) => (
+                  <div key={mat.id} className="p-3.5 rounded-2xl bg-slate-50 dark:bg-slate-900/60 border border-slate-200/80 dark:border-slate-800/80 flex items-center justify-between text-xs gap-3">
+                    <div className="flex items-center gap-3 flex-1 min-w-0">
+                      <div className="w-9 h-9 rounded-xl bg-rose-100 dark:bg-rose-950/60 text-rose-600 dark:text-rose-400 flex items-center justify-center shrink-0 font-bold">
+                        <FileText className="w-4 h-4" />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <input
+                          type="text"
+                          value={mat.title}
+                          onChange={(e) => {
+                            const updated = [...studyMaterials];
+                            updated[idx].title = e.target.value;
+                            setStudyMaterials(updated);
+                          }}
+                          placeholder="Document Title (e.g. FSSAI_Guidelines.pdf)"
+                          className="font-bold bg-transparent text-slate-900 dark:text-white focus:outline-none w-full truncate"
+                        />
+                        <p className="text-[10px] text-slate-400 truncate">
+                          {mat.fileUrl?.startsWith("data:application/pdf") ? "PDF Document Attached" : mat.fileUrl || "No URL"}
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center gap-1.5 shrink-0">
+                      {mat.fileUrl && mat.fileUrl !== "#" && (
+                        <a
+                          href={mat.fileUrl}
+                          target="_blank"
+                          rel="noreferrer"
+                          download={mat.title || "document.pdf"}
+                          className="p-1.5 rounded-lg text-emerald-600 dark:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-950/40 cursor-pointer transition-colors"
+                          title="View / Download Attached PDF"
+                        >
+                          <Eye className="w-3.5 h-3.5" />
+                        </a>
+                      )}
+
+                      <label
+                        className="p-1.5 rounded-lg text-blue-600 dark:text-sky-400 hover:bg-blue-50 dark:hover:bg-blue-950/40 cursor-pointer transition-colors"
+                        title="Replace PDF File"
+                      >
+                        <Upload className="w-3.5 h-3.5" />
+                        <input
+                          type="file"
+                          accept=".pdf,application/pdf"
+                          className="hidden"
+                          onChange={(e) => {
+                            const file = e.target.files?.[0];
+                            if (file) {
+                              const reader = new FileReader();
+                              reader.onload = () => {
+                                const base64Url = reader.result as string;
+                                const updated = [...studyMaterials];
+                                updated[idx].title = file.name;
+                                updated[idx].fileUrl = base64Url;
+                                setStudyMaterials(updated);
+                              };
+                              reader.readAsDataURL(file);
+                              e.target.value = "";
+                            }
+                          }}
+                        />
+                      </label>
+
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const newTitle = prompt("Edit SOP / Document Title:", mat.title);
+                          if (newTitle && newTitle.trim()) {
+                            const updated = [...studyMaterials];
+                            updated[idx].title = newTitle.trim();
+                            setStudyMaterials(updated);
+                          }
+                        }}
+                        className="p-1.5 rounded-lg text-slate-500 hover:bg-slate-200 dark:hover:bg-slate-800 cursor-pointer transition-colors"
+                        title="Rename Title"
+                      >
+                        <Edit3 className="w-3.5 h-3.5" />
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => setStudyMaterials(studyMaterials.filter((m) => m.id !== mat.id))}
+                        className="p-1.5 rounded-lg text-slate-400 hover:text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950/40 cursor-pointer transition-colors"
+                        title="Delete Document"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                  </div>
+                ))
+              )}
             </div>
           </div>
 
@@ -1594,58 +1688,6 @@ export default function ServiceEditorForm({ initialData, isEditMode = false }: S
           </div>
         </div>
       </div>
-
-      {/* Specimen Preview Modal */}
-      {previewSpecimenModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/70 backdrop-blur-xs animate-in fade-in">
-          <div className="bg-white dark:bg-[#0c1427] border border-slate-200 dark:border-slate-800 rounded-3xl p-6 max-w-lg w-full shadow-2xl space-y-4">
-            <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-800">
-              <div className="flex items-center gap-2">
-                <ImageIcon className="w-5 h-5 text-blue-600 dark:text-sky-400" />
-                <h3 className="font-black text-slate-900 dark:text-white text-sm">
-                  Specimen: {previewSpecimenModal.name}
-                </h3>
-              </div>
-              <button
-                type="button"
-                onClick={() => setPreviewSpecimenModal(null)}
-                className="w-8 h-8 rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-500 hover:text-slate-900 dark:hover:text-white flex items-center justify-center cursor-pointer"
-              >
-                <X className="w-4 h-4" />
-              </button>
-            </div>
-
-            <div className="p-4 bg-slate-50 dark:bg-slate-900 rounded-2xl flex flex-col items-center justify-center min-h-[240px] border border-dashed border-slate-300 dark:border-slate-700">
-              {previewSpecimenModal.url ? (
-                <img
-                  src={previewSpecimenModal.url}
-                  alt={previewSpecimenModal.name}
-                  className="max-h-72 object-contain rounded-xl shadow-md border border-slate-200 dark:border-slate-700"
-                />
-              ) : (
-                <div className="text-center text-slate-400">
-                  <FileText className="w-12 h-12 mx-auto mb-2 text-slate-300" />
-                  <p className="text-xs font-semibold">Standard Government Format Specimen</p>
-                </div>
-              )}
-            </div>
-
-            <p className="text-[11px] text-slate-500 dark:text-slate-400 text-center">
-              This specimen is displayed to franchises / partners on the Seller Dashboard to guide clients during document collection.
-            </p>
-
-            <div className="flex justify-end pt-2">
-              <button
-                type="button"
-                onClick={() => setPreviewSpecimenModal(null)}
-                className="btn-glass-modern text-xs py-2 px-4 cursor-pointer"
-              >
-                Close Preview
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
 
       {/* Video Preview Modal */}
       {activeVideoPreview && (

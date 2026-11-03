@@ -2,22 +2,29 @@
 
 import { useState, useMemo, useEffect } from "react";
 import Link from "next/link";
-import { 
-  ClipboardList, Search, Plus, Filter, RotateCcw, 
-  Clock, CheckCircle2, AlertCircle, AlertTriangle, Users, Building2, 
-  FileText, ArrowRight, Phone, Check, ExternalLink, 
+import {
+  ClipboardList, Search, Plus, Filter, RotateCcw,
+  Clock, CheckCircle2, AlertCircle, AlertTriangle, Users, Building2,
+  FileText, ArrowRight, Phone, Check, ExternalLink, Copy,
   X, Paperclip, Send, Download, ShieldAlert, XCircle, Loader2,
   Calendar, ChevronDown, Eye, ArrowUpDown, Edit3, Save
 } from "lucide-react";
-import { TaskItem, TaskStatus } from "@/types";
+import { TaskItem, TaskStatus, ALLOWED_STATUS_TRANSITIONS, canTransitionStatus } from "@/types";
 import { taskService } from "@/lib/services/taskService";
+import { taskApiService } from "@/lib/api/taskService";
+import { staffWorkflowService } from "@/lib/api/staffWorkflowService";
+import { TaskMetrics } from "@/types/api";
 import { useCrmStore } from "@/lib/crmStore";
 import { initialTasks } from "@/lib/tasksData";
 import AnimatedCounter from "@/components/Global/AnimatedCounter";
 import PageBanner from "@/components/Dashboard/PageBanner";
+import TasksInfographic from "@/components/Charts/TasksInfographic";
 import DateRangeFilter, { DateRangeValue } from "@/components/Dashboard/DateRangeFilter";
 import { useToast } from "@/components/Global/ToastNotification";
 import ModalHeaderBanner from "@/components/Dashboard/ModalHeaderBanner";
+import { formatName, formatIndianPhoneNumber, normalizePhoneForBackend } from "@/lib/formatters";
+import { PhoneInput } from "@/components/Global/PhoneInput";
+import { NameInput } from "@/components/Global/NameInput";
 
 const allStatuses: { status: TaskStatus; label: string; count: number; color: string; bg: string; icon: any }[] = [
   { status: "Pending", label: "Pending", count: 47, color: "text-blue-500", bg: "bg-blue-500/10 border-blue-500/20", icon: Clock },
@@ -33,8 +40,21 @@ const allStatuses: { status: TaskStatus; label: string; count: number; color: st
 export default function TasksPage() {
   const toast = useToast();
   const { services, partners } = useCrmStore();
-  const [tasks, setTasks] = useState<TaskItem[]>(initialTasks);
+  const [tasks, setTasks] = useState<TaskItem[]>([]);
   const [loading, setLoading] = useState(true);
+  const [userRole, setUserRole] = useState<string>("ADMIN");
+
+  useEffect(() => {
+    try {
+      const sess = localStorage.getItem("finsocap_user_session");
+      if (sess) {
+        const p = JSON.parse(sess);
+        if (p?.user?.role) {
+          setUserRole(p.user.role);
+        }
+      }
+    } catch (e) { }
+  }, []);
 
   // Filters
   const [selectedStatusFilter, setSelectedStatusFilter] = useState<string>("ALL");
@@ -77,17 +97,119 @@ export default function TasksPage() {
     }
   }, [services, newServiceName]);
 
+  const [copiedTaskId, setCopiedTaskId] = useState<string | null>(null);
+
+  const handleCopyTaskId = (id: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    e.preventDefault();
+    if (typeof navigator !== "undefined" && navigator.clipboard) {
+      navigator.clipboard.writeText(id);
+    }
+    setCopiedTaskId(id);
+    toast.success(`Task ID "${id}" copied to clipboard!`, "Copied");
+    setTimeout(() => {
+      setCopiedTaskId(null);
+    }, 2000);
+  };
+
+  const formatShortTaskId = (id: string) => {
+    if (!id) return "";
+    const clean = id.trim();
+    if (clean.length <= 12) return clean;
+    return `${clean.slice(0, 10)}...`;
+  };
+
   const showToast = (msg: string) => {
     toast.success(msg, "Success!");
   };
 
+  const [taskMetrics, setTaskMetrics] = useState<TaskMetrics | null>(null);
+
   useEffect(() => {
     async function loadTasks() {
-      const data = await taskService.getAll();
-      if (data && data.length > 0) {
-        setTasks(data);
+      try {
+        let isStaffUser = false;
+        try {
+          const sess = localStorage.getItem("finsocap_user_session");
+          if (sess) {
+            const p = JSON.parse(sess);
+            if (p?.user?.role === "STAFF") isStaffUser = true;
+          }
+        } catch (e) { }
+
+        if (isStaffUser) {
+          // Dedicated staff assigned tasks from live API: GET /api/staff/tasks
+          const staffTasksRes = await staffWorkflowService.getAssignedTasks();
+          if (staffTasksRes?.success && staffTasksRes.data?.items) {
+            const mappedStaffTasks: TaskItem[] = staffTasksRes.data.items.map((it: any) => ({
+              id: it.requestCode || `T-${it.id}`,
+              partnerId: it.partnerId ? `P-${it.partnerId}` : "P-101",
+              partnerName: it.partnerName || "HQ",
+              partnerContact: it.partnerContact || "",
+              clientName: it.customerName || it.clientName || "Client",
+              clientContact: it.contactNumber || "",
+              nameOfBusiness: it.nameOfBusiness || it.customerName || "—",
+              taskCategory: it.taskCategory || "Compliance",
+              serviceName: it.serviceName || "Service",
+              status: (it.status === "IN_PROGRESS"
+                ? "In Progress"
+                : it.status === "PENDING_FROM_CLIENT"
+                  ? "Pending from Client"
+                  : it.status === "COMPLETED"
+                    ? "Completed"
+                    : "Pending") as TaskStatus,
+              taskDate: it.createdAt ? new Date(it.createdAt).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" }) : "Today",
+              dueDate: it.dueDate || "",
+              assignedTo: it.assignedTo?.name ? { id: String(it.assignedTo.id), name: it.assignedTo.name, role: "Specialist" } : undefined,
+              comments: it.instructions ? [{ id: "c1", userName: "Admin", userRole: "ADMIN", timestamp: "Recent", text: it.instructions }] : [],
+            }));
+            setTasks(mappedStaffTasks);
+            setLoading(false);
+            return;
+          }
+        }
+
+        const [metricsRes, tasksRes] = await Promise.allSettled([
+          taskApiService.getMetrics(),
+          taskApiService.getTasks(),
+        ]);
+
+        if (metricsRes.status === "fulfilled" && metricsRes.value?.success) {
+          setTaskMetrics(metricsRes.value.data);
+        }
+
+        if (tasksRes.status === "fulfilled" && tasksRes.value?.success && Array.isArray(tasksRes.value.data) && tasksRes.value.data.length > 0) {
+          const mappedTasks: TaskItem[] = tasksRes.value.data.map((bt) => ({
+            id: bt.taskId || `T-${bt.id}`,
+            partnerId: bt.partnerId || "P-101",
+            partnerName: bt.partnerName || "HQ",
+            partnerContact: bt.partnerContact || "",
+            clientName: bt.clientName,
+            clientContact: bt.contactNumber || "",
+            nameOfBusiness: bt.nameOfBusiness || bt.clientName,
+            taskCategory: bt.taskCategory || "General",
+            serviceName: bt.serviceName,
+            status: (bt.status === "IN_PROGRESS"
+              ? "In Progress"
+              : bt.status === "PENDING_FROM_CLIENT"
+                ? "Pending from Client"
+                : bt.status === "COMPLETED"
+                  ? "Completed"
+                  : "Pending") as TaskStatus,
+            taskDate: bt.taskDate || "Today",
+            dueDate: bt.dueDate || "",
+            assignedTo: bt.assignedToName ? { id: "spec", name: bt.assignedToName, role: "Specialist" } : undefined,
+            comments: bt.adminRemarks ? [{ id: "c1", userName: "Admin", userRole: "ADMIN", timestamp: "Recent", text: bt.adminRemarks }] : [],
+          }));
+          setTasks(mappedTasks);
+        } else {
+          setTasks([]);
+        }
+      } catch {
+        setTasks([]);
+      } finally {
+        setLoading(false);
       }
-      setLoading(false);
     }
     loadTasks();
   }, []);
@@ -185,7 +307,17 @@ export default function TasksPage() {
     setEditCategory(t.taskCategory);
     setEditService(t.serviceName);
     setEditStatus(t.status);
-    setEditDue(t.dueDate);
+    // Convert to YYYY-MM-DD for native HTML5 date picker
+    let dueVal = "";
+    if (t.dueDate) {
+      const parsed = new Date(t.dueDate);
+      if (!isNaN(parsed.getTime())) {
+        dueVal = parsed.toISOString().split("T")[0];
+      } else {
+        dueVal = t.dueDate;
+      }
+    }
+    setEditDue(dueVal);
     setEditPartnerName(t.partnerName);
     setEditPartnerContact(t.partnerContact);
   };
@@ -193,6 +325,14 @@ export default function TasksPage() {
   const handleEditTask = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!editingTask) return;
+
+    if (editStatus !== editingTask.status && !canTransitionStatus(editingTask.status, editStatus)) {
+      toast.error(
+        `Invalid step transition: "${editingTask.status}" cannot jump directly to "${editStatus}". Work must proceed stepwise.`,
+        "Workflow Rule"
+      );
+      return;
+    }
 
     const updated = await taskService.updateTask(editingTask.id, {
       clientName: editClient.trim(),
@@ -247,15 +387,20 @@ export default function TasksPage() {
         description="Comprehensive operations monitor across customer filings, cyber cafe partner requests, statutory approvals, and department clearance."
         bottomMeta={`${tasks.length} Active Operational Tasks • SLA Tracking Synchronized`}
         actions={
-          <button
-            onClick={() => setIsAddModalOpen(true)}
-            className="btn-primary-vibrant text-xs py-2.5 px-4 cursor-pointer flex items-center gap-2 shadow-md shadow-blue-500/25"
-          >
-            <Plus className="w-4 h-4" />
-            <span>Add Task</span>
-          </button>
+          userRole !== "STAFF" ? (
+            <button
+              onClick={() => setIsAddModalOpen(true)}
+              className="btn-primary-vibrant text-xs py-2.5 px-4 cursor-pointer flex items-center gap-2 shadow-md shadow-blue-500/25"
+            >
+              <Plus className="w-4 h-4" />
+              <span>Add Task</span>
+            </button>
+          ) : undefined
         }
       />
+
+      {/* Task Execution Pipeline Velocity Infographic */}
+      <TasksInfographic metrics={taskMetrics} tasks={tasks} />
 
       {/* 2. Top 8 Status KPI Cards (Exact match to Screenshot 4) */}
       <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 gap-3">
@@ -266,28 +411,25 @@ export default function TasksPage() {
             <button
               key={item.status}
               onClick={() => setSelectedStatusFilter(isSelected ? "ALL" : item.status)}
-              className={`p-3.5 rounded-2xl border text-left transition-all cursor-pointer flex flex-col justify-between ${
-                isSelected
+              className={`p-3.5 rounded-2xl border text-left transition-all cursor-pointer flex flex-col justify-between ${isSelected
                   ? "bg-blue-600 text-white border-blue-600 shadow-lg shadow-blue-500/25 scale-[1.03]"
                   : "bg-white dark:bg-[#0c1427] border-slate-200/80 dark:border-slate-800 hover:border-blue-400/50 hover:shadow-sm"
-              }`}
+                }`}
             >
               <div className="flex items-center justify-between w-full mb-1">
                 <div
-                  className={`w-7 h-7 rounded-xl flex items-center justify-center ${
-                    isSelected ? "bg-white/20 text-white" : `${item.bg} ${item.color}`
-                  }`}
+                  className={`w-7 h-7 rounded-xl flex items-center justify-center ${isSelected ? "bg-white/20 text-white" : `${item.bg} ${item.color}`
+                    }`}
                 >
                   <Icon className="w-4 h-4" />
                 </div>
                 <span className={`text-xl font-black ${isSelected ? "text-white" : "text-slate-900 dark:text-white"}`}>
-                  <AnimatedCounter value={item.count} />
+                  <AnimatedCounter value={tasks.filter((t) => item.status === "Overdue" ? (t.overdueDays ? t.overdueDays > 0 : false) : t.status === item.status).length} />
                 </span>
               </div>
               <p
-                className={`text-[11px] font-bold truncate mt-1 ${
-                  isSelected ? "text-blue-100" : "text-slate-600 dark:text-slate-400"
-                }`}
+                className={`text-[11px] font-bold truncate mt-1 ${isSelected ? "text-blue-100" : "text-slate-600 dark:text-slate-400"
+                  }`}
               >
                 {item.label}
               </p>
@@ -412,6 +554,7 @@ export default function TasksPage() {
                   </div>
                 </th>
                 <th className="py-3 px-3.5 whitespace-nowrap">Service Name</th>
+                <th className="py-3 px-3.5 whitespace-nowrap">Assigned To</th>
                 <th className="py-3 px-3.5 whitespace-nowrap">Status</th>
                 <th className="py-3 px-3.5 whitespace-nowrap">
                   <div className="flex items-center gap-1">
@@ -429,109 +572,156 @@ export default function TasksPage() {
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100 dark:divide-slate-800/60 font-medium">
-              {filteredTasks.map((t) => (
-                <tr key={t.id} className="hover:bg-slate-50/80 dark:hover:bg-slate-800/50 transition-colors">
-                  {/* Task ID */}
-                  <td className="py-3 px-3.5">
-                    <Link
-                      href={`/dashboard/tasks/${t.id}`}
-                      className="font-mono font-bold text-blue-600 dark:text-sky-400 hover:underline cursor-pointer"
-                    >
-                      {t.id}
-                    </Link>
-                  </td>
-
-                  {/* Partner ID (Requirement 4th ss) */}
-                  <td className="py-3 px-3.5">
-                    <span className="px-2 py-0.5 rounded-md font-mono font-bold text-[10px] bg-amber-500/15 text-amber-700 dark:text-amber-400 border border-amber-500/25">
-                      {t.partnerId || "P-101"}
-                    </span>
-                  </td>
-
-                  {/* Partner Name */}
-                  <td className="py-3 px-3.5 font-bold text-slate-900 dark:text-white">
-                    {t.partnerName}
-                  </td>
-
-                  {/* Partner Contact */}
-                  <td className="py-3 px-3.5 font-mono text-slate-700 dark:text-slate-300">
-                    <a href={`tel:${t.partnerContact}`} className="hover:text-blue-600 hover:underline">
-                      {t.partnerContact}
-                    </a>
-                  </td>
-
-                  {/* Client Name */}
-                  <td className="py-3 px-3.5 font-bold text-slate-900 dark:text-white">
-                    {t.clientName}
-                  </td>
-
-                  {/* Contact Number */}
-                  <td className="py-3 px-3.5 font-mono text-slate-700 dark:text-slate-300">
-                    <a href={`tel:${t.clientContact}`} className="hover:text-blue-600 hover:underline">
-                      {t.clientContact}
-                    </a>
-                  </td>
-
-                  {/* Name of Business */}
-                  <td className="py-3 px-3.5 text-slate-800 dark:text-slate-200">
-                    {t.nameOfBusiness}
-                  </td>
-
-                  {/* Task Category */}
-                  <td className="py-3 px-3.5 text-slate-600 dark:text-slate-400">
-                    {t.taskCategory}
-                  </td>
-
-                  {/* Service Name */}
-                  <td className="py-3 px-3.5 font-semibold text-slate-900 dark:text-white">
-                    {t.serviceName}
-                  </td>
-
-                  {/* Status */}
-                  <td className="py-3 px-3.5">
-                    <span className={`inline-flex whitespace-nowrap px-2.5 py-0.5 rounded-full font-bold text-[10px] ${getStatusBadge(t.status)}`}>
-                      {t.status}
-                    </span>
-                  </td>
-
-                  {/* Task Date */}
-                  <td className="py-3 px-3.5 text-slate-600 dark:text-slate-400 whitespace-nowrap">
-                    {t.taskDate}
-                  </td>
-
-                  {/* Overdue (Requirement 4th ss) */}
-                  <td className="py-3 px-3.5 whitespace-nowrap">
-                    {t.overdueDays && t.overdueDays > 0 ? (
-                      <span className="px-2 py-0.5 rounded-md font-bold text-[10px] bg-rose-50 text-rose-600 dark:bg-rose-950/60 dark:text-rose-400 border border-rose-200">
-                        {t.overdueDays} days
-                      </span>
-                    ) : (
-                      <span className="text-slate-400 font-bold pl-2">-</span>
-                    )}
-                  </td>
-
-                  {/* Actions -> Edit + Open */}
-                  <td className="py-3 px-3.5 text-right">
-                    <div className="inline-flex items-center gap-1.5">
-                      <button
-                        type="button"
-                        onClick={() => openEditTask(t)}
-                        className="btn-glass-modern text-xs py-1 px-2.5 cursor-pointer inline-flex items-center gap-1 hover:text-blue-600 transition-all"
-                      >
-                        <Edit3 className="w-3 h-3" />
-                        <span>Edit</span>
-                      </button>
-                      <Link
-                        href={`/dashboard/tasks/${t.id}`}
-                        className="btn-glass-modern text-xs py-1 px-3.5 cursor-pointer inline-flex items-center gap-1.5 hover:bg-blue-600 hover:text-white transition-all shadow-xs"
-                      >
-                        <Eye className="w-3 h-3" />
-                        <span>Open</span>
-                      </Link>
-                    </div>
+              {loading ? (
+                <tr>
+                  <td colSpan={14} className="py-12 text-center text-slate-400">
+                    <Loader2 className="w-6 h-6 animate-spin mx-auto text-blue-500 mb-2" />
+                    <span className="text-xs font-semibold">Loading tasks...</span>
                   </td>
                 </tr>
-              ))}
+              ) : filteredTasks.length === 0 ? (
+                <tr>
+                  <td colSpan={14} className="py-12 text-center text-slate-400">
+                    <ClipboardList className="w-8 h-8 mx-auto text-slate-300 dark:text-slate-600 mb-2" />
+                    <p className="text-xs font-bold text-slate-600 dark:text-slate-400">No tasks found matching criteria</p>
+                    <p className="text-[11px] text-slate-400 mt-0.5">Tasks will appear here dynamically as partners submit requests</p>
+                  </td>
+                </tr>
+              ) : (
+                filteredTasks.map((t) => (
+                  <tr key={t.id} className="hover:bg-slate-50/80 dark:hover:bg-slate-800/50 transition-colors">
+                    {/* Task ID: display with Click-to-Copy */}
+                    <td className="py-3 px-3.5 whitespace-nowrap">
+                      <div className="inline-flex items-center gap-1.5 bg-blue-50/70 dark:bg-blue-950/40 px-2.5 py-1 rounded-xl border border-blue-200/60 dark:border-blue-900/40">
+                        <Link
+                          href={`/dashboard/tasks/${t.id}`}
+                          className="font-mono font-bold text-xs text-blue-600 dark:text-sky-400 hover:underline cursor-pointer"
+                          title={`Full Task ID: ${t.id} (Click to open)`}
+                        >
+                          {formatShortTaskId(t.id)}
+                        </Link>
+
+                        <button
+                          type="button"
+                          onClick={(e) => handleCopyTaskId(t.id, e)}
+                          title={`Click to copy: ${t.id}`}
+                          className="p-1 rounded-lg text-slate-400 hover:text-blue-600 dark:hover:text-sky-400 hover:bg-blue-100/60 dark:hover:bg-blue-900/60 transition-colors cursor-pointer group"
+                        >
+                          {copiedTaskId === t.id ? (
+                            <Check className="w-3.5 h-3.5 text-emerald-500 animate-in zoom-in-75" />
+                          ) : (
+                            <Copy className="w-3.5 h-3.5 group-hover:scale-110 transition-transform" />
+                          )}
+                        </button>
+                      </div>
+                    </td>
+
+                    {/* Partner ID (Requirement 4th ss) */}
+                    <td className="py-3 px-3.5">
+                      <span className="px-2 py-0.5 rounded-md font-mono font-bold text-[10px] bg-amber-500/15 text-amber-700 dark:text-amber-400 border border-amber-500/25">
+                        {t.partnerId || "P-101"}
+                      </span>
+                    </td>
+
+                    {/* Partner Name */}
+                    <td className="py-3 px-3.5 font-bold text-slate-900 dark:text-white">
+                      {t.partnerName}
+                    </td>
+
+                    {/* Partner Contact */}
+                    <td className="py-3 px-3.5 font-mono text-slate-700 dark:text-slate-300">
+                      <a href={`tel:${t.partnerContact}`} className="hover:text-blue-600 hover:underline">
+                        {t.partnerContact}
+                      </a>
+                    </td>
+
+                    {/* Client Name */}
+                    <td className="py-3 px-3.5 font-bold text-slate-900 dark:text-white">
+                      {t.clientName}
+                    </td>
+
+                    {/* Contact Number */}
+                    <td className="py-3 px-3.5 font-mono text-slate-700 dark:text-slate-300">
+                      <a href={`tel:${t.clientContact}`} className="hover:text-blue-600 hover:underline">
+                        {t.clientContact}
+                      </a>
+                    </td>
+
+                    {/* Name of Business */}
+                    <td className="py-3 px-3.5 text-slate-800 dark:text-slate-200">
+                      {t.nameOfBusiness}
+                    </td>
+
+                    {/* Task Category */}
+                    <td className="py-3 px-3.5 text-slate-600 dark:text-slate-400">
+                      {t.taskCategory}
+                    </td>
+
+                    {/* Service Name */}
+                    <td className="py-3 px-3.5 font-semibold text-slate-900 dark:text-white">
+                      {t.serviceName}
+                    </td>
+
+                    {/* Assigned Specialist */}
+                    <td className="py-3 px-3.5 whitespace-nowrap">
+                      {t.assignedTo?.name ? (
+                        <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full font-bold text-[10px] bg-indigo-50 text-indigo-700 dark:bg-indigo-950/60 dark:text-indigo-300 border border-indigo-200/60 dark:border-indigo-800/60">
+                          <Users className="w-3 h-3 text-indigo-500" />
+                          <span>{t.assignedTo.name}</span>
+                        </span>
+                      ) : (
+                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md font-bold text-[10px] bg-slate-100 text-slate-500 dark:bg-slate-800 dark:text-slate-400">
+                          Unassigned
+                        </span>
+                      )}
+                    </td>
+
+                    {/* Status */}
+                    <td className="py-3 px-3.5">
+                      <span className={`inline-flex whitespace-nowrap px-2.5 py-0.5 rounded-full font-bold text-[10px] ${getStatusBadge(t.status)}`}>
+                        {t.status}
+                      </span>
+                    </td>
+
+                    {/* Task Date */}
+                    <td className="py-3 px-3.5 text-slate-600 dark:text-slate-400 whitespace-nowrap">
+                      {t.taskDate}
+                    </td>
+
+                    {/* Overdue (Requirement 4th ss) */}
+                    <td className="py-3 px-3.5 whitespace-nowrap">
+                      {t.overdueDays && t.overdueDays > 0 ? (
+                        <span className="px-2 py-0.5 rounded-md font-bold text-[10px] bg-rose-50 text-rose-600 dark:bg-rose-950/60 dark:text-rose-400 border border-rose-200">
+                          {t.overdueDays} days
+                        </span>
+                      ) : (
+                        <span className="text-slate-400 font-bold pl-2">-</span>
+                      )}
+                    </td>
+
+                    {/* Actions -> Edit + Open */}
+                    <td className="py-3 px-3.5 text-right">
+                      <div className="inline-flex items-center gap-1.5">
+                        <button
+                          type="button"
+                          onClick={() => openEditTask(t)}
+                          className="btn-glass-modern text-xs py-1 px-2.5 cursor-pointer inline-flex items-center gap-1 hover:text-blue-600 transition-all"
+                        >
+                          <Edit3 className="w-3 h-3" />
+                          <span>Edit</span>
+                        </button>
+                        <Link
+                          href={`/dashboard/tasks/${t.id}`}
+                          className="btn-glass-modern text-xs py-1 px-3.5 cursor-pointer inline-flex items-center gap-1.5 hover:bg-blue-600 hover:text-white transition-all shadow-xs"
+                        >
+                          <Eye className="w-3 h-3" />
+                          <span>Open</span>
+                        </Link>
+                      </div>
+                    </td>
+                  </tr>
+                ))
+              )}
             </tbody>
           </table>
         </div>
@@ -552,29 +742,21 @@ export default function TasksPage() {
 
             <form onSubmit={handleCreateTask} className="space-y-3.5 text-xs">
               <div className="grid grid-cols-2 gap-3">
-                <div className="space-y-1">
-                  <label className="font-bold text-slate-700 dark:text-slate-300">Client Name *</label>
-                  <input
-                    type="text"
-                    required
-                    value={newClient}
-                    onChange={(e) => setNewClient(e.target.value)}
-                    placeholder="e.g. Ramesh Kumar"
-                    className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl"
-                  />
-                </div>
+                <NameInput
+                  label="Client Name"
+                  required
+                  value={newClient}
+                  onChange={setNewClient}
+                  placeholder="e.g. Ramesh Kumar"
+                />
 
-                <div className="space-y-1">
-                  <label className="font-bold text-slate-700 dark:text-slate-300">Client Contact *</label>
-                  <input
-                    type="tel"
-                    required
-                    value={newPhone}
-                    onChange={(e) => setNewPhone(e.target.value)}
-                    placeholder="10-digit mobile"
-                    className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl"
-                  />
-                </div>
+                <PhoneInput
+                  label="Client Contact"
+                  required
+                  value={newPhone}
+                  onChange={setNewPhone}
+                  placeholder="+91 99530 65623"
+                />
               </div>
 
               <div className="grid grid-cols-2 gap-3">
@@ -584,6 +766,7 @@ export default function TasksPage() {
                     type="text"
                     value={newBusiness}
                     onChange={(e) => setNewBusiness(e.target.value)}
+                    onBlur={() => setNewBusiness(formatName(newBusiness))}
                     placeholder="Business enterprise"
                     className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl"
                   />
@@ -702,26 +885,19 @@ export default function TasksPage() {
 
             <form onSubmit={handleEditTask} className="space-y-3.5 text-xs">
               <div className="grid grid-cols-2 gap-3">
-                <div className="space-y-1">
-                  <label className="font-bold text-slate-700 dark:text-slate-300">Client Name *</label>
-                  <input
-                    type="text"
-                    required
-                    value={editClient}
-                    onChange={(e) => setEditClient(e.target.value)}
-                    className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl"
-                  />
-                </div>
-                <div className="space-y-1">
-                  <label className="font-bold text-slate-700 dark:text-slate-300">Client Contact *</label>
-                  <input
-                    type="tel"
-                    required
-                    value={editPhone}
-                    onChange={(e) => setEditPhone(e.target.value)}
-                    className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl"
-                  />
-                </div>
+                <NameInput
+                  label="Client Name"
+                  required
+                  value={editClient}
+                  onChange={setEditClient}
+                />
+                <PhoneInput
+                  label="Client Contact"
+                  required
+                  value={editPhone}
+                  onChange={setEditPhone}
+                  placeholder="+91 99530 65623"
+                />
               </div>
 
               <div className="grid grid-cols-2 gap-3">
@@ -731,6 +907,7 @@ export default function TasksPage() {
                     type="text"
                     value={editBusiness}
                     onChange={(e) => setEditBusiness(e.target.value)}
+                    onBlur={() => setEditBusiness(formatName(editBusiness))}
                     className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl"
                   />
                 </div>
@@ -740,21 +917,19 @@ export default function TasksPage() {
                     type="text"
                     value={editPartnerName}
                     onChange={(e) => setEditPartnerName(e.target.value)}
+                    onBlur={() => setEditPartnerName(formatName(editPartnerName))}
                     className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl"
                   />
                 </div>
               </div>
 
               <div className="grid grid-cols-2 gap-3">
-                <div className="space-y-1">
-                  <label className="font-bold text-slate-700 dark:text-slate-300">Partner Contact</label>
-                  <input
-                    type="tel"
-                    value={editPartnerContact}
-                    onChange={(e) => setEditPartnerContact(e.target.value)}
-                    className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl"
-                  />
-                </div>
+                <PhoneInput
+                  label="Partner Contact"
+                  value={editPartnerContact}
+                  onChange={setEditPartnerContact}
+                  placeholder="+91 99530 65623"
+                />
                 <div className="space-y-1">
                   <label className="font-bold text-slate-700 dark:text-slate-300">Task Category</label>
                   <select
@@ -794,20 +969,21 @@ export default function TasksPage() {
                   </select>
                 </div>
                 <div className="space-y-1">
-                  <label className="font-bold text-slate-700 dark:text-slate-300">Status</label>
+                  <label className="font-bold text-slate-700 dark:text-slate-300">Status (Stepwise Allowed)</label>
                   <select
                     value={editStatus}
                     onChange={(e) => setEditStatus(e.target.value as TaskStatus)}
                     className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl"
                   >
-                    <option value="Pending">Pending</option>
-                    <option value="In Progress">In Progress</option>
-                    <option value="Sent for Review">Sent for Review</option>
-                    <option value="Pending from Client">Pending from Client</option>
-                    <option value="Pending from Department">Pending from Department</option>
-                    <option value="Overdue">Overdue</option>
-                    <option value="Completed">Completed</option>
-                    <option value="Cancelled">Cancelled</option>
+                    <option value={editingTask.status}>{editingTask.status} (Current)</option>
+                    {(ALLOWED_STATUS_TRANSITIONS[editingTask.status] || [])
+                      .filter((s) => s !== editingTask.status)
+                      .filter((s) => userRole !== "ADMIN" || s !== "Completed")
+                      .map((s) => (
+                        <option key={s} value={s}>
+                          {s}
+                        </option>
+                      ))}
                   </select>
                 </div>
               </div>
@@ -815,11 +991,10 @@ export default function TasksPage() {
               <div className="space-y-1">
                 <label className="font-bold text-slate-700 dark:text-slate-300">Due Date</label>
                 <input
-                  type="text"
+                  type="date"
                   value={editDue}
                   onChange={(e) => setEditDue(e.target.value)}
-                  placeholder="e.g. 15 Oct 2026"
-                  className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl"
+                  className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-semibold text-slate-900 dark:text-white cursor-pointer focus:outline-none focus:ring-2 focus:ring-blue-500/20"
                 />
               </div>
 

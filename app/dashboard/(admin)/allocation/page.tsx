@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect, useCallback } from "react";
 import {
   UserCheck,
   CheckSquare,
@@ -30,13 +30,35 @@ import {
   X
 } from "lucide-react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import AllocationInfographic from "@/components/Charts/AllocationInfographic";
 import { useCrmStore } from "@/lib/crmStore";
 import { useToast } from "@/components/Global/ToastNotification";
+import { workloadService } from "@/lib/api/workloadService";
+import { WorkloadMetrics, BalancingRecommendation } from "@/types/api";
 
 export default function AllocationPage() {
+  const router = useRouter();
   const { tasks, users, assignTask } = useCrmStore();
   const toast = useToast();
+
+  // Role Protection: Staff members cannot allocate tasks
+  useEffect(() => {
+    try {
+      const stored = localStorage.getItem("finsocap_user_session");
+      if (stored) {
+        const parsed = JSON.parse(stored);
+        if (parsed.role && parsed.role !== "ADMIN") {
+          toast.warning("Access Restricted", "Task allocation is reserved for administrators.");
+          router.replace("/dashboard/tasks");
+        }
+      }
+    } catch (e) {}
+  }, [router, toast]);
+
+  const [workload, setWorkload] = useState<WorkloadMetrics | null>(null);
+  const [recommendations, setRecommendations] = useState<BalancingRecommendation[]>([]);
+  const [isApplyingRec, setIsApplyingRec] = useState(false);
 
   const [selectedTaskId, setSelectedTaskId] = useState<string>("");
   const [selectedAssignee, setSelectedAssignee] = useState<string>("");
@@ -44,6 +66,42 @@ export default function AllocationPage() {
   const [dueDate, setDueDate] = useState<string>("2026-10-05");
   const [note, setNote] = useState<string>("");
   const [previewDoc, setPreviewDoc] = useState<string | null>(null);
+
+  const fetchWorkloadData = useCallback(async () => {
+    try {
+      const [wlRes, recRes] = await Promise.allSettled([
+        workloadService.getWorkload(),
+        workloadService.getBalancingRecommendations(),
+      ]);
+      if (wlRes.status === "fulfilled" && wlRes.value?.success) {
+        setWorkload(wlRes.value.data);
+      }
+      if (recRes.status === "fulfilled" && recRes.value?.success) {
+        setRecommendations(recRes.value.data);
+      }
+    } catch (e) {
+      console.warn("Workload fetch error:", e);
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchWorkloadData();
+  }, [fetchWorkloadData]);
+
+  const handleApplyRecommendation = async (recId: string) => {
+    setIsApplyingRec(true);
+    try {
+      const res = await workloadService.applyRecommendation(recId);
+      if (res.success) {
+        toast.success(res.message || "Smart balancing applied successfully!");
+        fetchWorkloadData();
+      }
+    } catch (err: any) {
+      toast.error(err.message || "Failed to apply recommendation");
+    } finally {
+      setIsApplyingRec(false);
+    }
+  };
 
   const unassignedTasks = useMemo(() => {
     return tasks.filter((t) => !t.assignee && t.status !== "Completed");
@@ -96,15 +154,37 @@ export default function AllocationPage() {
     return matches.length > 0 ? matches : users.filter((u) => u.status === "Active");
   }, [users, selectedTask]);
 
-  const handleAssign = (e: React.FormEvent) => {
+  const handleAssign = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!selectedTaskId || !selectedAssignee) {
-      alert("Please select both a task and an assignee.");
+    const targetTaskId = selectedTaskId || activeSelectedTaskId;
+    if (!targetTaskId || !selectedAssignee) {
+      toast.error("Please select both a task and an assignee.");
       return;
     }
 
-    assignTask(selectedTaskId, selectedAssignee);
-    toast.success(`Task ${selectedTaskId} successfully delegated to ${selectedAssignee}!`, "Success!");
+    const matchedTask = tasks.find((t) => t.id === targetTaskId);
+    const numId = matchedTask?.numericId || (targetTaskId.startsWith("T-") ? parseInt(targetTaskId.replace(/\D/g, ""), 10) : parseInt(targetTaskId, 10));
+
+    const specialist = workload?.specialists?.find(
+      (s) => s.name.toLowerCase() === selectedAssignee.toLowerCase() || String(s.id) === selectedAssignee
+    ) || users.find((u) => u.name.toLowerCase() === selectedAssignee.toLowerCase() || String(u.id) === selectedAssignee);
+    
+    const specId = specialist?.id || 1;
+
+    assignTask(targetTaskId, specialist?.name || selectedAssignee, priority, dueDate);
+
+    try {
+      await workloadService.assignTask({
+        taskId: isNaN(numId) ? 1 : numId,
+        specialistId: specId,
+        notes: note,
+      });
+      fetchWorkloadData();
+    } catch (err: any) {
+      console.warn("Assign workload background sync:", err);
+    }
+
+    toast.success(`Task ${targetTaskId} successfully delegated to ${specialist?.name || selectedAssignee}!`, "Success!");
 
     setSelectedTaskId("");
     setNote("");
@@ -113,26 +193,38 @@ export default function AllocationPage() {
   const getStatusBadge = (status: string) => {
     switch (status) {
       case "Pending":
-        return "bg-blue-50 text-blue-600 dark:bg-blue-950/60 dark:text-sky-400";
+        return "bg-blue-50 text-blue-700 dark:bg-blue-950/60 dark:text-sky-300 border border-blue-200/60 dark:border-blue-800/50";
       case "In Progress":
-        return "bg-amber-50 text-amber-600 dark:bg-amber-950/60 dark:text-amber-400";
+        return "bg-amber-50 text-amber-700 dark:bg-amber-950/60 dark:text-amber-300 border border-amber-200/60 dark:border-amber-800/50";
+      case "Sent for Review":
       case "See Full Review":
-        return "bg-emerald-50 text-emerald-600 dark:bg-emerald-950/60 dark:text-emerald-400";
+        return "bg-purple-50 text-purple-700 dark:bg-purple-950/60 dark:text-purple-300 border border-purple-200/60 dark:border-purple-800/50";
       case "Pending from Client":
-        return "bg-purple-50 text-purple-600 dark:bg-purple-950/60 dark:text-purple-400";
+        return "bg-orange-50 text-orange-700 dark:bg-orange-950/60 dark:text-orange-300 border border-orange-200/60 dark:border-orange-800/50";
       case "Pending from Department":
-        return "bg-sky-50 text-sky-600 dark:bg-sky-950/60 dark:text-sky-400";
+        return "bg-indigo-50 text-indigo-700 dark:bg-indigo-950/60 dark:text-indigo-300 border border-indigo-200/60 dark:border-indigo-800/50";
+      case "Completed":
+        return "bg-emerald-50 text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-300 border border-emerald-200/60 dark:border-emerald-800/50";
+      case "Cancelled":
+        return "bg-rose-50 text-rose-700 dark:bg-rose-950/60 dark:text-rose-300 border border-rose-200/60 dark:border-rose-800/50";
       default:
-        return "bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300";
+        return "bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300 border border-slate-200 dark:border-slate-700";
     }
   };
 
   return (
     <div className="space-y-4 pb-6 max-w-[1600px] mx-auto animate-in fade-in duration-300">
       {/* 1. CA Workload Capacity & Queue Distribution Infographic & Smart Balancing */}
-      <AllocationInfographic tasks={tasks} users={users} />
+      <AllocationInfographic
+        workload={workload}
+        recommendations={recommendations}
+        onApplyRecommendation={handleApplyRecommendation}
+        isApplying={isApplyingRec}
+        tasks={tasks}
+        users={users}
+      />
 
-      {/* 2. Top 4 Clean Metric Cards matching user screenshot */}
+      {/* 2. Top 4 Clean Metric Cards matching live REST API */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         
         {/* Unassigned Requests */}
@@ -152,7 +244,7 @@ export default function AllocationPage() {
           </div>
           <div className="flex items-center gap-1.5">
             <span className="text-xl font-black text-slate-900 dark:text-white">
-              {unassignedTasks.length}
+              {workload?.unassignedRequestsCount ?? unassignedTasks.length}
             </span>
             <ChevronRight className="w-4 h-4 text-slate-400" />
           </div>
@@ -175,7 +267,7 @@ export default function AllocationPage() {
           </div>
           <div className="flex items-center gap-1.5">
             <span className="text-xl font-black text-slate-900 dark:text-white">
-              8
+              {workload?.assignedTasksCount ?? assignedTasks.length}
             </span>
             <ChevronRight className="w-4 h-4 text-slate-400" />
           </div>
@@ -198,7 +290,7 @@ export default function AllocationPage() {
           </div>
           <div className="flex items-center gap-1.5">
             <span className="text-xl font-black text-slate-900 dark:text-white">
-              2
+              {workload?.inProgressWipCount ?? inProgressCount}
             </span>
             <ChevronRight className="w-4 h-4 text-slate-400" />
           </div>
@@ -221,7 +313,7 @@ export default function AllocationPage() {
           </div>
           <div className="flex items-center gap-1.5">
             <span className="text-xl font-black text-slate-900 dark:text-white">
-              1
+              {workload?.completedDoneCount ?? completedCount}
             </span>
             <ChevronRight className="w-4 h-4 text-slate-400" />
           </div>
@@ -230,13 +322,13 @@ export default function AllocationPage() {
       </div>
 
       {/* 3. Main Split Grid: Left "Assign a Task" (5 cols) & Right Tables (7 cols) */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-stretch">
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-start">
         
-        {/* Left Card: Assign a Task with Banner matching Right Height */}
-        <div className="lg:col-span-5 bg-white dark:bg-[#0c1427] rounded-3xl border border-slate-200/90 dark:border-slate-800 p-5 shadow-sm flex flex-col justify-between overflow-hidden relative">
+        {/* Left Card: Assign a Task */}
+        <div className="lg:col-span-5 bg-white dark:bg-[#0c1427] rounded-3xl border border-slate-200/90 dark:border-slate-800 p-5 shadow-sm space-y-4 overflow-hidden relative">
           
           {/* Header Mini Banner */}
-          <div className="relative overflow-hidden rounded-2xl p-4 bg-gradient-to-r from-blue-600 via-indigo-600 to-sky-500 text-white shadow-md shadow-blue-500/20 mb-3">
+          <div className="relative overflow-hidden rounded-2xl p-4 bg-gradient-to-r from-blue-600 via-indigo-600 to-sky-500 text-white shadow-md shadow-blue-500/20">
             <div className="absolute -top-8 -right-8 w-28 h-28 bg-white/15 rounded-full blur-xl pointer-events-none" />
             <div className="relative z-10 flex items-center justify-between">
               <div className="flex items-center gap-3">
@@ -261,7 +353,7 @@ export default function AllocationPage() {
             </p>
           </div>
 
-          <form onSubmit={handleAssign} className="space-y-3.5 flex-1 flex flex-col justify-between">
+          <form onSubmit={handleAssign} className="space-y-3.5">
             
             {/* Select Task */}
             <div className="space-y-1">
@@ -414,13 +506,11 @@ export default function AllocationPage() {
                 </label>
                 <div className="relative">
                   <input
-                    type="text"
+                    type="date"
                     value={dueDate}
                     onChange={(e) => setDueDate(e.target.value)}
-                    placeholder="05/10/2026"
-                    className="w-full pl-9 pr-3 py-2 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-semibold focus:outline-none"
+                    className="w-full px-3.5 py-2 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-semibold focus:outline-none cursor-pointer text-slate-900 dark:text-white"
                   />
-                  <Calendar className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
                 </div>
               </div>
             </div>
@@ -451,7 +541,7 @@ export default function AllocationPage() {
         </div>
 
         {/* Right Stack: Unassigned Tasks Table & Recently Assigned Table */}
-        <div className="lg:col-span-7 flex flex-col justify-between gap-4">
+        <div className="lg:col-span-7 flex flex-col gap-5">
           
           {/* Table 1: Unassigned Tasks */}
           <div className="bg-white dark:bg-[#0c1427] rounded-3xl border border-slate-200/90 dark:border-slate-800 p-5 shadow-sm space-y-3">
@@ -553,17 +643,22 @@ export default function AllocationPage() {
           </div>
 
           {/* Table 2: Recently Assigned Tasks */}
-          <div className="bg-white dark:bg-[#0c1427] rounded-3xl border border-slate-200/90 dark:border-slate-800 p-5 shadow-sm space-y-3 flex-1 flex flex-col justify-between">
+          <div className="bg-white dark:bg-[#0c1427] rounded-3xl border border-slate-200/90 dark:border-slate-800 p-5 shadow-sm space-y-3">
             <div className="flex items-center justify-between pb-1">
-              <h3 className="font-black text-slate-900 dark:text-white text-sm tracking-tight">
-                Recently Assigned Tasks
-              </h3>
+              <div>
+                <h3 className="font-black text-slate-900 dark:text-white text-sm tracking-tight">
+                  Recently Assigned Tasks
+                </h3>
+                <p className="text-[11px] text-slate-500 dark:text-slate-400">
+                  Tasks successfully dispatched to specialist team members
+                </p>
+              </div>
               <span className="text-[10px] font-bold text-emerald-700 dark:text-emerald-400 px-2.5 py-0.5 rounded-full bg-emerald-50 dark:bg-emerald-950/60 border border-emerald-300/40">
                 {assignedTasks.length} active
               </span>
             </div>
 
-            <div className="overflow-x-auto my-auto">
+            <div className="overflow-x-auto">
               <table className="w-full text-left border-collapse text-xs">
                 <thead>
                   <tr className="border-b border-slate-100 dark:border-slate-800 text-[10px] font-bold text-slate-400 uppercase tracking-wider">
@@ -577,55 +672,75 @@ export default function AllocationPage() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100 dark:divide-slate-800/60 font-medium">
-                  {assignedTasks.slice(0, 6).map((task) => (
-                    <tr key={task.id} className="hover:bg-slate-50/80 dark:hover:bg-slate-800/40 transition-colors">
-                      <td className="py-2 px-3 font-bold text-blue-600 dark:text-sky-400">
-                        {task.id}
-                      </td>
-                      <td className="py-2 px-3 font-bold text-slate-800 dark:text-slate-200">
-                        {task.client}
-                      </td>
-                      <td className="py-2 px-3 text-slate-600 dark:text-slate-300">
-                        {task.service}
-                      </td>
-                      <td className="py-2 px-3">
-                        {task.files && task.files.length > 0 ? (
-                          <button
-                            type="button"
-                            onClick={() => setPreviewDoc(task.files[0])}
-                            className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-blue-50 dark:bg-blue-950/60 text-blue-600 dark:text-sky-300 border border-blue-200/60 hover:bg-blue-600 hover:text-white transition-colors cursor-pointer"
-                            title={task.files.join(", ")}
-                          >
-                            <Paperclip className="w-2.5 h-2.5" />
-                            <span>{task.files.length} Docs</span>
-                          </button>
-                        ) : (
-                          <span className="text-[10px] text-slate-400 font-normal">None</span>
-                        )}
-                      </td>
-                      <td className="py-2 px-3 text-slate-700 dark:text-slate-300">
-                        <span className="inline-flex items-center gap-1.5 font-bold">
-                          <span className="w-5 h-5 rounded-full bg-blue-500/10 text-blue-600 dark:text-sky-400 text-[10px] font-black flex items-center justify-center">
-                            {task.assignee.charAt(0)}
-                          </span>
-                          <span>{task.assignee}</span>
-                        </span>
-                      </td>
-                      <td className="py-2 px-3">
-                        <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold ${getStatusBadge(task.status)}`}>
-                          {task.status}
-                        </span>
-                      </td>
-                      <td className="py-2 px-3 text-right">
-                        <Link
-                          href={`/dashboard/tasks/${task.id}`}
-                          className="text-slate-400 hover:text-blue-600 dark:hover:text-sky-400 inline-flex items-center"
-                        >
-                          <ChevronRight className="w-4 h-4 ml-auto" />
-                        </Link>
+                  {assignedTasks.length === 0 ? (
+                    <tr>
+                      <td colSpan={7} className="py-6 text-center text-slate-400">
+                        <div className="w-9 h-9 rounded-xl bg-slate-50 dark:bg-slate-900 mx-auto flex items-center justify-center text-slate-400 mb-1.5 border border-slate-100 dark:border-slate-800">
+                          <Inbox className="w-4 h-4" />
+                        </div>
+                        <p className="text-xs font-semibold text-slate-500 dark:text-slate-400">
+                          No recently assigned tasks found.
+                        </p>
                       </td>
                     </tr>
-                  ))}
+                  ) : (
+                    assignedTasks.slice(0, 6).map((task) => (
+                      <tr key={task.id} className="hover:bg-slate-50/80 dark:hover:bg-slate-800/40 transition-colors">
+                        <td className="py-3 px-3">
+                          <Link
+                            href={`/dashboard/tasks/${task.id}`}
+                            className="font-bold text-blue-600 dark:text-sky-400 hover:underline"
+                            title={task.id}
+                          >
+                            {task.id.length > 16 ? `${task.id.slice(0, 14)}...` : task.id}
+                          </Link>
+                        </td>
+                        <td className="py-3 px-3 font-bold text-slate-800 dark:text-slate-200 capitalize">
+                          {task.client}
+                        </td>
+                        <td className="py-3 px-3 text-slate-600 dark:text-slate-300 font-medium">
+                          {task.service}
+                        </td>
+                        <td className="py-3 px-3">
+                          {task.files && task.files.length > 0 ? (
+                            <button
+                              type="button"
+                              onClick={() => setPreviewDoc(task.files[0])}
+                              className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-bold bg-blue-50 dark:bg-blue-950/60 text-blue-600 dark:text-sky-300 border border-blue-200/60 hover:bg-blue-600 hover:text-white transition-colors cursor-pointer"
+                              title={task.files.join(", ")}
+                            >
+                              <Paperclip className="w-2.5 h-2.5" />
+                              <span>{task.files.length} Docs</span>
+                            </button>
+                          ) : (
+                            <span className="text-[11px] text-slate-400 font-medium">None</span>
+                          )}
+                        </td>
+                        <td className="py-3 px-3 text-slate-700 dark:text-slate-300">
+                          <span className="inline-flex items-center gap-2 font-bold whitespace-nowrap">
+                            <span className="w-6 h-6 rounded-full bg-blue-600 text-white text-[10px] font-black flex items-center justify-center shrink-0 shadow-xs">
+                              {task.assignee.charAt(0).toUpperCase()}
+                            </span>
+                            <span>{task.assignee}</span>
+                          </span>
+                        </td>
+                        <td className="py-3 px-3 whitespace-nowrap">
+                          <span className={`inline-block px-2.5 py-0.5 rounded-md text-[10px] font-bold tracking-wide whitespace-nowrap ${getStatusBadge(task.status)}`}>
+                            {task.status}
+                          </span>
+                        </td>
+                        <td className="py-3 px-3 text-right">
+                          <Link
+                            href={`/dashboard/tasks/${task.id}`}
+                            className="inline-flex items-center justify-center w-7 h-7 rounded-lg hover:bg-blue-50 dark:hover:bg-blue-950/60 text-slate-400 hover:text-blue-600 dark:hover:text-sky-400 transition-colors"
+                            title="View Task Details"
+                          >
+                            <ChevronRight className="w-4 h-4" />
+                          </Link>
+                        </td>
+                      </tr>
+                    ))
+                  )}
                 </tbody>
               </table>
             </div>

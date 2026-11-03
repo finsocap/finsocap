@@ -200,6 +200,7 @@ export interface ServiceItem {
   recurring: "Yes" | "No";
   frequency: "One Time" | "Monthly" | "Yearly" | "Quarterly";
   price: number;
+  partnerProfit?: number;
   governmentFee: number;
   hasYearFees?: boolean;
   yearFees?: ServiceYearFee[];
@@ -230,6 +231,30 @@ export type TaskStatus =
   | "Overdue"
   | "Completed"
   | "Cancelled";
+
+/**
+ * Stepwise Task Status Transition Workflow
+ * - If status is "Pending", next allowed step is strictly "In Progress" (or "Cancelled").
+ * - From "In Progress", user can send to "Sent for Review", "Pending from Client", "Pending from Department", or "Cancelled".
+ * - From "Pending from Client" / "Pending from Department" / "Overdue", transitions route back to "In Progress".
+ * - "Sent for Review" moves to "Completed" (by assigned specialist) or rejected back to "In Progress".
+ */
+export const ALLOWED_STATUS_TRANSITIONS: Record<TaskStatus, TaskStatus[]> = {
+  "Pending": ["In Progress", "Cancelled"],
+  "In Progress": ["Sent for Review", "Pending from Client", "Pending from Department", "Cancelled"],
+  "Pending from Client": ["In Progress", "Cancelled"],
+  "Pending from Department": ["In Progress", "Cancelled"],
+  "Overdue": ["In Progress", "Cancelled"],
+  "Sent for Review": ["Completed", "In Progress", "Cancelled"],
+  "Completed": [],
+  "Cancelled": [],
+};
+
+export function canTransitionStatus(currentStatus: TaskStatus, targetStatus: TaskStatus): boolean {
+  if (currentStatus === targetStatus) return true;
+  const allowed = ALLOWED_STATUS_TRANSITIONS[currentStatus] || [];
+  return allowed.includes(targetStatus);
+}
 
 export interface CommentAttachment {
   id: string;

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import Link from "next/link";
 import {
   Users, CheckSquare, IndianRupee, Calendar,
@@ -16,149 +16,7 @@ import BotrixSparklineCard from "@/components/Charts/BotrixSparklineCard";
 import DateRangeFilter from "@/components/Dashboard/DateRangeFilter";
 import PartnerFilter from "@/components/Dashboard/PartnerFilter";
 import PageBanner from "@/components/Dashboard/PageBanner";
-
-interface BranchStats {
-  leads: number;
-  leadsDelta: string;
-  leadsPositive: boolean;
-  clients: number;
-  clientsDelta: string;
-  clientsPositive: boolean;
-  tasks: number;
-  tasksDelta: string;
-  tasksPositive: boolean;
-  revenue: string;
-  revenueDelta: string;
-  revenuePositive: boolean;
-  barHeightsLeads: number[];
-  barHeightsClients: number[];
-  barHeightsTasks: number[];
-  barHeightsRevenue: number[];
-  taskSummary: {
-    pending: number;
-    inProgress: number;
-    review: number;
-    completed: number;
-    overdue: number;
-  };
-}
-
-const BRANCH_DATA_MAP: Record<string, BranchStats> = {
-  "All Branches": {
-    leads: 1248,
-    leadsDelta: "12%",
-    leadsPositive: true,
-    clients: 842,
-    clientsDelta: "8%",
-    clientsPositive: true,
-    tasks: 96,
-    tasksDelta: "5%",
-    tasksPositive: false,
-    revenue: "₹8,72,500",
-    revenueDelta: "22%",
-    revenuePositive: true,
-    barHeightsLeads: [35, 50, 40, 65, 55, 80, 70, 95, 60, 85, 45, 75, 90, 100, 65, 80, 88, 95, 75, 90],
-    barHeightsClients: [45, 60, 50, 70, 65, 85, 55, 75, 90, 80, 70, 85, 65, 92, 78, 88, 70, 85, 90, 95],
-    barHeightsTasks: [60, 45, 55, 40, 70, 50, 80, 65, 75, 60, 85, 70, 90, 80, 65, 70, 85, 90, 75, 60],
-    barHeightsRevenue: [40, 55, 60, 75, 70, 88, 65, 92, 85, 98, 75, 90, 85, 100, 90, 95, 85, 100, 92, 98],
-    taskSummary: { pending: 24, inProgress: 18, review: 12, completed: 46, overdue: 8 },
-  },
-  "Delhi HQ": {
-    leads: 512,
-    leadsDelta: "14%",
-    leadsPositive: true,
-    clients: 360,
-    clientsDelta: "10%",
-    clientsPositive: true,
-    tasks: 38,
-    tasksDelta: "2%",
-    tasksPositive: false,
-    revenue: "₹3,84,000",
-    revenueDelta: "24%",
-    revenuePositive: true,
-    barHeightsLeads: [40, 60, 50, 75, 65, 90, 80, 100, 70, 95, 55, 85, 95, 100, 75, 90, 95, 100, 85, 95],
-    barHeightsClients: [50, 70, 60, 80, 75, 90, 65, 85, 95, 88, 75, 90, 70, 95, 85, 92, 78, 90, 95, 98],
-    barHeightsTasks: [45, 35, 45, 30, 60, 40, 65, 50, 60, 45, 70, 55, 75, 65, 50, 55, 70, 75, 60, 48],
-    barHeightsRevenue: [45, 60, 70, 80, 75, 92, 70, 96, 90, 100, 80, 95, 90, 100, 95, 98, 90, 100, 95, 100],
-    taskSummary: { pending: 10, inProgress: 8, review: 5, completed: 22, overdue: 3 },
-  },
-  "Noida Branch": {
-    leads: 224,
-    leadsDelta: "9%",
-    leadsPositive: true,
-    clients: 142,
-    clientsDelta: "6%",
-    clientsPositive: true,
-    tasks: 18,
-    tasksDelta: "4%",
-    tasksPositive: false,
-    revenue: "₹1,48,000",
-    revenueDelta: "15%",
-    revenuePositive: true,
-    barHeightsLeads: [25, 40, 30, 55, 45, 70, 60, 80, 50, 75, 35, 65, 75, 85, 55, 70, 75, 85, 65, 80],
-    barHeightsClients: [35, 50, 40, 60, 55, 75, 45, 65, 80, 70, 60, 75, 55, 80, 68, 78, 60, 75, 80, 85],
-    barHeightsTasks: [50, 38, 45, 32, 58, 42, 68, 55, 62, 50, 72, 58, 76, 68, 55, 60, 72, 78, 62, 50],
-    barHeightsRevenue: [35, 48, 52, 65, 60, 78, 58, 82, 75, 88, 65, 80, 75, 90, 80, 85, 78, 90, 82, 88],
-    taskSummary: { pending: 5, inProgress: 3, review: 2, completed: 7, overdue: 2 },
-  },
-  "Mumbai Regional": {
-    leads: 286,
-    leadsDelta: "18%",
-    leadsPositive: true,
-    clients: 195,
-    clientsDelta: "12%",
-    clientsPositive: true,
-    tasks: 24,
-    tasksDelta: "8%",
-    tasksPositive: false,
-    revenue: "₹2,12,000",
-    revenueDelta: "26%",
-    revenuePositive: true,
-    barHeightsLeads: [30, 48, 42, 68, 58, 85, 75, 96, 65, 90, 50, 80, 92, 98, 70, 85, 90, 98, 80, 92],
-    barHeightsClients: [40, 55, 48, 68, 62, 82, 52, 72, 88, 78, 68, 82, 62, 88, 75, 85, 68, 82, 88, 92],
-    barHeightsTasks: [55, 40, 50, 35, 65, 45, 75, 60, 70, 55, 80, 65, 85, 75, 60, 65, 80, 85, 70, 55],
-    barHeightsRevenue: [38, 52, 58, 72, 68, 85, 62, 90, 82, 95, 72, 88, 82, 98, 88, 92, 82, 98, 90, 96],
-    taskSummary: { pending: 6, inProgress: 4, review: 3, completed: 12, overdue: 2 },
-  },
-  "Bengaluru Tech Hub": {
-    leads: 136,
-    leadsDelta: "21%",
-    leadsPositive: true,
-    clients: 85,
-    clientsDelta: "15%",
-    clientsPositive: true,
-    tasks: 10,
-    tasksDelta: "10%",
-    tasksPositive: false,
-    revenue: "₹88,000",
-    revenueDelta: "28%",
-    revenuePositive: true,
-    barHeightsLeads: [20, 35, 28, 50, 40, 65, 55, 75, 45, 70, 30, 60, 70, 80, 50, 65, 70, 80, 60, 75],
-    barHeightsClients: [30, 45, 38, 55, 50, 70, 40, 60, 75, 65, 55, 70, 50, 75, 62, 72, 55, 70, 75, 80],
-    barHeightsTasks: [45, 32, 40, 28, 52, 38, 62, 48, 55, 42, 65, 50, 70, 60, 48, 52, 65, 70, 55, 42],
-    barHeightsRevenue: [30, 42, 48, 60, 55, 72, 52, 78, 70, 82, 58, 75, 70, 85, 75, 80, 72, 85, 78, 82],
-    taskSummary: { pending: 2, inProgress: 2, review: 1, completed: 3, overdue: 1 },
-  },
-  "Kolkata Hub": {
-    leads: 90,
-    leadsDelta: "5%",
-    leadsPositive: true,
-    clients: 60,
-    clientsDelta: "4%",
-    clientsPositive: true,
-    tasks: 6,
-    tasksDelta: "0%",
-    tasksPositive: true,
-    revenue: "₹40,500",
-    revenueDelta: "8%",
-    revenuePositive: true,
-    barHeightsLeads: [18, 30, 24, 45, 35, 58, 48, 68, 38, 62, 28, 52, 62, 72, 42, 58, 62, 72, 52, 68],
-    barHeightsClients: [25, 38, 32, 48, 42, 62, 35, 52, 68, 58, 48, 62, 42, 68, 55, 65, 48, 62, 68, 72],
-    barHeightsTasks: [40, 28, 35, 22, 48, 32, 55, 42, 48, 35, 58, 45, 62, 52, 40, 45, 58, 62, 48, 35],
-    barHeightsRevenue: [25, 35, 40, 52, 48, 65, 45, 70, 62, 75, 50, 68, 62, 78, 68, 72, 65, 78, 70, 75],
-    taskSummary: { pending: 1, inProgress: 1, review: 1, completed: 2, overdue: 0 },
-  },
-};
+import { useCrmStore, fetchLiveDbData } from "@/lib/crmStore";
 
 export default function DashboardHome() {
   const [dateRange, setDateRange] = useState("01 Sep 2026 - 30 Sep 2026");
@@ -166,146 +24,106 @@ export default function DashboardHome() {
   const [taskSummaryFilter, setTaskSummaryFilter] = useState<"Today" | "This Week" | "This Month">("Today");
   const [isTaskFilterOpen, setIsTaskFilterOpen] = useState(false);
 
-  // Recent Leads Data matching Screenshot with branch assignment
-  const allRecentLeads = [
-    { id: "L-1001", name: "Rahul Sharma", service: "FSSAI Registration", source: "Website", status: "New", date: "26 Sep 2026", branch: "Delhi HQ", partner: "P-101 • Rahul Jha" },
-    { id: "L-1002", name: "Priya Verma", service: "GST Registration", source: "Phone", status: "Follow Up", date: "26 Sep 2026", branch: "Mumbai Regional", partner: "P-103 • Gaurav" },
-    { id: "L-1003", name: "Aman Gupta", service: "Trademark", source: "Google Ads", status: "In Progress", date: "25 Sep 2026", branch: "Delhi HQ", partner: "P-101 • Rahul Jha" },
-    { id: "L-1004", name: "Neha Singh", service: "ITR Filing", source: "Referral", status: "Converted", date: "25 Sep 2026", branch: "Noida Branch", partner: "P-102 • Kanhaiya" },
-    { id: "L-1005", name: "Vikram Patel", service: "Shop Act License", source: "Direct Visit", status: "New", date: "24 Sep 2026", branch: "Mumbai Regional", partner: "P-103 • Gaurav" },
-    { id: "L-1006", name: "Meera Kapoor", service: "GST Registration", source: "Website", status: "Follow Up", date: "24 Sep 2026", branch: "Delhi HQ", partner: "P-101 • Rahul Jha" },
-    { id: "L-1007", name: "Suresh Yadav", service: "FSSAI + GST", source: "Phone", status: "In Progress", date: "23 Sep 2026", branch: "Noida Branch", partner: "P-102 • Kanhaiya" },
-    { id: "L-1008", name: "Anjali Singh", service: "Trademark", source: "Google Ads", status: "Converted", date: "22 Sep 2026", branch: "Bengaluru Tech Hub", partner: "P-104 • Roshan" },
-    { id: "L-1009", name: "Debabrata Roy", service: "Trade License", source: "Referral", status: "New", date: "21 Sep 2026", branch: "Kolkata Hub", partner: "P-105 • Roshni" },
-    { id: "L-1010", name: "Tanvi Deshmukh", service: "FSSAI Central", source: "Website", status: "In Progress", date: "20 Sep 2026", branch: "Mumbai Regional", partner: "P-103 • Gaurav" },
-  ];
+  const { tasks, manualClients, users, services, partners } = useCrmStore();
 
-  // Team Activity with partner assignment
-  const allTeamActivities = [
-    { id: "act-1", initials: "AK", name: "Ankit Kumar", role: "Executive", text: "Added new lead - Rahul Sharma", time: "10:24 AM", color: "bg-sky-500 text-white", branch: "Delhi HQ", partner: "P-101 • Rahul Jha" },
-    { id: "act-2", initials: "PM", name: "Pooja Mehta", role: "CA", text: "Updated GST filing documents", time: "09:45 AM", color: "bg-purple-600 text-white", branch: "Mumbai Regional", partner: "P-103 • Gaurav" },
-    { id: "act-3", initials: "RJ", name: "Rohit Jain", role: "CS", text: "Marked Trademark application as submitted", time: "09:20 AM", color: "bg-indigo-500 text-white", branch: "Delhi HQ", partner: "P-101 • Rahul Jha" },
-    { id: "act-4", initials: "NV", name: "Neha Verma", role: "Legal Executive", text: "Added task for document verification", time: "08:50 AM", color: "bg-slate-800 text-white", branch: "Noida Branch", partner: "P-102 • Kanhaiya" },
-    { id: "act-5", initials: "VS", name: "Vikram Singh", role: "Executive", text: "Uploaded client agreement", time: "08:30 AM", color: "bg-blue-600 text-white", branch: "Mumbai Regional", partner: "P-103 • Gaurav" },
-    { id: "act-6", initials: "MK", name: "Meera Kapoor", role: "CA", text: "Completed ITR filing for client", time: "08:15 AM", color: "bg-amber-600 text-white", branch: "Delhi HQ", partner: "P-101 • Rahul Jha" },
-    { id: "act-7", initials: "SS", name: "Suresh Sharma", role: "CS", text: "Added note in client profile", time: "07:45 AM", color: "bg-purple-500 text-white", branch: "Bengaluru Tech Hub", partner: "P-104 • Roshan" },
-    { id: "act-8", initials: "PR", name: "Priya Rathi", role: "Executive", text: "Updated FSSAI application status", time: "07:20 AM", color: "bg-pink-500 text-white", branch: "Kolkata Hub", partner: "P-105 • Roshni" },
-  ];
+  useEffect(() => {
+    fetchLiveDbData();
+  }, []);
 
-  // Dynamically compute stats according to selectedPartner and dateRange
+  // Dynamically compute stats according to selectedPartner, dateRange, and crmStore
   const activeStats = useMemo(() => {
-    let mappedKey = "All Branches";
-    if (selectedPartner.includes("P-101") || selectedPartner.includes("Rahul")) mappedKey = "Delhi HQ";
-    else if (selectedPartner.includes("P-102") || selectedPartner.includes("Kanhaiya")) mappedKey = "Noida Branch";
-    else if (selectedPartner.includes("P-103") || selectedPartner.includes("Gaurav")) mappedKey = "Mumbai Regional";
-    else if (selectedPartner.includes("P-104") || selectedPartner.includes("Roshan")) mappedKey = "Bengaluru Tech Hub";
-    else if (selectedPartner.includes("P-105") || selectedPartner.includes("Roshni")) mappedKey = "Kolkata Hub";
+    // Filter tasks by partner if selected
+    const filteredTasks = selectedPartner === "All Partners"
+      ? tasks
+      : tasks.filter(t => t.partner?.toLowerCase().includes(selectedPartner.toLowerCase()) || (t.id && selectedPartner.includes(t.partner)));
 
-    const base = BRANCH_DATA_MAP[mappedKey] || BRANCH_DATA_MAP["All Branches"];
+    const activeTasksCount = filteredTasks.filter(t => !["Completed", "Cancelled"].includes(t.status)).length;
 
-    // Date range multiplier
-    let dateMultiplier = 1.0;
-    let periodLabel = "this month";
+    // Filter clients
+    const filteredClients = selectedPartner === "All Partners"
+      ? manualClients
+      : manualClients.filter(c => c.partner?.toLowerCase().includes(selectedPartner.toLowerCase()));
 
-    if (dateRange.includes("Today") || dateRange.includes("Yesterday")) {
-      dateMultiplier = 0.035;
-      periodLabel = "today";
-    } else if (dateRange.includes("Last 7 Days")) {
-      dateMultiplier = 0.25;
-      periodLabel = "past 7 days";
-    } else if (dateRange.includes("Last Month") || dateRange.includes("Aug")) {
-      dateMultiplier = 0.88;
-      periodLabel = "last month";
-    } else if (dateRange.includes("Quarter") || dateRange.includes("FY")) {
-      dateMultiplier = 2.8;
-      periodLabel = "this quarter";
+    // Leads count from clients or tasks
+    const leadsCount = filteredClients.length + filteredTasks.length;
+    const clientsCount = filteredClients.length;
+
+    // Calculate revenue from completed tasks or services
+    const completedTasks = filteredTasks.filter(t => t.status === "Completed");
+    const totalRev = completedTasks.reduce((acc, t) => {
+      const match = services.find(s => s.name.toLowerCase() === t.service?.toLowerCase());
+      return acc + (match?.price || 0);
+    }, 0);
+
+    let formattedRevenue = `₹${totalRev.toLocaleString("en-IN")}`;
+    if (totalRev >= 100000) {
+      formattedRevenue = `₹${(totalRev / 100000).toFixed(2)}L`;
     }
 
-    const leadsVal = Math.max(1, Math.round(base.leads * dateMultiplier));
-    const clientsVal = Math.max(1, Math.round(base.clients * (dateMultiplier > 1 ? 1.6 : Math.max(0.08, dateMultiplier))));
-    const tasksVal = Math.max(1, Math.round(base.tasks * (dateMultiplier < 0.1 ? 0.35 : dateMultiplier > 1 ? 1.4 : 1.0)));
+    // Dynamic task summary breakdown
+    const pending = filteredTasks.filter(t => t.status === "Pending").length;
+    const inProgress = filteredTasks.filter(t => t.status === "In Progress").length;
+    const review = filteredTasks.filter(t => t.status === "Sent for Review").length;
+    const completed = completedTasks.length;
+    const overdue = filteredTasks.filter(t => {
+      if (t.due && !["Completed", "Cancelled"].includes(t.status)) {
+        const dueDate = new Date(t.due);
+        return !isNaN(dueDate.getTime()) && dueDate < new Date();
+      }
+      return false;
+    }).length;
 
-    // Parse revenue to format properly
-    const rawRevenue = base.revenue.replace(/[^0-9]/g, "");
-    const baseRevenueNum = parseInt(rawRevenue, 10) * 10;
-    const computedRevenue = Math.round(baseRevenueNum * dateMultiplier);
-
-    let formattedRevenue = `₹${computedRevenue.toLocaleString("en-IN")}`;
-    if (computedRevenue >= 100000) {
-      formattedRevenue = `₹${(computedRevenue / 100000).toFixed(2)}L`;
-    }
+    const zeroBars = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0];
 
     return {
-      leads: leadsVal,
-      leadsDelta: base.leadsDelta,
-      leadsPositive: base.leadsPositive,
-      clients: clientsVal,
-      clientsDelta: base.clientsDelta,
-      clientsPositive: base.clientsPositive,
-      tasks: tasksVal,
-      tasksDelta: base.tasksDelta,
-      tasksPositive: base.tasksPositive,
+      leads: leadsCount,
+      leadsDelta: "0%",
+      leadsPositive: true,
+      clients: clientsCount,
+      clientsDelta: "0%",
+      clientsPositive: true,
+      tasks: activeTasksCount,
+      tasksDelta: "0%",
+      tasksPositive: true,
       revenue: formattedRevenue,
-      revenueDelta: base.revenueDelta,
-      revenuePositive: base.revenuePositive,
-      periodLabel,
-      barHeightsLeads: base.barHeightsLeads,
-      barHeightsClients: base.barHeightsClients,
-      barHeightsTasks: base.barHeightsTasks,
-      barHeightsRevenue: base.barHeightsRevenue,
-      taskSummary: base.taskSummary,
+      revenueDelta: "0%",
+      revenuePositive: true,
+      periodLabel: "this month",
+      barHeightsLeads: leadsCount > 0 ? [20, 30, 45, 60, 40, 75, 50, 90, 65, 80, 45, 70, 85, 95, 60, 75, 90, 100, 70, 85] : zeroBars,
+      barHeightsClients: clientsCount > 0 ? [30, 40, 50, 65, 55, 70, 60, 85, 70, 75, 55, 80, 75, 90, 65, 80, 85, 95, 75, 90] : zeroBars,
+      barHeightsTasks: activeTasksCount > 0 ? [40, 30, 50, 45, 60, 55, 70, 65, 75, 60, 70, 65, 80, 75, 60, 65, 75, 80, 70, 60] : zeroBars,
+      barHeightsRevenue: totalRev > 0 ? [25, 35, 45, 60, 50, 70, 65, 85, 75, 90, 70, 85, 80, 95, 85, 90, 80, 95, 90, 95] : zeroBars,
+      taskSummary: { pending, inProgress, review, completed, overdue },
     };
-  }, [selectedPartner, dateRange]);
+  }, [tasks, manualClients, services, selectedPartner]);
 
   // Compute Task Summary according to taskSummaryFilter
   const activeTaskCounts = useMemo(() => {
-    const summary = activeStats.taskSummary;
-    if (taskSummaryFilter === "Today") {
-      return {
-        pending: Math.max(1, Math.round(summary.pending * 0.3)),
-        inProgress: Math.max(1, Math.round(summary.inProgress * 0.45)),
-        review: Math.max(1, Math.round(summary.review * 0.35)),
-        completed: Math.max(1, Math.round(summary.completed * 0.35)),
-        overdue: Math.max(0, Math.round(summary.overdue * 0.25)),
-      };
-    }
-    if (taskSummaryFilter === "This Week") {
-      return {
-        pending: Math.max(1, Math.round(summary.pending * 0.65)),
-        inProgress: Math.max(1, Math.round(summary.inProgress * 0.7)),
-        review: Math.max(1, Math.round(summary.review * 0.65)),
-        completed: Math.max(1, Math.round(summary.completed * 0.65)),
-        overdue: Math.max(1, Math.round(summary.overdue * 0.6)),
-      };
-    }
-    return summary;
-  }, [activeStats.taskSummary, taskSummaryFilter]);
+    return activeStats.taskSummary;
+  }, [activeStats.taskSummary]);
 
-  // Filtered Leads
+  // Filtered Leads from actual manualClients or tasks
   const filteredLeads = useMemo(() => {
-    if (selectedPartner === "All Partners") {
-      return allRecentLeads.slice(0, 8);
-    }
-    const partnerSpecific = allRecentLeads.filter((l) => l.partner.includes(selectedPartner) || selectedPartner.includes(l.partner));
-    if (partnerSpecific.length < 4) {
-      const others = allRecentLeads.filter((l) => !l.partner.includes(selectedPartner));
-      return [...partnerSpecific, ...others.slice(0, 8 - partnerSpecific.length)];
-    }
-    return partnerSpecific.slice(0, 8);
-  }, [selectedPartner]);
+    return manualClients.filter(c => {
+      if (selectedPartner === "All Partners") return true;
+      return c.partner?.toLowerCase().includes(selectedPartner.toLowerCase());
+    }).slice(0, 8);
+  }, [manualClients, selectedPartner]);
 
   // Filtered Activities
   const filteredActivities = useMemo(() => {
-    if (selectedPartner === "All Partners") {
-      return allTeamActivities.slice(0, 8);
-    }
-    const partnerSpecific = allTeamActivities.filter((a) => a.partner?.includes(selectedPartner) || selectedPartner.includes(a.partner || ""));
-    if (partnerSpecific.length < 4) {
-      const others = allTeamActivities.filter((a) => !a.partner?.includes(selectedPartner));
-      return [...partnerSpecific, ...others.slice(0, 8 - partnerSpecific.length)];
-    }
-    return partnerSpecific.slice(0, 8);
-  }, [selectedPartner]);
+    return tasks.slice(0, 8).map(t => ({
+      id: t.id,
+      initials: (t.assignee || "TM").slice(0, 2).toUpperCase(),
+      name: t.assignee || "Unassigned",
+      role: "Member",
+      text: `${t.service} - ${t.status}`,
+      time: t.date || "Today",
+      color: "bg-blue-600 text-white",
+      branch: t.partner || "HQ",
+      partner: t.partner,
+    }));
+  }, [tasks]);
 
   const handleResetFilters = () => {
     setDateRange("01 Sep 2026 - 30 Sep 2026");
@@ -626,35 +444,43 @@ export default function DashboardHome() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100 dark:divide-slate-800/60 font-medium">
-                {filteredLeads.map((lead) => (
-                  <tr
-                    key={lead.id}
-                    className="hover:bg-slate-50/80 dark:hover:bg-slate-800/50 transition-colors"
-                  >
-                    <td className="py-2.5 px-4 font-bold text-blue-600 dark:text-sky-400">
-                      {lead.id}
-                    </td>
-                    <td className="py-2.5 px-4 font-bold text-slate-900 dark:text-white">
-                      {lead.name}
-                    </td>
-                    <td className="py-2.5 px-4 text-slate-600 dark:text-slate-300">
-                      {lead.service}
-                    </td>
-                    <td className="py-2.5 px-4">
-                      <span className="text-[10px] font-bold text-amber-700 dark:text-amber-400 bg-amber-500/10 px-2 py-0.5 rounded-md border border-amber-500/20">
-                        {lead.partner}
-                      </span>
-                    </td>
-                    <td className="py-2.5 px-4">
-                      <span className={`inline-flex whitespace-nowrap px-2 py-0.5 rounded-md font-bold text-[10px] ${getStatusBadge(lead.status)}`}>
-                        {lead.status}
-                      </span>
-                    </td>
-                    <td className="py-2.5 px-4 text-right text-slate-400 font-semibold text-[11px]">
-                      {lead.date}
+                {filteredLeads.length === 0 ? (
+                  <tr>
+                    <td colSpan={6} className="py-8 text-center text-slate-400 font-medium">
+                      No recent leads recorded yet
                     </td>
                   </tr>
-                ))}
+                ) : (
+                  filteredLeads.map((lead: any, idx: number) => (
+                    <tr
+                      key={lead.id || idx}
+                      className="hover:bg-slate-50/80 dark:hover:bg-slate-800/50 transition-colors"
+                    >
+                      <td className="py-2.5 px-4 font-bold text-blue-600 dark:text-sky-400">
+                        {lead.id || `#${idx + 1}`}
+                      </td>
+                      <td className="py-2.5 px-4 font-bold text-slate-900 dark:text-white">
+                        {lead.name}
+                      </td>
+                      <td className="py-2.5 px-4 text-slate-600 dark:text-slate-300">
+                        {lead.service || lead.business || "-"}
+                      </td>
+                      <td className="py-2.5 px-4">
+                        <span className="text-[10px] font-bold text-amber-700 dark:text-amber-400 bg-amber-500/10 px-2 py-0.5 rounded-md border border-amber-500/20">
+                          {lead.partner || "Direct"}
+                        </span>
+                      </td>
+                      <td className="py-2.5 px-4">
+                        <span className={`inline-flex whitespace-nowrap px-2 py-0.5 rounded-md font-bold text-[10px] ${getStatusBadge(lead.status || "New")}`}>
+                          {lead.status || "New"}
+                        </span>
+                      </td>
+                      <td className="py-2.5 px-4 text-right text-slate-400 font-semibold text-[11px]">
+                        {lead.last || lead.date || "Today"}
+                      </td>
+                    </tr>
+                  ))
+                )}
               </tbody>
             </table>
           </div>
@@ -693,34 +519,42 @@ export default function DashboardHome() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100 dark:divide-slate-800/60 font-medium">
-                {filteredActivities.map((act) => (
-                  <tr key={act.id} className="hover:bg-slate-50/80 dark:hover:bg-slate-800/50 transition-colors">
-                    <td className="py-2 px-2">
-                      <div className="flex items-center gap-2">
-                        <div className={`w-6 h-6 rounded-full flex items-center justify-center font-bold text-[9px] shrink-0 ${act.color}`}>
-                          {act.initials}
-                        </div>
-                        <div className="overflow-hidden">
-                          <span className="font-bold text-slate-900 dark:text-white truncate block max-w-[85px] text-[11px]">
-                            {act.name}
-                          </span>
-                          <span className="text-[9px] text-slate-400 truncate block">
-                            {act.branch}
-                          </span>
-                        </div>
-                      </div>
-                    </td>
-                    <td className="py-2 px-2 text-slate-500 dark:text-slate-400 text-[11px]">
-                      {act.role}
-                    </td>
-                    <td className="py-2 px-2 text-slate-600 dark:text-slate-300 text-[11px] truncate max-w-[150px]">
-                      {act.text}
-                    </td>
-                    <td className="py-2 px-2 text-right text-slate-400 text-[10px] font-semibold whitespace-nowrap">
-                      {act.time}
+                {filteredActivities.length === 0 ? (
+                  <tr>
+                    <td colSpan={4} className="py-8 text-center text-slate-400 font-medium">
+                      No recent activities recorded yet
                     </td>
                   </tr>
-                ))}
+                ) : (
+                  filteredActivities.map((act) => (
+                    <tr key={act.id} className="hover:bg-slate-50/80 dark:hover:bg-slate-800/50 transition-colors">
+                      <td className="py-2 px-2">
+                        <div className="flex items-center gap-2">
+                          <div className={`w-6 h-6 rounded-full flex items-center justify-center font-bold text-[9px] shrink-0 ${act.color}`}>
+                            {act.initials}
+                          </div>
+                          <div className="overflow-hidden">
+                            <span className="font-bold text-slate-900 dark:text-white truncate block max-w-[85px] text-[11px]">
+                              {act.name}
+                            </span>
+                            <span className="text-[9px] text-slate-400 truncate block">
+                              {act.branch}
+                            </span>
+                          </div>
+                        </div>
+                      </td>
+                      <td className="py-2 px-2 text-slate-500 dark:text-slate-400 text-[11px]">
+                        {act.role}
+                      </td>
+                      <td className="py-2 px-2 text-slate-600 dark:text-slate-300 text-[11px] truncate max-w-[150px]">
+                        {act.text}
+                      </td>
+                      <td className="py-2 px-2 text-right text-slate-400 text-[10px] font-semibold whitespace-nowrap">
+                        {act.time}
+                      </td>
+                    </tr>
+                  ))
+                )}
               </tbody>
             </table>
           </div>

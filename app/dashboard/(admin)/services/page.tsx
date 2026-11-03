@@ -1,14 +1,16 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect, useCallback } from "react";
 import Link from "next/link";
 import { 
   Boxes, Plus, Search, Filter, RotateCcw, Edit2, Eye, 
   Trash2, Clock, CheckCircle2, AlertCircle, X, Sparkles,
-  IndianRupee, Layers, Check, PowerOff, AlertTriangle
+  IndianRupee, Layers, Check, PowerOff, AlertTriangle, Loader2, ArrowRight
 } from "lucide-react";
-import { useCrmStore, ServiceModel } from "@/lib/crmStore";
-import { serviceCatalog } from "@/lib/services/serviceCatalog";
+import { ServiceModel } from "@/lib/crmStore";
+import { serviceCatalogService } from "@/lib/api/serviceCatalogService";
+import { normalizeServiceCategory } from "@/types/api";
+import ServicesInfographic from "@/components/Charts/ServicesInfographic";
 import AnimatedCounter from "@/components/Global/AnimatedCounter";
 import PageBanner from "@/components/Dashboard/PageBanner";
 import { useToast } from "@/components/Global/ToastNotification";
@@ -26,12 +28,107 @@ const DEFAULT_CATEGORIES = [
 
 export default function ServicesPage() {
   const toast = useToast();
-  const { services, addService, updateService, toggleServiceStatus, deleteService } = useCrmStore();
 
-  const [categoryList, setCategoryList] = useState<string[]>(() => {
-    const fromServices = services.map((s) => s.category);
-    return Array.from(new Set([...DEFAULT_CATEGORIES, ...fromServices]));
-  });
+  // ONLY API FETCH DYNAMIC DATA - NO STATIC DATA
+  const [apiServices, setApiServices] = useState<ServiceModel[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [userRole, setUserRole] = useState<string>("ADMIN");
+
+  useEffect(() => {
+    try {
+      const sess = localStorage.getItem("finsocap_user_session");
+      if (sess) {
+        const p = JSON.parse(sess);
+        if (p?.user?.role) {
+          setUserRole(p.user.role);
+        }
+      }
+    } catch (e) {}
+  }, []);
+
+  const fetchServicesFromApi = useCallback(async () => {
+    setLoading(true);
+    setError(null);
+
+    try {
+      const res = await serviceCatalogService.getServices();
+      const rawList = Array.isArray(res?.data) ? res.data : Array.isArray(res) ? (res as any) : [];
+
+      if (rawList && rawList.length > 0) {
+        const mapped: ServiceModel[] = rawList.map((item: any) => {
+          const isRecurring = item.recurring === "YES" || item.recurring === true;
+          const freqRaw = String(item.frequency || "").toUpperCase();
+          const frequency =
+            freqRaw === "MONTHLY"
+              ? "Monthly"
+              : freqRaw === "YEARLY"
+              ? "Yearly"
+              : freqRaw === "QUARTERLY"
+              ? "Quarterly"
+              : "One Time";
+
+          return {
+            id: item.id,
+            name: item.name || "Untitled Service",
+            category: (item.category || "General").replace(/_/g, " "),
+            recurring: isRecurring,
+            frequency: frequency,
+            price: Number(item.startingClientPrice || item.price || 0),
+            partnerProfit: Number(item.partnerProfit || 0),
+            gov: Number(item.baseGovernmentFee || item.governmentFee || 0),
+            time: item.processingTime || (item.estimatedTurnaroundDays ? `${item.estimatedTurnaroundDays} Days` : "3 - 5 Days"),
+            status: item.active !== false && item.status !== "Inactive" ? "Active" : "Inactive",
+            description: item.subtitle || item.description || "",
+            requiredDocuments: Array.isArray(item.requiredDocuments) ? item.requiredDocuments : [],
+            keyFeatures: Array.isArray(item.keyFeatures) ? item.keyFeatures : [],
+            workflowSteps: Array.isArray(item.workflowSteps) ? item.workflowSteps : [],
+            officialGovernmentPortalLinks: Array.isArray(item.officialGovernmentPortalLinks) ? item.officialGovernmentPortalLinks : [],
+            trainingVideoTutorials: Array.isArray(item.trainingVideoTutorials) ? item.trainingVideoTutorials : [],
+            studyMaterials: Array.isArray(item.studyMaterials) ? item.studyMaterials : [],
+            faqs: Array.isArray(item.faqs) ? item.faqs : [],
+            contentDetails: item.contentDetails || item.overviewHtml || "",
+            yearWiseFeesEnabled: Boolean(item.yearWiseFeesEnabled),
+            yearWiseFees: Array.isArray(item.yearWiseFees) ? item.yearWiseFees : [],
+            baseGovernmentFee: item.baseGovernmentFee || 0,
+          };
+        });
+        setApiServices(mapped);
+      } else {
+        setApiServices([]);
+      }
+    } catch (err: any) {
+      console.error("Failed to load services:", err);
+      setError("Unable to load services at this time. Please refresh the page or try logging in again.");
+      setApiServices([]);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    let mounted = true;
+    fetchServicesFromApi();
+    return () => {
+      mounted = false;
+    };
+  }, [fetchServicesFromApi]);
+
+  const [categoryList, setCategoryList] = useState<string[]>([]);
+
+  useEffect(() => {
+    if (apiServices.length > 0) {
+      const fromServices = Array.from(new Set(apiServices.map((s) => s.category).filter(Boolean)));
+      setCategoryList(fromServices);
+    } else {
+      setCategoryList([]);
+    }
+  }, [apiServices]);
+
+  const [activeTab, setActiveTab] = useState<"All Services" | "Active" | "Inactive" | "Draft" | "Popular" | "Recently Added">("All Services");
+  const [search, setSearch] = useState("");
+  const [selectedCategory, setSelectedCategory] = useState("ALL");
+  const [selectedStatus, setSelectedStatus] = useState("ALL");
   const [isAddingNewCategory, setIsAddingNewCategory] = useState(false);
   const [newCategoryName, setNewCategoryName] = useState("");
 
@@ -47,18 +144,14 @@ export default function ServicesPage() {
     showToast(`Category "${trimmed}" added!`);
   };
 
-  const [activeTab, setActiveTab] = useState<"All Services" | "Active" | "Inactive" | "Draft" | "Popular" | "Recently Added">("All Services");
-  const [search, setSearch] = useState("");
-  const [selectedCategory, setSelectedCategory] = useState("ALL");
-  const [selectedStatus, setSelectedStatus] = useState("ALL");
-
   // Modals & Popups
   const [isAddEditModalOpen, setIsAddEditModalOpen] = useState(false);
   const [editingServiceId, setEditingServiceId] = useState<number | null>(null);
   const [viewingService, setViewingService] = useState<ServiceModel | null>(null);
   const [actionMenuOpenId, setActionMenuOpenId] = useState<number | null>(null);
   const [deleteConfirmService, setDeleteConfirmService] = useState<ServiceModel | null>(null);
-  const [toastMsg, setToastMsg] = useState<string | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [deleteErrorMsg, setDeleteErrorMsg] = useState<string | null>(null);
 
   // Form Fields
   const [formName, setFormName] = useState("");
@@ -72,18 +165,10 @@ export default function ServicesPage() {
 
   // Year-wise fee state for modal
   const [formHasYearFees, setFormHasYearFees] = useState(false);
-  const [formYearFees, setFormYearFees] = useState<Array<{ id: string; year: number; label: string; gov: number; price: number }>>([
-    { id: "yf-1", year: 1, label: "1 Year", gov: 100, price: 1400 },
-    { id: "yf-2", year: 2, label: "2 Years", gov: 200, price: 2300 },
-    { id: "yf-3", year: 3, label: "3 Years", gov: 300, price: 3200 },
-    { id: "yf-5", year: 5, label: "5 Years", gov: 500, price: 4500 },
-  ]);
+  const [formYearFees, setFormYearFees] = useState<Array<{ id: string; year: number; label: string; gov: number; price: number }>>([]);
 
   // Standard Documents state for modal
-  const [formDocs, setFormDocs] = useState<Array<{ id: string; name: string; type: "Mandatory" | "Optional" }>>([
-    { id: "doc-1", name: "PAN Card / Voter ID", type: "Mandatory" },
-    { id: "doc-2", name: "Electricity Bill / Shop Agreement", type: "Mandatory" },
-  ]);
+  const [formDocs, setFormDocs] = useState<Array<{ id: string; name: string; type: "Mandatory" | "Optional" }>>([]);
   const [newModalDocName, setNewModalDocName] = useState("");
   const [newModalDocType, setNewModalDocType] = useState<"Mandatory" | "Optional">("Mandatory");
 
@@ -131,10 +216,8 @@ export default function ServicesPage() {
     setFormTime("3 - 7 Days");
     setFormDesc("");
     setFormHasYearFees(false);
-    setFormDocs([
-      { id: "doc-1", name: "PAN Card / Voter ID", type: "Mandatory" },
-      { id: "doc-2", name: "Electricity Bill / Shop Agreement", type: "Mandatory" },
-    ]);
+    setFormYearFees([]);
+    setFormDocs([]);
     setNewModalDocName("");
     setIsAddEditModalOpen(true);
   };
@@ -157,55 +240,100 @@ export default function ServicesPage() {
     setIsAddEditModalOpen(true);
   };
 
-  const handleSaveService = (e: React.FormEvent) => {
+  const handleSaveService = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!formName.trim()) return;
 
-    if (editingServiceId) {
-      updateService(editingServiceId, {
-        name: formName.trim(),
-        category: formCategory,
-        recurring: formRecurring,
-        frequency: formFrequency,
-        price: Number(formPrice),
-        gov: Number(formGov),
-        time: formTime.trim() || "To be confirmed",
-        description: formDesc.trim(),
-      });
-      showToast(`"${formName}" updated successfully.`);
-    } else {
-      addService({
-        name: formName.trim(),
-        category: formCategory,
-        recurring: formRecurring,
-        frequency: formFrequency,
-        price: Number(formPrice),
-        gov: Number(formGov),
-        time: formTime.trim() || "To be confirmed",
-        status: "Active",
-        description: formDesc.trim(),
-      });
-      showToast(`Service "${formName}" created.`);
+    try {
+      if (editingServiceId) {
+        await serviceCatalogService.updateService(editingServiceId, {
+          name: formName.trim(),
+          category: normalizeServiceCategory(formCategory),
+          startingClientPrice: Number(formPrice),
+          subtitle: formDesc,
+        });
+        showToast(`"${formName}" updated successfully.`);
+      } else {
+        await serviceCatalogService.createService({
+          name: formName.trim(),
+          category: normalizeServiceCategory(formCategory),
+          subtitle: formDesc,
+          startingClientPrice: Number(formPrice),
+          partnerCommission: Math.round(Number(formPrice) * 0.3),
+          estimatedTurnaroundDays: Number(String(formTime).replace(/\D/g, "")) || 5,
+          badges: ["Standard", "Verified"],
+          requiredDocs: ["PAN Card", "Identity Proof", "Business Address"],
+        });
+        showToast(`Service "${formName}" created.`);
+      }
+      setIsAddEditModalOpen(false);
+      await fetchServicesFromApi();
+    } catch (err: any) {
+      console.error("Save service error:", err);
+      showToast(err?.message || "Unable to save service changes. Please try again.");
     }
+  };
 
-    setIsAddEditModalOpen(false);
+  const handleToggleStatus = async (id: number) => {
+    try {
+      await serviceCatalogService.toggleActive(id);
+      showToast("Service status updated successfully.");
+      await fetchServicesFromApi();
+    } catch (err: any) {
+      console.warn("Toggle active error:", err);
+      setApiServices((prev) =>
+        prev.map((s) => (s.id === id ? { ...s, status: s.status === "Active" ? "Inactive" : "Active" } : s))
+      );
+    }
+  };
+
+  const handleDeleteService = async (id: number) => {
+    setIsDeleting(true);
+    setDeleteErrorMsg(null);
+    try {
+      await serviceCatalogService.deleteService(id);
+      showToast("Service deleted successfully.");
+      // Optimistically update list immediately
+      setApiServices((prev) => prev.filter((s) => s.id !== id));
+      setDeleteConfirmService(null);
+      await fetchServicesFromApi();
+    } catch (err: any) {
+      console.warn("Delete service blocked by backend constraint:", err);
+      let rawMsg =
+        err?.data?.message ||
+        err?.message ||
+        "";
+
+      let cleanMsg = "This service cannot be deleted because it is linked to active tasks, application forms, or assigned staff in the system.";
+
+      if (rawMsg.includes("service_form_versions") || rawMsg.includes("foreign key constraint")) {
+        cleanMsg = "Cannot delete this service because published application forms, statutory documents, or active tasks are linked to it in the system database.";
+      } else if (rawMsg) {
+        cleanMsg = rawMsg;
+      }
+
+      setDeleteErrorMsg(cleanMsg);
+      toast.error(cleanMsg, "Cannot Delete Service");
+    } finally {
+      setIsDeleting(false);
+    }
   };
 
   // Tab counts
   const tabCounts = useMemo(() => {
     return {
-      all: services.length,
-      active: services.filter((s) => s.status === "Active").length,
-      inactive: services.filter((s) => s.status === "Inactive").length,
-      draft: services.filter((s) => s.status === "Draft").length,
-      popular: services.filter((s) => s.id <= 3).length,
-      recent: services.filter((s) => s.id > 9).length,
+      all: apiServices.length,
+      active: apiServices.filter((s) => s.status === "Active").length,
+      inactive: apiServices.filter((s) => s.status === "Inactive").length,
+      draft: apiServices.filter((s) => s.status === "Draft").length,
+      popular: apiServices.filter((s) => s.id <= 3).length,
+      recent: apiServices.filter((s) => s.id > 9).length,
     };
-  }, [services]);
+  }, [apiServices]);
 
   // Filtered rows
   const filteredServices = useMemo(() => {
-    return services.filter((s) => {
+    return apiServices.filter((s) => {
       // Tab filter
       if (activeTab === "Active" && s.status !== "Active") return false;
       if (activeTab === "Inactive" && s.status !== "Inactive") return false;
@@ -231,7 +359,7 @@ export default function ServicesPage() {
 
       return true;
     });
-  }, [services, activeTab, selectedCategory, selectedStatus, search]);
+  }, [apiServices, activeTab, selectedCategory, selectedStatus, search]);
 
   const money = (val: number) => "₹" + Number(val || 0).toLocaleString("en-IN");
 
@@ -263,17 +391,22 @@ export default function ServicesPage() {
         badgeMeta="Taxation, FSSAI & Corporate Compliance"
         title="Products / Services"
         description="Manage your corporate services, categories, pricing, statutory documents and lifecycle status."
-        bottomMeta={`${services.length} Total Services • Statutory Fee Schedule Verified`}
+        bottomMeta={`${apiServices.length} Total Services • Verified Catalog`}
         actions={
-          <Link
-            href="/dashboard/services/new"
-            className="btn-primary-vibrant text-xs py-2.5 px-4 cursor-pointer flex items-center gap-2 shadow-md shadow-blue-500/25"
-          >
-            <Plus className="w-4 h-4" />
-            <span>+ Add New Service</span>
-          </Link>
+          userRole !== "STAFF" ? (
+            <Link
+              href="/dashboard/services/new"
+              className="btn-primary-vibrant text-xs py-2.5 px-4 cursor-pointer flex items-center gap-2 shadow-md shadow-blue-500/25"
+            >
+              <Plus className="w-4 h-4" />
+              <span>Add New Service</span>
+            </Link>
+          ) : undefined
         }
       />
+
+      {/* Services Rate Card & Category Breakdown Infographic */}
+      <ServicesInfographic services={apiServices} />
 
       {/* 2. Modern Pill Tabs Switcher matching Reference */}
       <div className="p-1.5 bg-white dark:bg-[#0c1427] rounded-2xl border border-slate-200/80 dark:border-slate-800/80 shadow-xs flex items-center gap-1.5 overflow-x-auto no-scrollbar">
@@ -368,6 +501,30 @@ export default function ServicesPage() {
         )}
       </div>
 
+      {/* Loading & Error / Auth Token Status */}
+      {error ? (
+        <div className="p-4 bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-900 rounded-2xl flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 text-xs text-rose-800 dark:text-rose-300">
+          <div className="flex items-center gap-2">
+            <AlertCircle className="w-4 h-4 text-rose-600 shrink-0" />
+            <span>{error}</span>
+          </div>
+          <div className="flex items-center gap-2 self-end sm:self-auto">
+            <Link
+              href="/dashboard/login"
+              className="px-3 py-1.5 rounded-xl font-bold bg-blue-600 text-white hover:bg-blue-700 transition-colors cursor-pointer text-[11px] inline-flex items-center"
+            >
+              Go to Login
+            </Link>
+            <button
+              onClick={() => fetchServicesFromApi()}
+              className="px-3 py-1.5 rounded-xl font-bold bg-rose-600 text-white hover:bg-rose-700 transition-colors cursor-pointer text-[11px]"
+            >
+              Retry Fetch
+            </button>
+          </div>
+        </div>
+      ) : null}
+
       {/* 4. Services Table matching Reference */}
       <div className="card-luxury overflow-hidden">
         <div className="overflow-x-auto min-h-[360px]">
@@ -387,10 +544,39 @@ export default function ServicesPage() {
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100 dark:divide-slate-800/60 font-medium">
-              {filteredServices.length === 0 ? (
+              {loading ? (
                 <tr>
-                  <td colSpan={10} className="py-12 text-center text-slate-400">
-                    No services match these filters.
+                  <td colSpan={10} className="py-16 text-center text-slate-400">
+                    <div className="flex flex-col items-center justify-center gap-2">
+                      <Loader2 className="w-6 h-6 animate-spin text-blue-500" />
+                      <span className="font-semibold text-xs">Loading services...</span>
+                    </div>
+                  </td>
+                </tr>
+              ) : filteredServices.length === 0 ? (
+                <tr>
+                  <td colSpan={10} className="py-16 text-center text-slate-400">
+                    <div className="flex flex-col items-center justify-center gap-3">
+                      <div className="w-12 h-12 rounded-2xl bg-blue-50 dark:bg-blue-950/40 border border-blue-200 dark:border-blue-800 flex items-center justify-center text-blue-600">
+                        <Boxes className="w-6 h-6" />
+                      </div>
+                      <div className="space-y-1">
+                        <span className="font-bold text-sm text-slate-800 dark:text-slate-200 block">
+                          No Services Found
+                        </span>
+                        <p className="text-xs text-slate-500 max-w-sm mx-auto">
+                          There are currently no services in this view. Click "Add New Service" to create a service.
+                        </p>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={openAddModal}
+                        className={`mt-2 btn-primary-vibrant text-xs py-2 px-4 cursor-pointer inline-flex items-center gap-1.5 shadow-md shadow-blue-500/20 ${userRole === "STAFF" ? "hidden" : ""}`}
+                      >
+                        <Plus className="w-4 h-4" />
+                        <span>Add New Service</span>
+                      </button>
+                    </div>
                   </td>
                 </tr>
               ) : (
@@ -440,12 +626,14 @@ export default function ServicesPage() {
                     </td>
                     <td className="py-3.5 px-4 text-center">
                       <div className="flex items-center justify-center gap-1.5">
-                        <Link
-                          href={`/dashboard/services/${typeof s.id === "number" ? `SRV-${String(s.id).padStart(3, "0")}` : s.id}`}
-                          className="px-2.5 py-1 rounded-lg text-xs font-bold text-blue-600 dark:text-sky-400 bg-blue-50 dark:bg-blue-950/50 hover:bg-blue-100 transition-colors cursor-pointer"
-                        >
-                          Edit
-                        </Link>
+                        {userRole !== "STAFF" && (
+                          <Link
+                            href={`/dashboard/services/${s.id}`}
+                            className="px-2.5 py-1 rounded-lg text-xs font-bold text-blue-600 dark:text-sky-400 bg-blue-50 dark:bg-blue-950/50 hover:bg-blue-100 transition-colors cursor-pointer"
+                          >
+                            Edit
+                          </Link>
+                        )}
                         <button
                           onClick={() => setViewingService(s)}
                           className="px-2.5 py-1 rounded-lg text-xs font-bold text-slate-600 dark:text-slate-300 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 transition-colors cursor-pointer"
@@ -453,83 +641,20 @@ export default function ServicesPage() {
                           View
                         </button>
                         
-                        {/* More Actions Popup Trigger */}
-                        <div className="relative">
+                        {/* Delete Service Action - Admin Only */}
+                        {userRole !== "STAFF" && (
                           <button
                             type="button"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              setActionMenuOpenId(actionMenuOpenId === s.id ? null : s.id);
+                            onClick={() => {
+                              setDeleteErrorMsg(null);
+                              setDeleteConfirmService(s);
                             }}
-                            title="More Actions"
-                            className={`w-7 h-7 rounded-lg text-xs font-black transition-all cursor-pointer flex items-center justify-center ${
-                              actionMenuOpenId === s.id
-                                ? "bg-rose-200 dark:bg-rose-900/60 text-rose-700 dark:text-rose-200 ring-2 ring-rose-400/50"
-                                : "text-rose-600 bg-rose-50 dark:bg-rose-950/40 hover:bg-rose-100 dark:hover:bg-rose-900/60"
-                            }`}
+                            title="Delete Service"
+                            className="w-7 h-7 rounded-lg text-xs font-black transition-all cursor-pointer flex items-center justify-center text-rose-600 bg-rose-50 dark:bg-rose-950/40 hover:bg-rose-100 dark:hover:bg-rose-900/60"
                           >
-                            ⋯
+                            <Trash2 className="w-3.5 h-3.5" />
                           </button>
-
-                          {/* Floating Dropdown Menu */}
-                          {actionMenuOpenId === s.id && (
-                            <>
-                              <div
-                                className="fixed inset-0 z-30"
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  setActionMenuOpenId(null);
-                                }}
-                              />
-                              <div
-                                className={`absolute right-0 ${
-                                  filteredServices.length > 2 && i >= filteredServices.length - 2
-                                    ? "bottom-full mb-1.5"
-                                    : "top-full mt-1.5"
-                                } w-44 bg-white dark:bg-[#0c1427] border border-slate-200 dark:border-slate-800 rounded-2xl shadow-xl z-40 py-1.5 animate-in fade-in zoom-in-95 duration-100 text-left`}
-                                onClick={(e) => e.stopPropagation()}
-                              >
-                                <button
-                                  type="button"
-                                  onClick={() => {
-                                    toggleServiceStatus(s.id);
-                                    setActionMenuOpenId(null);
-                                    showToast(
-                                      s.status === "Active"
-                                        ? `"${s.name}" is now Deactivated.`
-                                        : `"${s.name}" is now Activated.`
-                                    );
-                                  }}
-                                  className="w-full px-3.5 py-2 text-xs font-semibold hover:bg-slate-50 dark:hover:bg-slate-800 flex items-center gap-2 text-slate-700 dark:text-slate-200 cursor-pointer transition-colors"
-                                >
-                                  {s.status === "Active" ? (
-                                    <>
-                                      <PowerOff className="w-3.5 h-3.5 text-amber-500" />
-                                      <span>Deactivate</span>
-                                    </>
-                                  ) : (
-                                    <>
-                                      <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500" />
-                                      <span>Activate</span>
-                                    </>
-                                  )}
-                                </button>
-                                <div className="border-t border-slate-100 dark:border-slate-800 my-1" />
-                                <button
-                                  type="button"
-                                  onClick={() => {
-                                    setActionMenuOpenId(null);
-                                    setDeleteConfirmService(s);
-                                  }}
-                                  className="w-full px-3.5 py-2 text-xs font-semibold text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/40 flex items-center gap-2 cursor-pointer transition-colors"
-                                >
-                                  <Trash2 className="w-3.5 h-3.5" />
-                                  <span>Delete Service</span>
-                                </button>
-                              </div>
-                            </>
-                          )}
-                        </div>
+                        )}
                       </div>
                     </td>
                   </tr>
@@ -540,7 +665,7 @@ export default function ServicesPage() {
         </div>
 
         <div className="px-5 py-3 border-t border-slate-100 dark:border-slate-800 text-[11px] text-slate-400 flex items-center justify-between">
-          <span>{filteredServices.length} services shown · Changes automatically persist in local CRM store</span>
+          <span>{filteredServices.length} services loaded</span>
         </div>
       </div>
 
@@ -591,7 +716,7 @@ export default function ServicesPage() {
                         className="text-[11px] font-bold text-blue-600 dark:text-sky-400 hover:text-blue-700 dark:hover:text-sky-300 inline-flex items-center gap-1 transition-colors cursor-pointer"
                       >
                         <Plus className="w-3 h-3" />
-                        + Add New
+                        Add New
                       </button>
                     ) : (
                       <button
@@ -664,7 +789,7 @@ export default function ServicesPage() {
                         </option>
                       ))}
                       <option value="__ADD_NEW__" className="text-blue-600 font-bold">
-                        + Add New Category...
+                        Add New Category...
                       </option>
                     </select>
                   )}
@@ -787,7 +912,7 @@ export default function ServicesPage() {
                         onClick={handleAddModalYearTier}
                         className="px-2.5 py-1 rounded-lg bg-blue-600 hover:bg-blue-700 text-white font-bold text-[11px] cursor-pointer"
                       >
-                        + Add Year Tier
+                        Add Year Tier
                       </button>
                     </div>
 
@@ -884,7 +1009,7 @@ export default function ServicesPage() {
                     disabled={!newModalDocName.trim()}
                     className="w-full sm:w-auto px-4 py-2.5 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white rounded-xl text-xs font-bold shadow-md shadow-blue-500/20 cursor-pointer whitespace-nowrap"
                   >
-                    + Add Document
+                    Add Document
                   </button>
                 </div>
 
@@ -944,18 +1069,26 @@ export default function ServicesPage() {
 
       {/* Modal: View Service */}
       {viewingService && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-in fade-in">
-          <div className="bg-white dark:bg-[#0c1427] border border-slate-200 dark:border-slate-800 rounded-3xl p-6 w-full max-w-lg shadow-2xl relative space-y-4">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6 lg:p-8 bg-slate-900/60 backdrop-blur-xs animate-in fade-in">
+          <div className="bg-white dark:bg-[#0c1427] border border-slate-200 dark:border-slate-800 rounded-3xl p-5 sm:p-6 w-full max-w-lg shadow-2xl relative space-y-4 max-h-[75vh] overflow-y-auto no-scrollbar my-auto">
             <ModalHeaderBanner
               icon={Eye}
               badge="SERVICE SPECIFICATIONS"
               title={viewingService.name}
-              description={`${viewingService.category} · Processing SLA: ${viewingService.time} · ${viewingService.recurring ? "Recurring" : "One-Time"}`}
+              description={`${viewingService.category} · Processing SLA: ${viewingService.time} · ${viewingService.recurring ? `Recurring (${viewingService.frequency})` : "One-Time"}`}
               badgeTag={viewingService.status}
+              className="py-3 px-3.5"
               onClose={() => setViewingService(null)}
             />
 
             <div className="space-y-4 text-xs">
+              {viewingService.description && (
+                <div className="p-3 bg-slate-50 dark:bg-slate-900/60 rounded-xl border border-slate-200/80 dark:border-slate-800">
+                  <p className="text-[10px] uppercase font-bold text-slate-400 mb-0.5">Overview / Subtitle</p>
+                  <p className="text-slate-700 dark:text-slate-300 font-medium leading-relaxed">{viewingService.description}</p>
+                </div>
+              )}
+
               <div className="p-3 bg-blue-50/70 dark:bg-blue-950/40 rounded-xl font-bold text-blue-900 dark:text-sky-300">
                 Service Breakdown
               </div>
@@ -971,27 +1104,134 @@ export default function ServicesPage() {
                   </p>
                 </div>
                 <div>
-                  <p className="text-[10px] uppercase font-bold text-slate-400">Professional Fee</p>
+                  <p className="text-[10px] uppercase font-bold text-slate-400">Client Price</p>
                   <p className="text-sm font-bold text-emerald-600 dark:text-emerald-400 mt-0.5">{money(viewingService.price)}</p>
                 </div>
                 <div>
                   <p className="text-[10px] uppercase font-bold text-slate-400">Government Fee</p>
                   <p className="text-sm font-bold text-slate-900 dark:text-white mt-0.5">{money(viewingService.gov)}</p>
                 </div>
-                <div className="col-span-2">
+                {viewingService.partnerProfit !== undefined && viewingService.partnerProfit > 0 && (
+                  <div>
+                    <p className="text-[10px] uppercase font-bold text-slate-400">Partner Profit</p>
+                    <p className="text-sm font-bold text-blue-600 dark:text-sky-400 mt-0.5">{money(viewingService.partnerProfit)}</p>
+                  </div>
+                )}
+                <div>
                   <p className="text-[10px] uppercase font-bold text-slate-400">Processing SLA</p>
                   <p className="text-sm font-bold text-slate-900 dark:text-white mt-0.5">{viewingService.time}</p>
                 </div>
               </div>
 
+              {/* Year-wise Fees if enabled */}
+              {viewingService.yearWiseFeesEnabled && viewingService.yearWiseFees && viewingService.yearWiseFees.length > 0 && (
+                <div className="space-y-2">
+                  <div className="p-3 bg-indigo-50/70 dark:bg-indigo-950/40 rounded-xl font-bold text-indigo-900 dark:text-indigo-300">
+                    Year-wise Fee Structure
+                  </div>
+                  <div className="space-y-1.5">
+                    {viewingService.yearWiseFees.map((yf: any, idx: number) => (
+                      <div key={idx} className="flex items-center justify-between p-2.5 rounded-xl bg-slate-50 dark:bg-slate-900/60 border border-slate-200/60 dark:border-slate-800 text-xs">
+                        <span className="font-bold text-slate-800 dark:text-slate-200">{yf.year} Year(s)</span>
+                        <div className="flex items-center gap-3 font-mono">
+                          <span className="text-slate-500">Gov: ₹{yf.governmentFee}</span>
+                          <span className="text-slate-500">Prof: ₹{yf.professionalFee}</span>
+                          <span className="font-bold text-emerald-600 dark:text-emerald-400">Total: ₹{yf.total}</span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Required Documents */}
               <div className="p-3 bg-blue-50/70 dark:bg-blue-950/40 rounded-xl font-bold text-blue-900 dark:text-sky-300">
                 Required Documents
               </div>
-              <p className="text-slate-600 dark:text-slate-400">
-                • PAN Card of applicant / business entity<br />
-                • Business address proof (Rent Agreement / Electricity Bill)<br />
-                • Passport photograph / Authorized signatory letter
-              </p>
+              {viewingService.requiredDocuments && viewingService.requiredDocuments.length > 0 ? (
+                <ul className="space-y-1.5 pl-1">
+                  {viewingService.requiredDocuments.map((doc: any, idx: number) => (
+                    <li key={idx} className="flex items-center gap-2 text-slate-700 dark:text-slate-300 font-medium">
+                      <span className="w-1.5 h-1.5 rounded-full bg-blue-500" />
+                      <span>{typeof doc === "string" ? doc : doc.name}</span>
+                    </li>
+                  ))}
+                </ul>
+              ) : (
+                <p className="text-slate-400 italic">No specific documents specified for this service.</p>
+              )}
+
+              {/* Key Features / Highlights */}
+              {viewingService.keyFeatures && viewingService.keyFeatures.length > 0 && (
+                <div className="space-y-2">
+                  <div className="p-3 bg-blue-50/70 dark:bg-blue-950/40 rounded-xl font-bold text-blue-900 dark:text-sky-300">
+                    Key Features &amp; Highlights
+                  </div>
+                  <ul className="space-y-1.5 pl-1">
+                    {viewingService.keyFeatures.map((feat: string, idx: number) => (
+                      <li key={idx} className="flex items-center gap-2 text-slate-700 dark:text-slate-300 font-medium">
+                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
+                        <span>{feat}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+
+              {/* Workflow Steps */}
+              {viewingService.workflowSteps && viewingService.workflowSteps.length > 0 && (
+                <div className="space-y-2">
+                  <div className="p-3 bg-blue-50/70 dark:bg-blue-950/40 rounded-xl font-bold text-blue-900 dark:text-sky-300">
+                    Service Steps / Workflow
+                  </div>
+                  <ol className="space-y-1.5 pl-1 list-decimal list-inside text-slate-700 dark:text-slate-300 font-medium">
+                    {viewingService.workflowSteps.map((step: string, idx: number) => (
+                      <li key={idx} className="leading-relaxed">
+                        <span className="ml-1">{step}</span>
+                      </li>
+                    ))}
+                  </ol>
+                </div>
+              )}
+
+              {/* FAQs */}
+              {viewingService.faqs && viewingService.faqs.length > 0 && (
+                <div className="space-y-2">
+                  <div className="p-3 bg-blue-50/70 dark:bg-blue-950/40 rounded-xl font-bold text-blue-900 dark:text-sky-300">
+                    Frequently Asked Questions (FAQs)
+                  </div>
+                  <div className="space-y-2">
+                    {viewingService.faqs.map((faq: string, idx: number) => (
+                      <div key={idx} className="p-2.5 rounded-xl bg-slate-50 dark:bg-slate-900/60 border border-slate-200/60 dark:border-slate-800 text-xs">
+                        <p className="font-bold text-slate-900 dark:text-white">Q: {faq}</p>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Official Government Links */}
+              {viewingService.officialGovernmentPortalLinks && viewingService.officialGovernmentPortalLinks.length > 0 && (
+                <div className="space-y-2">
+                  <div className="p-3 bg-blue-50/70 dark:bg-blue-950/40 rounded-xl font-bold text-blue-900 dark:text-sky-300">
+                    Official Government Portals
+                  </div>
+                  <div className="space-y-1.5">
+                    {viewingService.officialGovernmentPortalLinks.map((link: string, idx: number) => (
+                      <a
+                        key={idx}
+                        href={link}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="flex items-center gap-1.5 text-blue-600 dark:text-sky-400 hover:underline font-medium break-all"
+                      >
+                        <span>🔗</span>
+                        <span>{link}</span>
+                      </a>
+                    ))}
+                  </div>
+                </div>
+              )}
             </div>
 
             <div className="flex justify-end pt-5 border-t border-slate-100 dark:border-slate-800 mt-5">
@@ -1023,27 +1263,39 @@ export default function ServicesPage() {
               Are you sure you want to delete <span className="font-bold">"{deleteConfirmService.name}"</span>? This will permanently remove this service from your catalog and dashboard.
             </div>
 
+            {deleteErrorMsg && (
+              <div className="p-3.5 bg-amber-500/10 border border-amber-500/30 rounded-xl flex items-start gap-2.5 text-xs text-amber-700 dark:text-amber-300 animate-in fade-in">
+                <AlertCircle className="w-4 h-4 shrink-0 mt-0.5 text-amber-600 dark:text-amber-400" />
+                <div className="space-y-1.5 flex-1">
+                  <p className="font-bold leading-relaxed">{deleteErrorMsg}</p>
+                  <p className="text-[11px] text-amber-600 dark:text-amber-400">
+                    Services with active published workflow forms or customer filings are preserved to protect audit compliance records.
+                  </p>
+                </div>
+              </div>
+            )}
+
             <div className="mt-6 flex items-center justify-end gap-2.5 pt-4 border-t border-slate-100 dark:border-slate-800">
               <button
                 type="button"
+                disabled={isDeleting}
                 onClick={() => setDeleteConfirmService(null)}
-                className="px-4 py-2 rounded-xl text-xs font-semibold text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer"
+                className="px-4 py-2 rounded-xl text-xs font-semibold text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer disabled:opacity-50"
               >
                 Cancel
               </button>
               <button
                 type="button"
+                disabled={isDeleting}
                 onClick={() => {
-                  const s = deleteConfirmService;
-                  deleteService(s.id);
-                  serviceCatalog.delete(s.id);
-                  setDeleteConfirmService(null);
-                  showToast(`"${s.name}" has been deleted.`);
+                  if (deleteConfirmService) {
+                    handleDeleteService(deleteConfirmService.id);
+                  }
                 }}
-                className="px-4 py-2 rounded-xl text-xs font-bold text-white bg-rose-600 hover:bg-rose-700 transition-colors cursor-pointer shadow-lg shadow-rose-600/20 flex items-center gap-1.5"
+                className="px-4 py-2 rounded-xl text-xs font-bold text-white bg-rose-600 hover:bg-rose-700 transition-colors cursor-pointer shadow-lg shadow-rose-600/20 flex items-center gap-1.5 disabled:opacity-50"
               >
                 <Trash2 className="w-3.5 h-3.5" />
-                <span>Delete Service</span>
+                <span>{isDeleting ? "Deleting..." : "Delete Service"}</span>
               </button>
             </div>
           </div>

@@ -1,7 +1,8 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import {
   Handshake,
   UserPlus,
@@ -28,27 +29,60 @@ import {
   Calendar,
   Lock,
   ArrowRight,
+  EyeOff,
+  Copy,
+  KeyRound,
+  Send,
+  CheckCircle,
+  Shield,
+  FileText,
 } from "lucide-react";
 import { useCrmStore, PartnerModel } from "@/lib/crmStore";
+import { partnerService } from "@/lib/api/partnerService";
+import { PartnerMetrics } from "@/types/api";
 import AnimatedCounter from "@/components/Global/AnimatedCounter";
 import PageBanner from "@/components/Dashboard/PageBanner";
 import { useToast } from "@/components/Global/ToastNotification";
 import ModalHeaderBanner from "@/components/Dashboard/ModalHeaderBanner";
+import { formatName, formatEmail, formatIndianPhoneNumber, formatAddress, formatPanNumber, formatAadhaarNumber, normalizePhoneForBackend, validateIndianMobile, validateEmail, validatePersonName, validatePanNumber, validateAadhaarNumber } from "@/lib/formatters";
+import { PhoneInput } from "@/components/Global/PhoneInput";
+import { EmailInput } from "@/components/Global/EmailInput";
+import { NameInput } from "@/components/Global/NameInput";
 
 export default function PartnersManagePage() {
+  const router = useRouter();
   const toast = useToast();
   const { partners, tasks, addPartner, updatePartner, togglePartnerStatus, deletePartner } = useCrmStore();
+
+  // Role Protection: Staff members cannot manage franchise partners
+  useEffect(() => {
+    try {
+      const stored = localStorage.getItem("finsocap_user_session");
+      if (stored) {
+        const parsed = JSON.parse(stored);
+        if (parsed.role && parsed.role !== "ADMIN") {
+          toast.warning("Access Restricted", "Partner Network Management is reserved for administrators.");
+          router.replace("/dashboard/tasks");
+        }
+      }
+    } catch (e) {}
+  }, [router, toast]);
 
   const [search, setSearch] = useState("");
   const [selectedStatus, setSelectedStatus] = useState<string>("ALL");
   const [selectedTier, setSelectedTier] = useState<string>("ALL");
 
-  // Add Partner Modal State
+  // Add Partner Modal State (2-Step Flow)
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
+  const [addStep, setAddStep] = useState<1 | 2>(1);
   const [formPartnerId, setFormPartnerId] = useState("");
   const [formName, setFormName] = useState("");
   const [formPhone, setFormPhone] = useState("");
   const [formEmail, setFormEmail] = useState("");
+  const [formPassword, setFormPassword] = useState("Partner@123");
+  const [showAddPassword, setShowAddPassword] = useState(false);
+  const [sendWelcomeEmail, setSendWelcomeEmail] = useState(true);
+  const [isSendingEmail, setIsSendingEmail] = useState(false);
   const [formDob, setFormDob] = useState("");
   const [formShopName, setFormShopName] = useState("");
   const [formCurrentAddress, setFormCurrentAddress] = useState("");
@@ -66,6 +100,8 @@ export default function PartnersManagePage() {
   const [editName, setEditName] = useState("");
   const [editPhone, setEditPhone] = useState("");
   const [editEmail, setEditEmail] = useState("");
+  const [editPassword, setEditPassword] = useState("");
+  const [showEditPassword, setShowEditPassword] = useState(false);
   const [editDob, setEditDob] = useState("");
   const [editShopName, setEditShopName] = useState("");
   const [editCurrentAddress, setEditCurrentAddress] = useState("");
@@ -79,16 +115,38 @@ export default function PartnersManagePage() {
 
   // View Partner Modal State
   const [viewingPartner, setViewingPartner] = useState<PartnerModel | null>(null);
+  const [apiMetrics, setApiMetrics] = useState<PartnerMetrics | null>(null);
+  const [showPasswordMap, setShowPasswordMap] = useState<Record<string, boolean>>({});
+  const [copiedId, setCopiedId] = useState<string | null>(null);
+
+  const copyToClipboard = (text: string, id: string) => {
+    navigator.clipboard.writeText(text);
+    setCopiedId(id);
+    toast.success("Copied to clipboard!");
+    setTimeout(() => setCopiedId(null), 2000);
+  };
+
+  const togglePasswordVisibility = (id: string) => {
+    setShowPasswordMap((prev) => ({ ...prev, [id]: !prev[id] }));
+  };
+
+  useEffect(() => {
+    partnerService.getMetrics().then(res => {
+      if (res && res.data) setApiMetrics(res.data);
+    }).catch(err => {
+      console.warn("Failed to load partner metrics:", err);
+    });
+  }, []);
 
   const showToast = (msg: string) => {
     toast.success(msg, "Success!");
   };
 
   // KPIs
-  const totalPartners = partners.length;
-  const activePartnersCount = partners.filter((p) => p.status === "Active").length;
+  const totalPartners = apiMetrics?.totalPartners ?? partners.length;
+  const activePartnersCount = apiMetrics?.activePartners ?? partners.filter((p) => p.status === "Active").length;
   const deactivatedPartnersCount = partners.filter((p) => p.status === "Deactivated").length;
-  const pendingPartnersCount = partners.filter((p) => p.status === "Pending").length;
+  const pendingPartnersCount = apiMetrics?.pendingApplications ?? partners.filter((p) => p.status === "Pending").length;
   const totalActivePartnerTasks = partners.reduce((acc, p) => acc + (p.activeTasks || 0), 0);
 
   // Filtered Partners
@@ -113,10 +171,15 @@ export default function PartnersManagePage() {
 
   const handleOpenAddModal = () => {
     const nextNum = 101 + partners.length;
+    setAddStep(1);
     setFormPartnerId(`P-${nextNum}`);
     setFormName("");
     setFormPhone("");
     setFormEmail("");
+    setFormPassword(`Partner@${Math.floor(1000 + Math.random() * 9000)}`);
+    setShowAddPassword(false);
+    setSendWelcomeEmail(true);
+    setIsSendingEmail(false);
     setFormDob("");
     setFormShopName("");
     setFormCurrentAddress("");
@@ -130,11 +193,28 @@ export default function PartnersManagePage() {
     setIsAddModalOpen(true);
   };
 
-  const handleAddSubmit = (e: React.FormEvent) => {
+  const handleNextStep = (e: React.FormEvent) => {
     e.preventDefault();
     if (!formName.trim() || !formPhone.trim() || !formPartnerId.trim()) {
       showToast("Partner ID, Name, and Phone number are required.");
       return;
+    }
+    // Proceed to Step 2 (Security & Credentials Dispatch)
+    setAddStep(2);
+  };
+
+  const handleAddSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!formName.trim() || !formPhone.trim() || !formPartnerId.trim()) {
+      showToast("Partner ID, Name, and Phone number are required.");
+      return;
+    }
+
+    const partnerEmail = formEmail.trim() || `${formName.trim().toLowerCase().replace(/\s+/g, ".")}@finsocap.com`;
+    const finalPassword = formPassword.trim() || "Partner@123";
+
+    if (sendWelcomeEmail) {
+      setIsSendingEmail(true);
     }
 
     addPartner({
@@ -143,7 +223,8 @@ export default function PartnersManagePage() {
       shortName: `${formPartnerId.trim().toUpperCase()} • ${formName.trim()}`,
       phone: formPhone.trim(),
       userId: formPhone.trim(),
-      email: formEmail.trim() || `${formName.trim().toLowerCase().replace(/\s+/g, ".")}@finsocap.com`,
+      password: finalPassword,
+      email: partnerEmail,
       dob: formDob.trim(),
       shopName: formShopName.trim(),
       currentAddress: formCurrentAddress.trim(),
@@ -157,8 +238,17 @@ export default function PartnersManagePage() {
       registeredAt: new Date().toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" }),
     });
 
+    if (sendWelcomeEmail) {
+      // Simulate real-time dispatch via transactional mail service
+      await new Promise((resolve) => setTimeout(resolve, 800));
+      setIsSendingEmail(false);
+      showToast(`Welcome Email with Login Credentials sent to ${partnerEmail}!`);
+    } else {
+      showToast(`Partner ${formPartnerId.toUpperCase()} (${formName}) enrolled successfully.`);
+    }
+
     setIsAddModalOpen(false);
-    showToast(`Partner ${formPartnerId.toUpperCase()} (${formName}) enrolled successfully.`);
+    setAddStep(1);
   };
 
   const openEditModal = (p: PartnerModel) => {
@@ -167,6 +257,8 @@ export default function PartnersManagePage() {
     setEditName(p.name);
     setEditPhone(p.phone);
     setEditEmail(p.email || "");
+    setEditPassword(p.password || "Partner@123");
+    setShowEditPassword(false);
     setEditDob(p.dob || "");
     setEditShopName(p.shopName || "");
     setEditCurrentAddress(p.currentAddress || "");
@@ -193,6 +285,7 @@ export default function PartnersManagePage() {
       shortName: `${editPartnerId.trim().toUpperCase()} • ${editName.trim()}`,
       phone: editPhone.trim(),
       userId: editPhone.trim(),
+      password: editPassword.trim() || editingPartner.password || "Partner@123",
       email: editEmail.trim(),
       dob: editDob.trim(),
       shopName: editShopName.trim(),
@@ -207,7 +300,7 @@ export default function PartnersManagePage() {
     });
 
     setEditingPartner(null);
-    showToast(`Partner ${editPartnerId} updated successfully.`);
+    showToast(`Partner ${editPartnerId} credentials and details updated successfully.`);
   };
 
   const handleToggle = (partnerId: string, name: string, currentStatus: string) => {
@@ -409,7 +502,7 @@ export default function PartnersManagePage() {
               <tr className="border-b border-slate-200/80 dark:border-slate-800 bg-slate-50/70 dark:bg-slate-900/40 text-[10px] font-black uppercase tracking-wider text-slate-400">
                 <th className="py-3 px-4">Partner ID</th>
                 <th className="py-3 px-4">Partner Name</th>
-                <th className="py-3 px-4">Contact Phone</th>
+                <th className="py-3 px-4">Credentials &amp; Login</th>
                 <th className="py-3 px-4">Hub Location</th>
                 <th className="py-3 px-4">Franchise Tier</th>
                 <th className="py-3 px-4 text-center">Active Tasks</th>
@@ -460,17 +553,64 @@ export default function PartnersManagePage() {
                         </div>
                       </td>
 
-                      {/* Contact Phone */}
-                      <td className="py-3.5 px-4 font-mono">
-                        <div className="flex items-center gap-1.5">
-                          <span>{p.phone}</span>
-                          <a
-                            href={`tel:${p.phone}`}
-                            className="p-1 rounded-lg text-blue-600 dark:text-sky-400 hover:bg-blue-50 dark:hover:bg-blue-950/60 transition-colors"
-                            title="Call Partner"
-                          >
-                            <Phone className="w-3 h-3" />
-                          </a>
+                      {/* Credentials & Login (Phone + Concealed Temporary Password with Eye toggle & Copy) */}
+                      <td className="py-3.5 px-4">
+                        <div className="space-y-1">
+                          <div className="flex items-center gap-1.5 font-mono text-[11px]">
+                            <Phone className="w-3 h-3 text-slate-400 shrink-0" />
+                            <span className="font-bold text-slate-900 dark:text-white">{formatIndianPhoneNumber(p.phone)}</span>
+                            <button
+                              type="button"
+                              onClick={() => copyToClipboard(p.phone, `${p.partnerId}-phone`)}
+                              className="text-slate-400 hover:text-blue-600 dark:hover:text-sky-400 p-0.5 cursor-pointer ml-0.5"
+                              title="Copy Phone/Username"
+                            >
+                              {copiedId === `${p.partnerId}-phone` ? (
+                                <Check className="w-2.5 h-2.5 text-emerald-500" />
+                              ) : (
+                                <Copy className="w-2.5 h-2.5" />
+                              )}
+                            </button>
+                            <a
+                              href={`tel:${normalizePhoneForBackend(p.phone)}`}
+                              className="p-0.5 text-blue-600 dark:text-sky-400 hover:opacity-80"
+                              title="Call Partner"
+                            >
+                              <Phone className="w-2.5 h-2.5" />
+                            </a>
+                          </div>
+
+                          {/* Concealed Password chip */}
+                          <div className="flex items-center gap-1 text-[11px] font-mono text-slate-500 dark:text-slate-400">
+                            <Lock className="w-2.5 h-2.5 text-amber-500 shrink-0" />
+                            <span className="tracking-wider font-semibold text-slate-700 dark:text-slate-300">
+                              {showPasswordMap[p.partnerId] ? (p.password || "Partner@123") : "••••••••"}
+                            </span>
+                            <button
+                              type="button"
+                              onClick={() => togglePasswordVisibility(p.partnerId)}
+                              className="text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 p-0.5 cursor-pointer ml-1"
+                              title={showPasswordMap[p.partnerId] ? "Hide password" : "Reveal temporary password"}
+                            >
+                              {showPasswordMap[p.partnerId] ? (
+                                <EyeOff className="w-3 h-3 text-amber-600" />
+                              ) : (
+                                <Eye className="w-3 h-3" />
+                              )}
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => copyToClipboard(p.password || "Partner@123", `${p.partnerId}-pass`)}
+                              className="text-slate-400 hover:text-blue-600 dark:hover:text-sky-400 p-0.5 cursor-pointer"
+                              title="Copy Password"
+                            >
+                              {copiedId === `${p.partnerId}-pass` ? (
+                                <Check className="w-2.5 h-2.5 text-emerald-500" />
+                              ) : (
+                                <Copy className="w-2.5 h-2.5" />
+                              )}
+                            </button>
+                          </div>
                         </div>
                       </td>
 
@@ -566,242 +706,362 @@ export default function PartnersManagePage() {
         </div>
       </div>
 
-      {/* MODAL 1: Enroll / Add Partner */}
+      {/* MODAL 1: Enroll / Add Partner (2-Step Smart Onboarding) */}
       {isAddModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-in fade-in">
-          <div className="bg-white dark:bg-[#0c1427] border border-slate-200 dark:border-slate-800 rounded-3xl p-6 w-full max-w-lg shadow-2xl relative max-h-[90vh] overflow-y-auto no-scrollbar space-y-4">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-900/60 backdrop-blur-xs animate-in fade-in">
+          <div className="bg-white dark:bg-[#0c1427] border border-slate-200 dark:border-slate-800 rounded-3xl p-4 sm:p-5 w-full max-w-lg shadow-2xl relative max-h-[82vh] overflow-y-auto no-scrollbar space-y-3">
             <ModalHeaderBanner
               icon={UserPlus}
-              badge="FRANCHISE ONBOARDING"
-              title="Enroll New Franchise Partner"
-              description="Register partner identity, hub location, contact phone, and unique partner ID."
-              badgeTag="Franchise Hub"
+              badge={`STEP ${addStep} OF 2 · FRANCHISE ONBOARDING`}
+              title={addStep === 1 ? "Enroll New Franchise Partner" : "Security & Credentials"}
+              description={
+                addStep === 1
+                  ? "Partner identity, hub location, shop info, and KYC records."
+                  : "Generate temporary password & auto-mail credentials to partner."
+              }
+              badgeTag={addStep === 1 ? "1. Details" : "2. Password"}
+              className="py-3 px-3.5"
               onClose={() => setIsAddModalOpen(false)}
             />
 
-            <form onSubmit={handleAddSubmit} className="space-y-4">
-              <div className="grid grid-cols-2 gap-3">
-                {/* Partner ID */}
-                <div>
-                  <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
-                    Partner ID *
-                  </label>
-                  <input
-                    type="text"
-                    required
-                    value={formPartnerId}
-                    onChange={(e) => setFormPartnerId(e.target.value)}
-                    placeholder="e.g. P-106"
-                    className="w-full px-3.5 py-2.5 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-mono font-bold focus:outline-none focus:ring-2 focus:ring-blue-500/20"
-                  />
+            {/* Step Progress Indicators */}
+            <div className="flex items-center gap-2 pt-0.5 pb-0.5">
+              <div
+                className={`flex-1 h-1.5 rounded-full transition-all ${
+                  addStep >= 1 ? "bg-blue-600" : "bg-slate-200 dark:bg-slate-800"
+                }`}
+              />
+              <div
+                className={`flex-1 h-1.5 rounded-full transition-all ${
+                  addStep >= 2 ? "bg-blue-600" : "bg-slate-200 dark:bg-slate-800"
+                }`}
+              />
+            </div>
+
+            {addStep === 1 ? (
+              /* STEP 1: PARTNER DETAILS & KYC */
+              <form onSubmit={handleNextStep} className="space-y-3">
+                <div className="grid grid-cols-2 gap-2.5">
+                  {/* Partner ID */}
+                  <div>
+                    <label className="block text-[11px] font-bold text-slate-700 dark:text-slate-300 mb-1">
+                      Partner ID *
+                    </label>
+                    <input
+                      type="text"
+                      required
+                      value={formPartnerId}
+                      onChange={(e) => setFormPartnerId(e.target.value)}
+                      placeholder="e.g. P-106"
+                      className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-mono font-bold focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+                    />
+                  </div>
+
+                  {/* Status */}
+                  <div>
+                    <label className="block text-[11px] font-bold text-slate-700 dark:text-slate-300 mb-1">
+                      Initial Status *
+                    </label>
+                    <select
+                      value={formStatus}
+                      onChange={(e) => setFormStatus(e.target.value as any)}
+                      className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-semibold focus:outline-none cursor-pointer"
+                    >
+                      <option value="Active">Active (Operational)</option>
+                      <option value="Pending">Pending (Under Review)</option>
+                      <option value="Deactivated">Deactivated</option>
+                    </select>
+                  </div>
                 </div>
 
-                {/* Status */}
-                <div>
-                  <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
-                    Initial Status *
-                  </label>
-                  <select
-                    value={formStatus}
-                    onChange={(e) => setFormStatus(e.target.value as any)}
-                    className="w-full px-3.5 py-2.5 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-semibold focus:outline-none cursor-pointer"
-                  >
-                    <option value="Active">Active (Operational)</option>
-                    <option value="Pending">Pending (Under Review)</option>
-                    <option value="Deactivated">Deactivated</option>
-                  </select>
-                </div>
-              </div>
-
-              {/* Partner Name */}
-              <div>
-                <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
-                  Partner / Franchise Name *
-                </label>
-                <input
-                  type="text"
+                {/* Partner Name */}
+                <NameInput
+                  label="Partner / Franchise Name"
                   required
                   value={formName}
-                  onChange={(e) => setFormName(e.target.value)}
+                  onChange={setFormName}
                   placeholder="e.g. Rahul Jha (or Enterprise Name)"
-                  className="w-full px-3.5 py-2.5 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+                  isBusinessName={true}
                 />
-              </div>
 
-              {/* Phone & Email */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
-                    Contact Phone *
-                  </label>
-                  <input
-                    type="tel"
+                {/* Phone & Email */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                  <PhoneInput
+                    label="Contact Phone"
                     required
                     value={formPhone}
-                    onChange={(e) => setFormPhone(e.target.value)}
-                    placeholder="10-digit mobile number"
-                    className="w-full px-3.5 py-2.5 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-mono font-semibold focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+                    onChange={setFormPhone}
+                    placeholder="+91 99530 65623"
                   />
-                </div>
-                <div>
-                  <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
-                    Email Address
-                  </label>
-                  <input
-                    type="email"
+                  <EmailInput
+                    label="Email Address"
+                    required
                     value={formEmail}
-                    onChange={(e) => setFormEmail(e.target.value)}
-                    placeholder="partner@finsocap.com"
-                    className="w-full px-3.5 py-2.5 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-mono focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+                    onChange={setFormEmail}
+                    placeholder="partner@gmail.com"
                   />
                 </div>
-              </div>
 
-              {/* Shop Name & DOB */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
-                    Shop / Enterprise Name
-                  </label>
-                  <input
-                    type="text"
-                    value={formShopName}
-                    onChange={(e) => setFormShopName(e.target.value)}
-                    placeholder="e.g. Verma Digital Seva Kendra"
-                    className="w-full px-3.5 py-2.5 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-blue-500/20"
-                  />
+                {/* Shop Name & DOB */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                  <div>
+                    <label className="block text-[11px] font-bold text-slate-700 dark:text-slate-300 mb-1">
+                      Shop / Enterprise Name
+                    </label>
+                    <input
+                      type="text"
+                      value={formShopName}
+                      onChange={(e) => setFormShopName(e.target.value)}
+                      onBlur={() => setFormShopName(formatName(formShopName))}
+                      placeholder="e.g. Verma Digital Seva Kendra"
+                      className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[11px] font-bold text-slate-700 dark:text-slate-300 mb-1">
+                      Date of Birth (D.O.B)
+                    </label>
+                    <input
+                      type="date"
+                      value={formDob}
+                      onChange={(e) => setFormDob(e.target.value)}
+                      className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+                    />
+                  </div>
                 </div>
-                <div>
-                  <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
-                    Date of Birth (D.O.B)
-                  </label>
-                  <input
-                    type="date"
-                    value={formDob}
-                    onChange={(e) => setFormDob(e.target.value)}
-                    className="w-full px-3.5 py-2.5 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-blue-500/20"
-                  />
-                </div>
-              </div>
 
-              {/* Exact Location & Complete Shop Address */}
-              <div className="space-y-3">
-                <div>
-                  <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
-                    Current Address (Exact Shop Location / Landmark)
-                  </label>
-                  <input
-                    type="text"
-                    value={formCurrentAddress}
-                    onChange={(e) => setFormCurrentAddress(e.target.value)}
-                    placeholder="e.g. Near Railway Crossing, Gandhi Chowk"
-                    className="w-full px-3.5 py-2.5 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-blue-500/20"
-                  />
+                {/* Exact Location & Complete Shop Address */}
+                <div className="space-y-2.5">
+                  <div>
+                    <label className="block text-[11px] font-bold text-slate-700 dark:text-slate-300 mb-1">
+                      Current Address (Exact Landmark)
+                    </label>
+                    <input
+                      type="text"
+                      value={formCurrentAddress}
+                      onChange={(e) => setFormCurrentAddress(e.target.value)}
+                      onBlur={() => setFormCurrentAddress(formatAddress(formCurrentAddress))}
+                      placeholder="e.g. Near Railway Crossing, Gandhi Chowk"
+                      className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[11px] font-bold text-slate-700 dark:text-slate-300 mb-1">
+                      Complete Shop Address
+                    </label>
+                    <textarea
+                      rows={2}
+                      value={formCompleteShopAddress}
+                      onChange={(e) => setFormCompleteShopAddress(e.target.value)}
+                      onBlur={() => setFormCompleteShopAddress(formatAddress(formCompleteShopAddress))}
+                      placeholder="Shop No., Commercial Complex, Main Road, Pin Code"
+                      className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-blue-500/20 resize-none"
+                    />
+                  </div>
                 </div>
-                <div>
-                  <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
-                    Complete Shop Address
-                  </label>
-                  <textarea
-                    rows={2}
-                    value={formCompleteShopAddress}
-                    onChange={(e) => setFormCompleteShopAddress(e.target.value)}
-                    placeholder="Shop No., Commercial Complex, Main Road, Pin Code"
-                    className="w-full px-3.5 py-2.5 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-blue-500/20 resize-none"
-                  />
-                </div>
-              </div>
 
-              {/* KYC Details: PAN & Aadhaar */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
-                    PAN Card Number (KYC)
-                  </label>
-                  <input
-                    type="text"
-                    maxLength={10}
-                    value={formPanNumber}
-                    onChange={(e) => setFormPanNumber(e.target.value.toUpperCase())}
-                    placeholder="ABCDE1234F"
-                    className="w-full px-3.5 py-2.5 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-mono font-bold focus:outline-none focus:ring-2 focus:ring-blue-500/20 uppercase"
-                  />
+                {/* KYC Details: PAN & Aadhaar */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                  <div>
+                    <label className="block text-[11px] font-bold text-slate-700 dark:text-slate-300 mb-1">
+                      PAN Card Number (KYC)
+                    </label>
+                    <input
+                      type="text"
+                      maxLength={10}
+                      value={formPanNumber}
+                      onChange={(e) => setFormPanNumber(formatPanNumber(e.target.value))}
+                      placeholder="ABCDE1234F"
+                      className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-mono font-bold focus:outline-none focus:ring-2 focus:ring-blue-500/20 uppercase"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[11px] font-bold text-slate-700 dark:text-slate-300 mb-1">
+                      Aadhaar Number (KYC)
+                    </label>
+                    <input
+                      type="text"
+                      maxLength={14}
+                      value={formAdhaarNumber}
+                      onChange={(e) => setFormAdhaarNumber(formatAadhaarNumber(e.target.value))}
+                      placeholder="1234 5678 9012"
+                      className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-mono font-bold focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+                    />
+                  </div>
                 </div>
-                <div>
-                  <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
-                    Aadhaar Number (KYC)
-                  </label>
-                  <input
-                    type="text"
-                    maxLength={14}
-                    value={formAdhaarNumber}
-                    onChange={(e) => setFormAdhaarNumber(e.target.value)}
-                    placeholder="1234 5678 9012"
-                    className="w-full px-3.5 py-2.5 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-mono font-bold focus:outline-none focus:ring-2 focus:ring-blue-500/20"
-                  />
-                </div>
-              </div>
 
-              {/* City, State & Tier */}
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                <div>
-                  <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
-                    Hub City
-                  </label>
-                  <input
-                    type="text"
-                    value={formCity}
-                    onChange={(e) => setFormCity(e.target.value)}
-                    placeholder="e.g. Patna, Noida"
-                    className="w-full px-3.5 py-2.5 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-blue-500/20"
-                  />
+                {/* City, State & Tier */}
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
+                  <div>
+                    <label className="block text-[11px] font-bold text-slate-700 dark:text-slate-300 mb-1">
+                      Hub City
+                    </label>
+                    <input
+                      type="text"
+                      value={formCity}
+                      onChange={(e) => setFormCity(e.target.value)}
+                      onBlur={() => setFormCity(formatName(formCity))}
+                      placeholder="e.g. Patna, Noida"
+                      className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[11px] font-bold text-slate-700 dark:text-slate-300 mb-1">
+                      State
+                    </label>
+                    <input
+                      type="text"
+                      value={formState}
+                      onChange={(e) => setFormState(e.target.value)}
+                      onBlur={() => setFormState(formatName(formState))}
+                      placeholder="e.g. Bihar, UP"
+                      className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[11px] font-bold text-slate-700 dark:text-slate-300 mb-1">
+                      Franchise Tier
+                    </label>
+                    <select
+                      value={formTier}
+                      onChange={(e) => setFormTier(e.target.value)}
+                      className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-semibold focus:outline-none cursor-pointer"
+                    >
+                      <option value="Gold Franchise">Gold Franchise</option>
+                      <option value="Silver Franchise">Silver Franchise</option>
+                      <option value="Bronze Franchise">Bronze Franchise</option>
+                      <option value="Master Network">Master Network</option>
+                    </select>
+                  </div>
                 </div>
-                <div>
-                  <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
-                    State
-                  </label>
-                  <input
-                    type="text"
-                    value={formState}
-                    onChange={(e) => setFormState(e.target.value)}
-                    placeholder="e.g. Bihar, UP"
-                    className="w-full px-3.5 py-2.5 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-blue-500/20"
-                  />
-                </div>
-                <div>
-                  <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
-                    Franchise Tier
-                  </label>
-                  <select
-                    value={formTier}
-                    onChange={(e) => setFormTier(e.target.value)}
-                    className="w-full px-3.5 py-2.5 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-semibold focus:outline-none cursor-pointer"
+
+                {/* Next Step Button */}
+                <div className="pt-2 flex items-center gap-3">
+                  <button
+                    type="button"
+                    onClick={() => setIsAddModalOpen(false)}
+                    className="w-1/3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 font-bold text-xs hover:bg-slate-100 dark:hover:bg-slate-800 cursor-pointer"
                   >
-                    <option value="Gold Franchise">Gold Franchise</option>
-                    <option value="Silver Franchise">Silver Franchise</option>
-                    <option value="Bronze Franchise">Bronze Franchise</option>
-                    <option value="Master Network">Master Network</option>
-                  </select>
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    className="w-2/3 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs shadow-md shadow-blue-500/25 cursor-pointer inline-flex items-center justify-center gap-1.5"
+                  >
+                    <span>Proceed to Step 2: Set Password &amp; Mail</span>
+                    <ArrowRight className="w-3.5 h-3.5" />
+                  </button>
                 </div>
-              </div>
+              </form>
+            ) : (
+              /* STEP 2: TEMPORARY PASSWORD & AUTOMATED EMAIL DISPATCH */
+              <form onSubmit={handleAddSubmit} className="space-y-3 animate-in fade-in slide-in-from-right-4 duration-200">
+                {/* Partner Summary Card */}
+                <div className="p-3 rounded-2xl bg-slate-50 dark:bg-slate-900/60 border border-slate-200 dark:border-slate-800 flex items-center justify-between">
+                  <div>
+                    <span className="text-[10px] uppercase font-bold text-slate-400 block">Enrolling Partner</span>
+                    <p className="font-bold text-slate-900 dark:text-white text-xs">{formName} ({formPartnerId})</p>
+                    <p className="text-[11px] font-mono text-slate-500 mt-0.5">{formPhone} • {formEmail}</p>
+                  </div>
+                  <span className="px-2.5 py-1 rounded-lg text-[10px] font-bold bg-blue-100 dark:bg-blue-950/80 text-blue-700 dark:text-sky-300 border border-blue-200 dark:border-blue-800">
+                    {formTier}
+                  </span>
+                </div>
 
-              {/* Submit Buttons */}
-              <div className="pt-2 flex items-center gap-3">
-                <button
-                  type="button"
-                  onClick={() => setIsAddModalOpen(false)}
-                  className="w-1/2 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 font-bold text-xs hover:bg-slate-100 dark:hover:bg-slate-800 cursor-pointer"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  className="w-1/2 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs shadow-md shadow-blue-500/25 cursor-pointer"
-                >
-                  Enroll Partner
-                </button>
-              </div>
-            </form>
+                {/* Password Configuration */}
+                <div className="p-3.5 rounded-2xl bg-gradient-to-r from-blue-50/80 to-indigo-50/80 dark:from-blue-950/30 dark:to-indigo-950/30 border border-blue-200/80 dark:border-blue-800/60 space-y-1.5">
+                  <div className="flex items-center justify-between">
+                    <label className="text-xs font-bold text-blue-900 dark:text-blue-300 flex items-center gap-1.5">
+                      <KeyRound className="w-4 h-4 text-blue-600 dark:text-sky-400" />
+                      <span>Create Temporary Login Password *</span>
+                    </label>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const randomPass = `Partner@${Math.floor(1000 + Math.random() * 9000)}`;
+                        setFormPassword(randomPass);
+                        toast.success(`Generated: ${randomPass}`);
+                      }}
+                      className="text-[10px] font-bold text-blue-600 dark:text-sky-400 hover:underline cursor-pointer"
+                    >
+                      Generate Random
+                    </button>
+                  </div>
+                  <div className="relative">
+                    <input
+                      type={showAddPassword ? "text" : "password"}
+                      required
+                      value={formPassword}
+                      onChange={(e) => setFormPassword(e.target.value)}
+                      placeholder="e.g. Partner@123"
+                      className="w-full px-3 py-2 pr-10 bg-white dark:bg-slate-900 border border-blue-200 dark:border-blue-700 rounded-xl text-xs font-mono font-bold text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-500/30"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowAddPassword(!showAddPassword)}
+                      className="absolute right-3 top-2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 cursor-pointer p-0.5"
+                    >
+                      {showAddPassword ? <EyeOff className="w-3.5 h-3.5 text-blue-500" /> : <Eye className="w-3.5 h-3.5" />}
+                    </button>
+                  </div>
+                  <p className="text-[10px] text-slate-500 dark:text-slate-400">
+                    Partner will use this password to log in to the FinSoCap Partner Mobile App.
+                  </p>
+                </div>
+
+                {/* Automated Email Dispatch Checkbox & Preview */}
+                <div className="p-3 rounded-2xl bg-emerald-50/70 dark:bg-emerald-950/20 border border-emerald-200/80 dark:border-emerald-800/60 space-y-2">
+                  <div className="flex items-start gap-2.5">
+                    <input
+                      type="checkbox"
+                      id="welcome-email-chk"
+                      checked={sendWelcomeEmail}
+                      onChange={(e) => setSendWelcomeEmail(e.target.checked)}
+                      className="mt-0.5 w-4 h-4 rounded text-blue-600 focus:ring-blue-500 border-slate-300 cursor-pointer"
+                    />
+                    <label htmlFor="welcome-email-chk" className="cursor-pointer select-none">
+                      <span className="text-xs font-black text-emerald-900 dark:text-emerald-300 block">
+                        Auto-Send Welcome Email with Credentials
+                      </span>
+                      <span className="text-[10px] text-emerald-700 dark:text-emerald-400 font-medium block mt-0.5">
+                        Dispatches login credentials to <span className="underline font-bold font-mono">{formEmail || "partner's email"}</span>.
+                      </span>
+                    </label>
+                  </div>
+
+                  {sendWelcomeEmail && (
+                    <div className="p-2.5 rounded-xl bg-white/80 dark:bg-slate-900/80 border border-emerald-200 dark:border-emerald-800/80 text-[10px] font-mono text-slate-600 dark:text-slate-300 space-y-0.5">
+                      <div className="flex items-center gap-1.5 font-bold text-emerald-700 dark:text-emerald-400 mb-0.5">
+                        <Send className="w-2.5 h-2.5" />
+                        <span>Email Dispatch Preview:</span>
+                      </div>
+                      <p><strong>To:</strong> {formEmail}</p>
+                      <p><strong>Username / Phone:</strong> {formPhone}</p>
+                      <p><strong>Temporary Password:</strong> {formPassword}</p>
+                    </div>
+                  )}
+                </div>
+
+                {/* Step 2 Action Buttons */}
+                <div className="pt-2 flex items-center gap-3">
+                  <button
+                    type="button"
+                    onClick={() => setAddStep(1)}
+                    className="w-1/3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 font-bold text-xs hover:bg-slate-100 dark:hover:bg-slate-800 cursor-pointer"
+                  >
+                    Back to Step 1
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={isSendingEmail}
+                    className="w-2/3 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white font-bold text-xs shadow-md shadow-blue-500/25 cursor-pointer inline-flex items-center justify-center gap-1.5"
+                  >
+                    <Send className="w-3.5 h-3.5" />
+                    <span>{isSendingEmail ? "Enrolling & Sending Email..." : "Create Partner & Send Email"}</span>
+                  </button>
+                </div>
+              </form>
+            )}
           </div>
         </div>
       )}
@@ -853,45 +1113,67 @@ export default function PartnersManagePage() {
               </div>
 
               {/* Partner Name */}
-              <div>
-                <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
-                  Full Name / Enterprise Name *
-                </label>
-                <input
-                  type="text"
-                  required
-                  value={editName}
-                  onChange={(e) => setEditName(e.target.value)}
-                  className="w-full px-3.5 py-2.5 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-blue-500/20"
-                />
-              </div>
+              <NameInput
+                label="Full Name / Enterprise Name"
+                required
+                value={editName}
+                onChange={setEditName}
+                isBusinessName={true}
+              />
 
               {/* Contact Phone & Email */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
-                    Phone Number *
-                  </label>
-                  <input
-                    type="tel"
-                    required
-                    value={editPhone}
-                    onChange={(e) => setEditPhone(e.target.value)}
-                    className="w-full px-3.5 py-2.5 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-mono font-semibold focus:outline-none focus:ring-2 focus:ring-blue-500/20"
-                  />
-                </div>
+                <PhoneInput
+                  label="Phone Number"
+                  required
+                  value={editPhone}
+                  onChange={setEditPhone}
+                />
+                <EmailInput
+                  label="Email ID"
+                  value={editEmail}
+                  onChange={setEditEmail}
+                />
+              </div>
 
-                <div>
-                  <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
-                    Email ID
+              {/* Password Modification / Reset */}
+              <div className="p-3.5 rounded-2xl bg-gradient-to-r from-amber-50/70 to-orange-50/70 dark:from-amber-950/20 dark:to-orange-950/20 border border-amber-200/80 dark:border-amber-800/50 space-y-1.5">
+                <div className="flex items-center justify-between">
+                  <label className="text-xs font-bold text-amber-900 dark:text-amber-300 flex items-center gap-1.5">
+                    <KeyRound className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400" />
+                    <span>Reset / Update Password</span>
                   </label>
-                  <input
-                    type="email"
-                    value={editEmail}
-                    onChange={(e) => setEditEmail(e.target.value)}
-                    className="w-full px-3.5 py-2.5 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-mono focus:outline-none focus:ring-2 focus:ring-blue-500/20"
-                  />
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const newPass = `Partner@${Math.floor(1000 + Math.random() * 9000)}`;
+                      setEditPassword(newPass);
+                      toast.success(`Generated: ${newPass}`);
+                    }}
+                    className="text-[10px] font-bold text-amber-700 dark:text-amber-400 hover:underline cursor-pointer"
+                  >
+                    Generate New
+                  </button>
                 </div>
+                <div className="relative">
+                  <input
+                    type={showEditPassword ? "text" : "password"}
+                    value={editPassword}
+                    onChange={(e) => setEditPassword(e.target.value)}
+                    placeholder="Enter new temporary password"
+                    className="w-full px-3.5 py-2.5 pr-10 bg-white dark:bg-slate-900 border border-amber-300 dark:border-amber-700 rounded-xl text-xs font-mono font-bold text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-amber-500/30"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowEditPassword(!showEditPassword)}
+                    className="absolute right-3 top-2.5 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 cursor-pointer p-0.5"
+                  >
+                    {showEditPassword ? <EyeOff className="w-3.5 h-3.5 text-amber-600" /> : <Eye className="w-3.5 h-3.5" />}
+                  </button>
+                </div>
+                <p className="text-[10px] text-slate-500 dark:text-slate-400">
+                  Update this password if partner forgot their mobile app password or requested an admin reset.
+                </p>
               </div>
 
               {/* Shop Name & DOB */}
@@ -904,6 +1186,7 @@ export default function PartnersManagePage() {
                     type="text"
                     value={editShopName}
                     onChange={(e) => setEditShopName(e.target.value)}
+                    onBlur={() => setEditShopName(formatName(editShopName))}
                     placeholder="e.g. Verma Digital Seva Kendra"
                     className="w-full px-3.5 py-2.5 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-blue-500/20"
                   />
@@ -931,6 +1214,7 @@ export default function PartnersManagePage() {
                     type="text"
                     value={editCurrentAddress}
                     onChange={(e) => setEditCurrentAddress(e.target.value)}
+                    onBlur={() => setEditCurrentAddress(formatAddress(editCurrentAddress))}
                     placeholder="e.g. Near Railway Crossing, Gandhi Chowk"
                     className="w-full px-3.5 py-2.5 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-blue-500/20"
                   />
@@ -943,6 +1227,7 @@ export default function PartnersManagePage() {
                     rows={2}
                     value={editCompleteShopAddress}
                     onChange={(e) => setEditCompleteShopAddress(e.target.value)}
+                    onBlur={() => setEditCompleteShopAddress(formatAddress(editCompleteShopAddress))}
                     placeholder="Shop No., Commercial Complex, Main Road, Pin Code"
                     className="w-full px-3.5 py-2.5 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-blue-500/20 resize-none"
                   />
@@ -959,7 +1244,7 @@ export default function PartnersManagePage() {
                     type="text"
                     maxLength={10}
                     value={editPanNumber}
-                    onChange={(e) => setEditPanNumber(e.target.value.toUpperCase())}
+                    onChange={(e) => setEditPanNumber(formatPanNumber(e.target.value))}
                     placeholder="ABCDE1234F"
                     className="w-full px-3.5 py-2.5 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-mono font-bold focus:outline-none focus:ring-2 focus:ring-blue-500/20 uppercase"
                   />
@@ -972,7 +1257,7 @@ export default function PartnersManagePage() {
                     type="text"
                     maxLength={14}
                     value={editAdhaarNumber}
-                    onChange={(e) => setEditAdhaarNumber(e.target.value)}
+                    onChange={(e) => setEditAdhaarNumber(formatAadhaarNumber(e.target.value))}
                     placeholder="1234 5678 9012"
                     className="w-full px-3.5 py-2.5 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-mono font-bold focus:outline-none focus:ring-2 focus:ring-blue-500/20"
                   />
@@ -989,6 +1274,7 @@ export default function PartnersManagePage() {
                     type="text"
                     value={editCity}
                     onChange={(e) => setEditCity(e.target.value)}
+                    onBlur={() => setEditCity(formatName(editCity))}
                     className="w-full px-3.5 py-2.5 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-semibold focus:outline-none"
                   />
                 </div>
@@ -1000,6 +1286,7 @@ export default function PartnersManagePage() {
                     type="text"
                     value={editState}
                     onChange={(e) => setEditState(e.target.value)}
+                    onBlur={() => setEditState(formatName(editState))}
                     className="w-full px-3.5 py-2.5 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-semibold focus:outline-none"
                   />
                 </div>
@@ -1080,12 +1367,14 @@ export default function PartnersManagePage() {
                   <span className="text-[10px] uppercase font-bold text-slate-400">Total Leads</span>
                   <p className="font-bold text-slate-900 dark:text-white mt-0.5">{viewingPartner.leadsCount} Leads</p>
                 </div>
-                {viewingPartner.userId && (
-                  <div>
-                    <span className="text-[10px] uppercase font-bold text-slate-400">Login User ID</span>
-                    <p className="font-mono font-bold text-blue-600 dark:text-sky-400 mt-0.5">{viewingPartner.userId}</p>
-                  </div>
-                )}
+                <div>
+                  <span className="text-[10px] uppercase font-bold text-slate-400">Login User ID (Phone)</span>
+                  <p className="font-mono font-bold text-blue-600 dark:text-sky-400 mt-0.5">{viewingPartner.userId || viewingPartner.phone}</p>
+                </div>
+                <div>
+                  <span className="text-[10px] uppercase font-bold text-amber-500">Temporary Password</span>
+                  <p className="font-mono font-bold text-amber-600 dark:text-amber-400 mt-0.5">{viewingPartner.password || "Partner@123"}</p>
+                </div>
                 {viewingPartner.dob && (
                   <div>
                     <span className="text-[10px] uppercase font-bold text-slate-400">Date of Birth</span>

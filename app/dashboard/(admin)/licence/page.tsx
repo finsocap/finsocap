@@ -1,6 +1,7 @@
+
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect, useCallback } from "react";
 import Link from "next/link";
 import {
   FileText, CheckCircle2, Clock, AlertTriangle, Link2, Search,
@@ -9,6 +10,9 @@ import {
   RotateCcw, Sparkles
 } from "lucide-react";
 import { useCrmStore, LicenceModel } from "@/lib/crmStore";
+import { reportsService } from "@/lib/api/reportsService";
+import { LicenceReportMetrics, LicenceRegistryRow } from "@/types/api";
+import LicenceInfographic from "@/components/Charts/LicenceInfographic";
 import DateRangeFilter from "@/components/Dashboard/DateRangeFilter";
 import PageBanner from "@/components/Dashboard/PageBanner";
 import { useToast } from "@/components/Global/ToastNotification";
@@ -17,6 +21,22 @@ import ModalHeaderBanner from "@/components/Dashboard/ModalHeaderBanner";
 export default function LicenceReportPage() {
   const toast = useToast();
   const { licences, updateLicence, deleteLicence } = useCrmStore();
+  const [licenceMetrics, setLicenceMetrics] = useState<LicenceReportMetrics | null>(null);
+
+  const fetchLicencesData = useCallback(async () => {
+    try {
+      const res = await reportsService.getLicences();
+      if (res.success && res.data) {
+        setLicenceMetrics(res.data);
+      }
+    } catch (e) {
+      console.warn("Licence fetch fallback:", e);
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchLicencesData();
+  }, [fetchLicencesData]);
 
   // Search & Filter States (Screenshot 3 Exact Match)
   const [search, setSearch] = useState("");
@@ -137,7 +157,25 @@ export default function LicenceReportPage() {
   }, [filteredLicences, currentPage, rowsPerPage]);
 
   // Handle Export
-  const handleExport = () => {
+  const handleExport = async () => {
+    try {
+      const csvStr = await reportsService.exportLicencesCsv();
+      if (csvStr && typeof csvStr === "string" && csvStr.length > 20) {
+        const blob = new Blob([csvStr], { type: "text/csv;charset=utf-8;" });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement("a");
+        link.setAttribute("href", url);
+        link.setAttribute("download", `Finsocap_Licence_Registry_${new Date().toISOString().slice(0, 10)}.csv`);
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        showToast("Official Licences Registry exported via API successfully!");
+        return;
+      }
+    } catch (e) {
+      // fallback to client-side CSV
+    }
+
     const csvContent =
       "data:text/csv;charset=utf-8," +
       [
@@ -240,6 +278,9 @@ export default function LicenceReportPage() {
           </div>
         }
       />
+
+      {/* Statutory Licences Lifecycle & Expiry Radar Infographic */}
+      <LicenceInfographic metrics={licenceMetrics} licences={licences} />
 
       {/* 2. 6 KPI Summary Cards (Screenshot 3 Exact Match) */}
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3.5">

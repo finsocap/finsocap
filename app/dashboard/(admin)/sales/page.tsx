@@ -13,6 +13,8 @@ import DateRangeFilter from "@/components/Dashboard/DateRangeFilter";
 import BranchFilter from "@/components/Dashboard/BranchFilter";
 import PageBanner from "@/components/Dashboard/PageBanner";
 
+import { useCrmStore } from "@/lib/crmStore";
+
 interface SalesPersonPerf {
   id: string;
   name: string;
@@ -29,14 +31,6 @@ interface SalesPersonPerf {
   collectionRate: string;
 }
 
-const salesData: SalesPersonPerf[] = [
-  { id: "SLS001", name: "Rahul Jha", initials: "RJ", avatarColor: "bg-blue-600 text-white", clients: 48, tasks: 120, completed: 110, pending: 10, completionRate: "91.7%", proFees: 256800, received: 205400, pendingAmount: 51400, collectionRate: "80.0%" },
-  { id: "SLS002", name: "Kanhaiya", initials: "K", avatarColor: "bg-emerald-600 text-white", clients: 36, tasks: 98, completed: 82, pending: 16, completionRate: "83.7%", proFees: 184600, received: 132900, pendingAmount: 51700, collectionRate: "72.0%" },
-  { id: "SLS003", name: "Gaurav", initials: "G", avatarColor: "bg-amber-600 text-white", clients: 28, tasks: 76, completed: 68, pending: 8, completionRate: "89.5%", proFees: 125400, received: 92800, pendingAmount: 32600, collectionRate: "74.0%" },
-  { id: "SLS004", name: "Roshan", initials: "R", avatarColor: "bg-purple-600 text-white", clients: 22, tasks: 54, completed: 50, pending: 4, completionRate: "92.6%", proFees: 68300, received: 54200, pendingAmount: 14100, collectionRate: "79.4%" },
-  { id: "SLS005", name: "Roshni", initials: "RS", avatarColor: "bg-pink-600 text-white", clients: 18, tasks: 42, completed: 38, pending: 4, completionRate: "90.5%", proFees: 38900, received: 26800, pendingAmount: 12100, collectionRate: "69.0%" },
-];
-
 export default function SalesTeamReportPage() {
   const [selectedPerson, setSelectedPerson] = useState("ALL");
   const [isPersonOpen, setIsPersonOpen] = useState(false);
@@ -44,6 +38,62 @@ export default function SalesTeamReportPage() {
   const [selectedBranch, setSelectedBranch] = useState("All Branches");
   const [tableSearch, setTableSearch] = useState("");
   const [isExporting, setIsExporting] = useState(false);
+
+  const { partners, tasks, services } = useCrmStore();
+
+  const salesData: SalesPersonPerf[] = useMemo(() => {
+    return partners.map((p) => {
+      const pTasks = tasks.filter(
+        (t) =>
+          t.partner?.toLowerCase().includes(p.name.toLowerCase()) ||
+          t.partner?.toLowerCase().includes(p.partnerId?.toLowerCase() || "")
+      );
+      const totalTasks = pTasks.length;
+      const completed = pTasks.filter((t) => t.status === "Completed").length;
+      const pending = totalTasks - completed;
+      const completionRate = totalTasks > 0 ? `${((completed / totalTasks) * 100).toFixed(1)}%` : "0.0%";
+
+      const received = pTasks
+        .filter((t) => t.status === "Completed")
+        .reduce((sum, t) => {
+          const match = services.find((s) => s.name.toLowerCase() === t.service?.toLowerCase());
+          return sum + (match?.price || 0);
+        }, 0);
+
+      const pendingAmount = pTasks
+        .filter((t) => t.status !== "Completed" && t.status !== "Cancelled")
+        .reduce((sum, t) => {
+          const match = services.find((s) => s.name.toLowerCase() === t.service?.toLowerCase());
+          return sum + (match?.price || 0);
+        }, 0);
+
+      const proFees = received + pendingAmount;
+      const collectionRate = proFees > 0 ? `${((received / proFees) * 100).toFixed(1)}%` : "0.0%";
+
+      const initials = (p.name || "P")
+        .split(" ")
+        .map((x) => x[0])
+        .join("")
+        .slice(0, 2)
+        .toUpperCase();
+
+      return {
+        id: p.partnerId || p.id,
+        name: p.name,
+        avatarColor: "bg-blue-600 text-white",
+        initials,
+        clients: p.leadsCount || 0,
+        tasks: totalTasks,
+        completed,
+        pending,
+        completionRate,
+        proFees,
+        received,
+        pendingAmount,
+        collectionRate,
+      };
+    });
+  }, [partners, tasks, services]);
 
   // Filtered dataset
   const filtered = useMemo(() => {
@@ -452,57 +502,65 @@ export default function SalesTeamReportPage() {
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100 dark:divide-slate-800/60 font-medium">
-              {filtered.map((s) => (
-                <tr 
-                  key={s.id} 
-                  className={`hover:bg-slate-50/80 dark:hover:bg-slate-800/50 transition-colors ${
-                    selectedPerson === s.name ? "bg-blue-50/40 dark:bg-blue-950/20" : ""
-                  }`}
-                >
-                  <td className="py-3.5 px-4 font-mono font-bold text-blue-600 dark:text-sky-400">
-                    {s.id}
-                  </td>
-                  <td className="py-3.5 px-4">
-                    <div className="flex items-center gap-2.5">
-                      <span className={`w-7 h-7 rounded-xl flex items-center justify-center font-bold text-[10px] shrink-0 ${s.avatarColor}`}>
-                        {s.initials}
-                      </span>
-                      <span className="font-bold text-slate-900 dark:text-white">
-                        {s.name}
-                      </span>
-                    </div>
-                  </td>
-                  <td className="py-3.5 px-4 text-center font-semibold">
-                    {s.clients}
-                  </td>
-                  <td className="py-3.5 px-4 text-center font-bold text-purple-600 dark:text-purple-400">
-                    {s.tasks}
-                  </td>
-                  <td className="py-3.5 px-4 text-center font-bold text-emerald-600 dark:text-emerald-400">
-                    {s.completed}
-                  </td>
-                  <td className="py-3.5 px-4 text-center font-bold text-amber-600 dark:text-amber-400">
-                    {s.pending}
-                  </td>
-                  <td className="py-3.5 px-4 text-center font-bold">
-                    <span className="px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300 text-[10px] border border-emerald-200/60 dark:border-emerald-800/60">
-                      {s.completionRate}
-                    </span>
-                  </td>
-                  <td className="py-3.5 px-4 text-right font-semibold">
-                    ₹{s.proFees.toLocaleString("en-IN")}
-                  </td>
-                  <td className="py-3.5 px-4 text-right font-black text-emerald-600 dark:text-emerald-400">
-                    ₹{s.received.toLocaleString("en-IN")}
-                  </td>
-                  <td className="py-3.5 px-4 text-right font-bold text-rose-600 dark:text-rose-400">
-                    ₹{s.pendingAmount.toLocaleString("en-IN")}
-                  </td>
-                  <td className="py-3.5 px-4 text-right font-black text-blue-600 dark:text-sky-400">
-                    {s.collectionRate}
+              {filtered.length === 0 ? (
+                <tr>
+                  <td colSpan={11} className="py-8 text-center text-slate-400 font-medium text-xs">
+                    No franchise partner performance records found
                   </td>
                 </tr>
-              ))}
+              ) : (
+                filtered.map((s) => (
+                  <tr 
+                    key={s.id} 
+                    className={`hover:bg-slate-50/80 dark:hover:bg-slate-800/50 transition-colors ${
+                      selectedPerson === s.name ? "bg-blue-50/40 dark:bg-blue-950/20" : ""
+                    }`}
+                  >
+                    <td className="py-3.5 px-4 font-mono font-bold text-blue-600 dark:text-sky-400">
+                      {s.id}
+                    </td>
+                    <td className="py-3.5 px-4">
+                      <div className="flex items-center gap-2.5">
+                        <span className={`w-7 h-7 rounded-xl flex items-center justify-center font-bold text-[10px] shrink-0 ${s.avatarColor}`}>
+                          {s.initials}
+                        </span>
+                        <span className="font-bold text-slate-900 dark:text-white">
+                          {s.name}
+                        </span>
+                      </div>
+                    </td>
+                    <td className="py-3.5 px-4 text-center font-semibold">
+                      {s.clients}
+                    </td>
+                    <td className="py-3.5 px-4 text-center font-bold text-purple-600 dark:text-purple-400">
+                      {s.tasks}
+                    </td>
+                    <td className="py-3.5 px-4 text-center font-bold text-emerald-600 dark:text-emerald-400">
+                      {s.completed}
+                    </td>
+                    <td className="py-3.5 px-4 text-center font-bold text-amber-600 dark:text-amber-400">
+                      {s.pending}
+                    </td>
+                    <td className="py-3.5 px-4 text-center font-bold">
+                      <span className="px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300 text-[10px] border border-emerald-200/60 dark:border-emerald-800/60">
+                        {s.completionRate}
+                      </span>
+                    </td>
+                    <td className="py-3.5 px-4 text-right font-semibold">
+                      ₹{s.proFees.toLocaleString("en-IN")}
+                    </td>
+                    <td className="py-3.5 px-4 text-right font-black text-emerald-600 dark:text-emerald-400">
+                      ₹{s.received.toLocaleString("en-IN")}
+                    </td>
+                    <td className="py-3.5 px-4 text-right font-bold text-rose-600 dark:text-rose-400">
+                      ₹{s.pendingAmount.toLocaleString("en-IN")}
+                    </td>
+                    <td className="py-3.5 px-4 text-right font-black text-blue-600 dark:text-sky-400">
+                      {s.collectionRate}
+                    </td>
+                  </tr>
+                ))
+              )}
             </tbody>
           </table>
         </div>

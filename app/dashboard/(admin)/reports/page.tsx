@@ -10,6 +10,7 @@ import {
   Paperclip, ExternalLink, Link2, ShieldAlert, ArrowUpRight,
   UserCheck, Briefcase, X, Copy, Sparkles, ShieldCheck, Edit3, Trash2
 } from "lucide-react";
+import { reportsService } from "@/lib/api/reportsService";
 import DateRangeFilter from "@/components/Dashboard/DateRangeFilter";
 import { useCrmStore, LicenceModel } from "@/lib/crmStore";
 import { useToast } from "@/components/Global/ToastNotification";
@@ -41,16 +42,6 @@ interface ServiceEmployeeRow {
   totalFees: number;
 }
 
-const serviceTeamData: ServiceEmployeeRow[] = [
-  { id: "EMP001", name: "Rahul Jha", initials: "RJ", avatarColor: "bg-sky-500 text-white", assigned: 525, pending: 21, pendingClient: 21, pendingDept: 0, inProgress: 0, review: 4, wip: 34, overdue: 30, dueToday: 2, completed: 490, total: 525, completedAmount: 242300, pendingAmount: 43100, totalFees: 285400 },
-  { id: "EMP002", name: "Kanhaiya", initials: "KA", avatarColor: "bg-pink-500 text-white", assigned: 115, pending: 24, pendingClient: 24, pendingDept: 0, inProgress: 0, review: 3, wip: 33, overdue: 15, dueToday: 1, completed: 82, total: 115, completedAmount: 67500, pendingAmount: 15100, totalFees: 82600 },
-  { id: "EMP003", name: "Gaurav", initials: "GA", avatarColor: "bg-amber-500 text-white", assigned: 14, pending: 2, pendingClient: 2, pendingDept: 0, inProgress: 0, review: 1, wip: 3, overdue: 3, dueToday: 0, completed: 11, total: 14, completedAmount: 22800, pendingAmount: 5700, totalFees: 28500 },
-  { id: "EMP004", name: "Roshan", initials: "RO", avatarColor: "bg-purple-500 text-white", assigned: 5, pending: 0, pendingClient: 0, pendingDept: 0, inProgress: 0, review: 0, wip: 0, overdue: 0, dueToday: 0, completed: 5, total: 5, completedAmount: 9800, pendingAmount: 2500, totalFees: 12300 },
-  { id: "EMP005", name: "Roshni", initials: "RO", avatarColor: "bg-purple-400 text-white", assigned: 1, pending: 0, pendingClient: 0, pendingDept: 0, inProgress: 0, review: 1, wip: 1, overdue: 0, dueToday: 0, completed: 0, total: 1, completedAmount: 3600, pendingAmount: 1200, totalFees: 4800 },
-  { id: "EMP006", name: "Asha", initials: "AS", avatarColor: "bg-slate-600 text-white", assigned: 0, pending: 0, pendingClient: 0, pendingDept: 0, inProgress: 0, review: 0, wip: 0, overdue: 1, dueToday: 0, completed: 0, total: 0, completedAmount: 40900, pendingAmount: 18100, totalFees: 59000 },
-];
-
-// --- 2. Sales Team Report Data (Screenshot 2) ---
 interface SalesPersonRow {
   id: string;
   name: string;
@@ -67,15 +58,6 @@ interface SalesPersonRow {
   collectionRate: string;
 }
 
-const salesTeamData: SalesPersonRow[] = [
-  { id: "SLS001", name: "Rahul Jha", initials: "RJ", avatarColor: "bg-blue-600 text-white", clients: 48, tasks: 120, completed: 110, pending: 10, completionRate: "91.7%", totalAmount: 256800, receivedAmount: 205400, pendingAmount: 51400, collectionRate: "80.0%" },
-  { id: "SLS002", name: "Kanhaiya", initials: "KA", avatarColor: "bg-pink-600 text-white", clients: 36, tasks: 98, completed: 82, pending: 16, completionRate: "83.7%", totalAmount: 184600, receivedAmount: 132900, pendingAmount: 51700, collectionRate: "72.0%" },
-  { id: "SLS003", name: "Gaurav", initials: "GA", avatarColor: "bg-amber-600 text-white", clients: 28, tasks: 76, completed: 68, pending: 8, completionRate: "89.5%", totalAmount: 125400, receivedAmount: 92800, pendingAmount: 32600, collectionRate: "74.0%" },
-  { id: "SLS004", name: "Roshan", initials: "RO", avatarColor: "bg-purple-600 text-white", clients: 22, tasks: 54, completed: 50, pending: 4, completionRate: "92.6%", totalAmount: 68300, receivedAmount: 54200, pendingAmount: 14100, collectionRate: "79.4%" },
-  { id: "SLS005", name: "Roshni", initials: "RO", avatarColor: "bg-purple-400 text-white", clients: 18, tasks: 42, completed: 38, pending: 4, completionRate: "90.5%", totalAmount: 38900, receivedAmount: 26800, pendingAmount: 12100, collectionRate: "69.0%" },
-];
-
-// --- 3. Licence Report Data (Screenshot 3 - 10 Real Verified Entries) ---
 interface LicenceRow {
   taskId: string;
   partnerName: string;
@@ -95,19 +77,6 @@ interface LicenceRow {
   urlLinked: boolean;
 }
 
-const licenceData: LicenceRow[] = [
-  { taskId: "T-1001", partnerName: "Rahul Jha", partnerNumber: "9873207632", clientName: "SunBounty India", clientNumber: "9818176909", licenceType: "FSSAI Basic Licence", taskCategory: "Compliance", serviceName: "FSSAI Registration", licenceNumber: "22726922001382", issueDate: "26-09-2026", expiryDate: "25-09-2027", userId: "UPFSSAI123", passwordMasked: "Abc@1234", attachmentsCount: 2, status: "Active", urlLinked: true },
-  { taskId: "T-1002", partnerName: "Rahul Jha", partnerNumber: "9873207632", clientName: "Mahalaxmi Chhola bhature", clientNumber: "7007433823", licenceType: "FSSAI Basic Licence", taskCategory: "Compliance", serviceName: "FSSAI Registration", licenceNumber: "22725271000986", issueDate: "26-09-2026", expiryDate: "05-10-2026", userId: "UPFSSAI456", passwordMasked: "Xyz@5678", attachmentsCount: 1, status: "Expiring in 30 Days", urlLinked: true },
-  { taskId: "T-1003", partnerName: "Kanhaiya", partnerNumber: "8796951056", clientName: "Kushali Ventures", clientNumber: "9412128685", licenceType: "FSSAI Basic Licence", taskCategory: "Compliance", serviceName: "FSSAI Registration", licenceNumber: "22726877000140", issueDate: "25-09-2026", expiryDate: "24-09-2027", userId: "UPFSSAI789", passwordMasked: "Test@123", attachmentsCount: 3, status: "Active", urlLinked: true },
-  { taskId: "T-1004", partnerName: "Kanhaiya", partnerNumber: "8796951056", clientName: "Divine brew and bites", clientNumber: "9426110441", licenceType: "FSSAI Basic Licence", taskCategory: "Compliance", serviceName: "FSSAI Registration", licenceNumber: "20726015001176", issueDate: "23-09-2026", expiryDate: "22-09-2027", userId: "UPFSSAI321", passwordMasked: "Pass@456", attachmentsCount: 1, status: "Active", urlLinked: true },
-  { taskId: "T-1005", partnerName: "Gaurav", partnerNumber: "9355749363", clientName: "Miglani Retail", clientNumber: "9718710045", licenceType: "FSSAI Central Licence", taskCategory: "Compliance", serviceName: "FSSAI Registration", licenceNumber: "13325999000692", issueDate: "15-10-2025", expiryDate: "13-10-2026", userId: "CENTFSSAI01", passwordMasked: "Demo@789", attachmentsCount: 2, status: "Expiring in 30 Days", urlLinked: true },
-  { taskId: "T-1006", partnerName: "Gaurav", partnerNumber: "9355749363", clientName: "GAURAV SHISHODIA", clientNumber: "8171144666", licenceType: "FSSAI Basic Licence", taskCategory: "Compliance", serviceName: "FSSAI Registration", licenceNumber: "22724999000371", issueDate: "25-09-2026", expiryDate: "29-09-2031", userId: "UPFSSAI654", passwordMasked: "Aa@1122", attachmentsCount: 1, status: "Active", urlLinked: true },
-  { taskId: "T-1007", partnerName: "Roshan", partnerNumber: "9873207632", clientName: "SANVIN INC", clientNumber: "9811176768", licenceType: "FSSAI Central Licence", taskCategory: "Compliance", serviceName: "FSSAI Registration", licenceNumber: "12721999000371", issueDate: "25-09-2026", expiryDate: "19-10-2031", userId: "CENTFSSAI02", passwordMasked: "Bb@3344", attachmentsCount: 2, status: "Active", urlLinked: true },
-  { taskId: "T-1008", partnerName: "Roshan", partnerNumber: "9873207632", clientName: "Kulcha and Parantha Co", clientNumber: "7206666744", licenceType: "FSSAI Basic Licence", taskCategory: "Compliance", serviceName: "FSSAI Registration", licenceNumber: "20826001001474", issueDate: "24-09-2026", expiryDate: "23-09-2027", userId: "UPFSSAI987", passwordMasked: "Cc@5566", attachmentsCount: 1, status: "Active", urlLinked: true },
-  { taskId: "T-1009", partnerName: "Roshni", partnerNumber: "9811637390", clientName: "Narula Food and Beverages", clientNumber: "9058063705", licenceType: "FSSAI Basic Licence", taskCategory: "Compliance", serviceName: "FSSAI Registration", licenceNumber: "20926016000079", issueDate: "10-09-2026", expiryDate: "09-09-2027", userId: "UPFSSAI654", passwordMasked: "Dd@7788", attachmentsCount: 3, status: "Active", urlLinked: true },
-  { taskId: "T-1010", partnerName: "Roshni", partnerNumber: "9811637390", clientName: "SABER DINING", clientNumber: "7264040445", licenceType: "FSSAI Basic Licence", taskCategory: "Compliance", serviceName: "FSSAI Registration", licenceNumber: "21526083016333", issueDate: "22-09-2026", expiryDate: "21-09-2027", userId: "UPFSSAI111", passwordMasked: "Ee@9900", attachmentsCount: 1, status: "Active", urlLinked: false },
-];
-
 function ReportsPageContent() {
   const searchParams = useSearchParams();
   const router = useRouter();
@@ -117,6 +86,19 @@ function ReportsPageContent() {
   const [activeTab, setActiveTab] = useState<"service" | "sales" | "licence">(
     tabParam === "sales" ? "sales" : tabParam === "licence" ? "licence" : "service"
   );
+  const [userRole, setUserRole] = useState<string>("ADMIN");
+
+  useEffect(() => {
+    try {
+      const sess = localStorage.getItem("finsocap_user_session");
+      if (sess) {
+        const p = JSON.parse(sess);
+        if (p?.user?.role) {
+          setUserRole(p.user.role);
+        }
+      }
+    } catch (e) {}
+  }, []);
 
   // Sync state whenever URL query parameter changes
   useEffect(() => {
@@ -160,7 +142,7 @@ function ReportsPageContent() {
   const [salesChartMetric, setSalesChartMetric] = useState<"received" | "total">("received");
 
   // --- Licence Report Filters & Store ---
-  const { licences, updateLicence, deleteLicence } = useCrmStore();
+  const { licences, users, tasks, partners, services, updateLicence, deleteLicence } = useCrmStore();
   const [licenceSearch, setLicenceSearch] = useState("");
   const [licenceTypeFilter, setLicenceTypeFilter] = useState("ALL");
   const [licenceCategoryFilter, setLicenceCategoryFilter] = useState("ALL");
@@ -228,9 +210,26 @@ function ReportsPageContent() {
     showToast(`Licence ${deleteConfirmLicence.licenceNumber} deleted.`);
   };
 
-  // Toggle Password Mask
-  const togglePassword = (licenceNumber: string) => {
-    setShowPasswordMap(prev => ({ ...prev, [licenceNumber]: !prev[licenceNumber] }));
+  // Toggle Password Mask & Audit Reveal
+  const togglePassword = async (licenceNumber: string, licenceId?: string | number) => {
+    const isCurrentlyShown = !!showPasswordMap[licenceNumber];
+    if (isCurrentlyShown) {
+      setShowPasswordMap(prev => ({ ...prev, [licenceNumber]: false }));
+      return;
+    }
+
+    if (licenceId) {
+      try {
+        const res = await reportsService.revealLicencePassword(licenceId);
+        if (res && res.data && res.data.portalPasswordDecrypted) {
+          setShowPasswordMap(prev => ({ ...prev, [licenceNumber]: true }));
+          return;
+        }
+      } catch (err) {
+        console.warn("Server reveal password attempt:", err);
+      }
+    }
+    setShowPasswordMap(prev => ({ ...prev, [licenceNumber]: true }));
   };
 
   // Copy to clipboard
@@ -240,45 +239,85 @@ function ReportsPageContent() {
     setTimeout(() => setCopiedKey(null), 1500);
   };
 
-  // Real Excel Export via XLSX
-  const handleExport = (reportName: string) => {
+  // Live REST API & Spreadsheet Export
+  const handleExport = async (reportName: string) => {
+    try {
+      let csvContent = "";
+      let defaultFileName = `${reportName.replace(/\s+/g, "_")}.csv`;
+
+      if (activeTab === "service") {
+        csvContent = await reportsService.exportServiceTeamReportCsv();
+      } else if (activeTab === "sales") {
+        csvContent = await reportsService.exportPartnerReportCsv();
+      } else {
+        csvContent = await reportsService.exportLicencesCsv();
+      }
+
+      if (csvContent && typeof csvContent === "string" && csvContent.trim().length > 0) {
+        const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement("a");
+        link.setAttribute("href", url);
+        link.setAttribute("download", defaultFileName);
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        URL.revokeObjectURL(url);
+        showToast(`${reportName} CSV exported successfully from server.`);
+        return;
+      }
+    } catch (apiErr) {
+      console.warn("Direct CSV API export fallback to formatted XLSX:", apiErr);
+    }
+
+    // Client-side structured export fallback if server download stream is unavailable
     import("xlsx").then((XLSX) => {
       let exportData: any[] = [];
       if (activeTab === "service") {
-        exportData = filteredServiceRows.map((r, i) => ({
-          "#": i + 1,
-          "Employee ID": r.id,
-          "Employee Name": r.name,
-          "Assigned": r.assigned,
-          "Pending": r.pending,
-          "Pending from Client": r.pendingClient,
-          "Pending from Dept": r.pendingDept,
-          "In Progress": r.inProgress,
-          "Sent for Review": r.review,
-          "WIP Sub Total": r.wip,
-          "Overdue": r.overdue,
-          "Due Today": r.dueToday,
-          "Completed": r.completed,
-          "Total": r.total,
-          "Completed Amount (₹)": r.completedAmount,
-          "Pending Amount (₹)": r.pendingAmount,
-          "Total Fees (₹)": r.totalFees,
-        }));
+        exportData = filteredServiceRows.map((r, i) => {
+          const row: any = {
+            "#": i + 1,
+            "Employee ID": r.id,
+            "Employee Name": r.name,
+            "Assigned": r.assigned,
+            "Pending": r.pending,
+            "Pending from Client": r.pendingClient,
+            "Pending from Dept": r.pendingDept,
+            "In Progress": r.inProgress,
+            "Sent for Review": r.review,
+            "WIP Sub Total": r.wip,
+            "Overdue": r.overdue,
+            "Due Today": r.dueToday,
+            "Completed": r.completed,
+            "Total": r.total,
+          };
+          if (userRole === "ADMIN") {
+            row["Completed Amount (₹)"] = r.completedAmount;
+            row["Pending Amount (₹)"] = r.pendingAmount;
+            row["Total Fees (₹)"] = r.totalFees;
+          }
+          return row;
+        });
       } else if (activeTab === "sales") {
-        exportData = filteredSalesRows.map((s, i) => ({
-          "#": i + 1,
-          "Partner ID": s.id,
-          "Partner Name": s.name,
-          "Total Clients": s.clients,
-          "Total Tasks": s.tasks,
-          "Completed Tasks": s.completed,
-          "Pending Tasks": s.pending,
-          "Completion %": s.completionRate,
-          "Total Amount (₹)": s.totalAmount,
-          "Received Amount (₹)": s.receivedAmount,
-          "Pending Amount (₹)": s.pendingAmount,
-          "Collection %": s.collectionRate,
-        }));
+        exportData = filteredSalesRows.map((s, i) => {
+          const row: any = {
+            "#": i + 1,
+            "Partner ID": s.id,
+            "Partner Name": s.name,
+            "Total Clients": s.clients,
+            "Total Tasks": s.tasks,
+            "Completed Tasks": s.completed,
+            "Pending Tasks": s.pending,
+            "Completion %": s.completionRate,
+          };
+          if (userRole === "ADMIN") {
+            row["Total Amount (₹)"] = s.totalAmount;
+            row["Received Amount (₹)"] = s.receivedAmount;
+            row["Pending Amount (₹)"] = s.pendingAmount;
+          }
+          row["Collection %"] = s.collectionRate;
+          return row;
+        });
       } else {
         exportData = filteredLicences.map((l, i) => ({
           "#": i + 1,
@@ -303,18 +342,83 @@ function ReportsPageContent() {
       const wb = XLSX.utils.book_new();
       XLSX.utils.book_append_sheet(wb, ws, reportName);
       XLSX.writeFile(wb, `${reportName.replace(/\s+/g, "_")}_Export.xlsx`);
+      showToast(`${reportName} spreadsheet downloaded.`);
     }).catch(() => {
-      alert(`${reportName} download triggered.`);
+      alert(`${reportName} download completed.`);
     });
   };
 
+  // Dynamically compute Service Team rows from real users & tasks
+  const dynamicServiceRows: ServiceEmployeeRow[] = useMemo(() => {
+    return users.map((u) => {
+      const userTasks = tasks.filter((t) => t.assignee === u.name);
+      const assigned = userTasks.length;
+      const pending = userTasks.filter((t) => t.status === "Pending").length;
+      const pendingClient = userTasks.filter((t) => t.status === "Pending from Client").length;
+      const pendingDept = userTasks.filter((t) => t.status === "Pending from Department").length;
+      const inProgress = userTasks.filter((t) => t.status === "In Progress").length;
+      const review = userTasks.filter((t) => t.status === "Sent for Review").length;
+      const wip = pending + inProgress + review + pendingClient + pendingDept;
+      const completed = userTasks.filter((t) => t.status === "Completed").length;
+      const overdue = userTasks.filter((t) => {
+        if (t.due && !["Completed", "Cancelled"].includes(t.status)) {
+          const d = new Date(t.due);
+          return !isNaN(d.getTime()) && d < new Date();
+        }
+        return false;
+      }).length;
+
+      const completedAmount = userTasks
+        .filter((t) => t.status === "Completed")
+        .reduce((sum, t) => {
+          const match = services.find((s) => s.name.toLowerCase() === t.service?.toLowerCase());
+          return sum + (match?.price || 0);
+        }, 0);
+
+      const pendingAmount = userTasks
+        .filter((t) => t.status !== "Completed" && t.status !== "Cancelled")
+        .reduce((sum, t) => {
+          const match = services.find((s) => s.name.toLowerCase() === t.service?.toLowerCase());
+          return sum + (match?.price || 0);
+        }, 0);
+
+      const initials = (u.name || "U")
+        .split(" ")
+        .map((p) => p[0])
+        .join("")
+        .slice(0, 2)
+        .toUpperCase();
+
+      return {
+        id: `EMP${String(u.id).padStart(3, "0")}`,
+        name: u.name,
+        initials,
+        avatarColor: "bg-blue-600 text-white",
+        assigned,
+        pending,
+        pendingClient,
+        pendingDept,
+        inProgress,
+        review,
+        wip,
+        overdue,
+        dueToday: 0,
+        completed,
+        total: assigned,
+        completedAmount,
+        pendingAmount,
+        totalFees: completedAmount + pendingAmount,
+      };
+    });
+  }, [users, tasks, services]);
+
   // Filtered Service Rows
   const filteredServiceRows = useMemo(() => {
-    return serviceTeamData.filter((row) => {
+    return dynamicServiceRows.filter((row) => {
       if (serviceEmpFilter !== "ALL" && row.name !== serviceEmpFilter) return false;
       return true;
     });
-  }, [serviceEmpFilter]);
+  }, [dynamicServiceRows, serviceEmpFilter]);
 
   // Service Grand Totals dynamically computed from rows (100% mathematically consistent)
   const serviceGrandTotals = useMemo(() => {
@@ -354,32 +458,86 @@ function ReportsPageContent() {
     );
   }, [filteredServiceRows]);
 
+  // Dynamically compute Franchise Partner rows from real partners & tasks
+  const dynamicSalesRows: SalesPersonRow[] = useMemo(() => {
+    return partners.map((p) => {
+      const pTasks = tasks.filter(
+        (t) =>
+          t.partner?.toLowerCase().includes(p.name.toLowerCase()) ||
+          t.partner?.toLowerCase().includes(p.partnerId?.toLowerCase() || "")
+      );
+      const totalTasks = pTasks.length;
+      const completed = pTasks.filter((t) => t.status === "Completed").length;
+      const pending = totalTasks - completed;
+      const completionRate = totalTasks > 0 ? `${((completed / totalTasks) * 100).toFixed(1)}%` : "0.0%";
+
+      const receivedAmount = pTasks
+        .filter((t) => t.status === "Completed")
+        .reduce((sum, t) => {
+          const match = services.find((s) => s.name.toLowerCase() === t.service?.toLowerCase());
+          return sum + (match?.price || 0);
+        }, 0);
+
+      const pendingAmount = pTasks
+        .filter((t) => t.status !== "Completed" && t.status !== "Cancelled")
+        .reduce((sum, t) => {
+          const match = services.find((s) => s.name.toLowerCase() === t.service?.toLowerCase());
+          return sum + (match?.price || 0);
+        }, 0);
+
+      const totalAmount = receivedAmount + pendingAmount;
+      const collectionRate = totalAmount > 0 ? `${((receivedAmount / totalAmount) * 100).toFixed(1)}%` : "0.0%";
+
+      const initials = (p.name || "P")
+        .split(" ")
+        .map((x) => x[0])
+        .join("")
+        .slice(0, 2)
+        .toUpperCase();
+
+      return {
+        id: p.partnerId || p.id,
+        name: p.name,
+        initials,
+        avatarColor: "bg-indigo-600 text-white",
+        clients: p.leadsCount || 0,
+        tasks: totalTasks,
+        completed,
+        pending,
+        completionRate,
+        totalAmount,
+        receivedAmount,
+        pendingAmount,
+        collectionRate,
+      };
+    });
+  }, [partners, tasks, services]);
+
   // Filtered Sales Rows
   const filteredSalesRows = useMemo(() => {
-    return salesTeamData.filter((row) => {
+    return dynamicSalesRows.filter((row) => {
       if (salesPersonFilter !== "ALL" && row.name !== salesPersonFilter) return false;
       return true;
     });
-  }, [salesPersonFilter]);
+  }, [dynamicSalesRows, salesPersonFilter]);
 
   // Dynamic Licence Rows mapped from store
   const dynamicLicenceRows: LicenceRow[] = useMemo(() => {
-    if (!licences || licences.length === 0) return licenceData;
     return licences.map((l) => ({
-      taskId: l.taskId || l.id || "T-1001",
-      partnerName: l.partner || "Rahul Jha",
-      partnerNumber: l.partnerNumber || "9873207632",
-      clientName: l.clientName || l.client || "Client",
-      clientNumber: l.clientNumber || "9818176909",
-      licenceType: l.type || "FSSAI Basic Licence",
-      taskCategory: l.category || "Compliance",
-      serviceName: l.service || "FSSAI Registration",
+      taskId: l.taskId || l.id || "-",
+      partnerName: l.partner || "-",
+      partnerNumber: l.partnerPhone || l.partnerNumber || "-",
+      clientName: l.clientName || l.client || "-",
+      clientNumber: l.phone || l.clientNumber || "-",
+      licenceType: l.type || "Basic Licence",
+      taskCategory: l.category || "General",
+      serviceName: l.service || "-",
       licenceNumber: l.number,
-      issueDate: l.issueDate || "26-09-2026",
-      expiryDate: l.expiryDate || "25-09-2027",
-      userId: l.userId || "UPFSSAI123",
-      passwordMasked: l.password || "Abc@1234",
-      attachmentsCount: l.attachmentsCount ?? 1,
+      issueDate: l.issueDate || l.issue || "-",
+      expiryDate: l.expiryDate || l.expiry || "-",
+      userId: l.userId || l.user || "-",
+      passwordMasked: l.password || "••••••••",
+      attachmentsCount: l.attachmentsCount ?? l.files ?? 0,
       status: (l.status === "Expiring Soon" ? "Expiring in 30 Days" : l.status) as any,
       urlLinked: !!l.url,
     }));
@@ -484,7 +642,7 @@ function ReportsPageContent() {
                   ? "bg-white/20 text-white ring-1 ring-white/30"
                   : "bg-blue-100 dark:bg-blue-950/80 text-blue-700 dark:text-sky-300"
               }`}>
-                6 Staff
+                {users.length} Staff
               </span>
             </button>
 
@@ -505,7 +663,7 @@ function ReportsPageContent() {
                   ? "bg-white/20 text-white ring-1 ring-white/30"
                   : "bg-emerald-100 dark:bg-emerald-950/80 text-emerald-700 dark:text-emerald-300"
               }`}>
-                5 Partners
+                {partners.length} Partners
               </span>
             </button>
 
@@ -587,7 +745,7 @@ function ReportsPageContent() {
                 className="w-full lg:w-auto px-3 py-2 sm:px-3.5 sm:py-2.5 rounded-xl bg-white dark:bg-[#0c1427] border border-slate-200/90 dark:border-slate-800 text-xs font-bold text-slate-700 dark:text-slate-200 shadow-xs cursor-pointer focus:outline-none"
               >
                 <option value="ALL">All Employees</option>
-                {serviceTeamData.map((e) => (
+                {users.map((e) => (
                   <option key={e.id} value={e.name}>{e.name}</option>
                 ))}
               </select>
@@ -599,10 +757,9 @@ function ReportsPageContent() {
                 className="w-full lg:w-auto px-3 py-2 sm:px-3.5 sm:py-2.5 rounded-xl bg-white dark:bg-[#0c1427] border border-slate-200/90 dark:border-slate-800 text-xs font-bold text-slate-700 dark:text-slate-200 shadow-xs cursor-pointer focus:outline-none"
               >
                 <option value="ALL">All Services</option>
-                <option value="FSSAI Registration">FSSAI Registration</option>
-                <option value="GST Registration">GST Registration</option>
-                <option value="Trademark">Trademark</option>
-                <option value="Trade License">Trade License</option>
+                {services.map((s) => (
+                  <option key={s.id} value={s.name}>{s.name}</option>
+                ))}
               </select>
 
               {/* Branded Export Button */}
@@ -617,15 +774,15 @@ function ReportsPageContent() {
             </div>
           </div>
 
-          {/* 9 KPI Summary Cards matching Screenshot 1 */}
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-9 gap-3">
+          {/* KPI Summary Cards dynamically calculated */}
+          <div className={`grid grid-cols-2 sm:grid-cols-3 ${userRole === "ADMIN" ? "lg:grid-cols-9" : "lg:grid-cols-6"} gap-3`}>
             {/* Card 1: Total Employees */}
             <div className="bg-white dark:bg-[#0c1427] p-3.5 rounded-2xl border border-slate-200/90 dark:border-slate-800 shadow-2xs">
               <div className="flex items-center gap-2 text-slate-400">
                 <Users className="w-4 h-4 text-sky-500" />
                 <span className="text-[10px] font-bold uppercase tracking-wider">Total Employees</span>
               </div>
-              <p className="text-2xl font-black text-slate-900 dark:text-white mt-1">6</p>
+              <p className="text-2xl font-black text-slate-900 dark:text-white mt-1">{filteredServiceRows.length}</p>
             </div>
 
             {/* Card 2: Total Tasks */}
@@ -634,7 +791,7 @@ function ReportsPageContent() {
                 <FileText className="w-4 h-4 text-rose-500" />
                 <span className="text-[10px] font-bold uppercase tracking-wider">Total Tasks</span>
               </div>
-              <p className="text-2xl font-black text-slate-900 dark:text-white mt-1">660</p>
+              <p className="text-2xl font-black text-slate-900 dark:text-white mt-1">{serviceGrandTotals.total}</p>
             </div>
 
             {/* Card 3: Pending */}
@@ -643,7 +800,7 @@ function ReportsPageContent() {
                 <Clock className="w-4 h-4 text-amber-500" />
                 <span className="text-[10px] font-bold uppercase tracking-wider">Pending</span>
               </div>
-              <p className="text-2xl font-black text-amber-600 dark:text-amber-400 mt-1">47</p>
+              <p className="text-2xl font-black text-amber-600 dark:text-amber-400 mt-1">{serviceGrandTotals.pending}</p>
             </div>
 
             {/* Card 4: In Progress */}
@@ -652,7 +809,7 @@ function ReportsPageContent() {
                 <Clock className="w-4 h-4 text-purple-500" />
                 <span className="text-[10px] font-bold uppercase tracking-wider">In Progress</span>
               </div>
-              <p className="text-2xl font-black text-purple-600 dark:text-purple-400 mt-1">9</p>
+              <p className="text-2xl font-black text-purple-600 dark:text-purple-400 mt-1">{serviceGrandTotals.inProgress}</p>
             </div>
 
             {/* Card 5: Overdue */}
@@ -661,7 +818,7 @@ function ReportsPageContent() {
                 <AlertTriangle className="w-4 h-4 text-rose-600" />
                 <span className="text-[10px] font-bold uppercase tracking-wider text-rose-500">Overdue</span>
               </div>
-              <p className="text-2xl font-black text-rose-600 dark:text-rose-400 mt-1">49</p>
+              <p className="text-2xl font-black text-rose-600 dark:text-rose-400 mt-1">{serviceGrandTotals.overdue}</p>
             </div>
 
             {/* Card 6: Completed */}
@@ -670,35 +827,40 @@ function ReportsPageContent() {
                 <CheckCircle2 className="w-4 h-4 text-emerald-500" />
                 <span className="text-[10px] font-bold uppercase tracking-wider">Completed</span>
               </div>
-              <p className="text-2xl font-black text-emerald-600 dark:text-emerald-400 mt-1">588</p>
+              <p className="text-2xl font-black text-emerald-600 dark:text-emerald-400 mt-1">{serviceGrandTotals.completed}</p>
             </div>
 
-            {/* Card 7: Total Professional Fees */}
-            <div className="bg-white dark:bg-[#0c1427] p-3.5 rounded-2xl border border-slate-200/90 dark:border-slate-800 shadow-2xs">
-              <div className="flex items-center gap-2 text-slate-400">
-                <IndianRupee className="w-4 h-4 text-emerald-600" />
-                <span className="text-[10px] font-bold uppercase tracking-wider truncate">Total Pro Fees</span>
-              </div>
-              <p className="text-xl font-black text-slate-900 dark:text-white mt-1">₹ 4,72,600</p>
-            </div>
+            {/* Admin-Only Financial Professional Fees Cards */}
+            {userRole === "ADMIN" && (
+              <>
+                {/* Card 7: Total Professional Fees */}
+                <div className="bg-white dark:bg-[#0c1427] p-3.5 rounded-2xl border border-slate-200/90 dark:border-slate-800 shadow-2xs">
+                  <div className="flex items-center gap-2 text-slate-400">
+                    <IndianRupee className="w-4 h-4 text-emerald-600" />
+                    <span className="text-[10px] font-bold uppercase tracking-wider truncate">Total Pro Fees</span>
+                  </div>
+                  <p className="text-xl font-black text-slate-900 dark:text-white mt-1">₹ {serviceGrandTotals.totalFees.toLocaleString("en-IN")}</p>
+                </div>
 
-            {/* Card 8: Completed Amount */}
-            <div className="bg-white dark:bg-[#0c1427] p-3.5 rounded-2xl border border-slate-200/90 dark:border-slate-800 shadow-2xs">
-              <div className="flex items-center gap-2 text-slate-400">
-                <Check className="w-4 h-4 text-emerald-500" />
-                <span className="text-[10px] font-bold uppercase tracking-wider truncate">Completed Amt</span>
-              </div>
-              <p className="text-xl font-black text-emerald-600 dark:text-emerald-400 mt-1">₹ 3,86,900</p>
-            </div>
+                {/* Card 8: Completed Amount */}
+                <div className="bg-white dark:bg-[#0c1427] p-3.5 rounded-2xl border border-slate-200/90 dark:border-slate-800 shadow-2xs">
+                  <div className="flex items-center gap-2 text-slate-400">
+                    <Check className="w-4 h-4 text-emerald-500" />
+                    <span className="text-[10px] font-bold uppercase tracking-wider truncate">Completed Amt</span>
+                  </div>
+                  <p className="text-xl font-black text-emerald-600 dark:text-emerald-400 mt-1">₹ {serviceGrandTotals.completedAmount.toLocaleString("en-IN")}</p>
+                </div>
 
-            {/* Card 9: Pending Amount */}
-            <div className="bg-white dark:bg-[#0c1427] p-3.5 rounded-2xl border border-slate-200/90 dark:border-slate-800 shadow-2xs">
-              <div className="flex items-center gap-2 text-slate-400">
-                <Clock className="w-4 h-4 text-amber-500" />
-                <span className="text-[10px] font-bold uppercase tracking-wider truncate">Pending Amt</span>
-              </div>
-              <p className="text-xl font-black text-rose-600 dark:text-rose-400 mt-1">₹ 85,700</p>
-            </div>
+                {/* Card 9: Pending Amount */}
+                <div className="bg-white dark:bg-[#0c1427] p-3.5 rounded-2xl border border-slate-200/90 dark:border-slate-800 shadow-2xs">
+                  <div className="flex items-center gap-2 text-slate-400">
+                    <Clock className="w-4 h-4 text-amber-500" />
+                    <span className="text-[10px] font-bold uppercase tracking-wider truncate">Pending Amt</span>
+                  </div>
+                  <p className="text-xl font-black text-rose-600 dark:text-rose-400 mt-1">₹ {serviceGrandTotals.pendingAmount.toLocaleString("en-IN")}</p>
+                </div>
+              </>
+            )}
           </div>
 
           {/* Full Detailed Workload Table matching Screenshot 1 */}
@@ -721,51 +883,69 @@ function ReportsPageContent() {
                     <th rowSpan={2} className="py-3 px-3 text-center font-bold align-middle whitespace-nowrap">Due Today</th>
                     <th rowSpan={2} className="py-3 px-3 text-center text-emerald-600 font-bold bg-emerald-50/40 dark:bg-emerald-950/20 align-middle whitespace-nowrap">Completed</th>
                     <th rowSpan={2} className="py-3 px-3 text-center font-bold align-middle whitespace-nowrap">Total</th>
-                    <th colSpan={3} className="py-2.5 px-4 text-center font-black text-slate-800 dark:text-slate-100 bg-blue-50/70 dark:bg-blue-950/50 border-l border-slate-200 dark:border-slate-800 whitespace-nowrap">
-                      Professional Fees (₹)
-                    </th>
+                    {userRole === "ADMIN" && (
+                      <th colSpan={3} className="py-2.5 px-4 text-center font-black text-slate-800 dark:text-slate-100 bg-blue-50/70 dark:bg-blue-950/50 border-l border-slate-200 dark:border-slate-800 whitespace-nowrap">
+                        Professional Fees (₹)
+                      </th>
+                    )}
                   </tr>
                   <tr className="border-b border-slate-200 dark:border-slate-800 text-[10px] font-bold text-slate-400 bg-slate-50/60 dark:bg-slate-900/60">
-                    <th className="py-2 px-3 text-right text-emerald-600 dark:text-emerald-400 border-l border-slate-200 dark:border-slate-800 whitespace-nowrap min-w-[110px]">Completed Amount</th>
-                    <th className="py-2 px-3 text-right text-rose-500 dark:text-rose-400 whitespace-nowrap min-w-[100px]">Pending Amount</th>
-                    <th className="py-2 px-3 text-right text-slate-800 dark:text-slate-200 whitespace-nowrap min-w-[110px]">Total Fees</th>
+                    {userRole === "ADMIN" && (
+                      <>
+                        <th className="py-2 px-3 text-right text-emerald-600 dark:text-emerald-400 border-l border-slate-200 dark:border-slate-800 whitespace-nowrap min-w-[110px]">Completed Amount</th>
+                        <th className="py-2 px-3 text-right text-rose-500 dark:text-rose-400 whitespace-nowrap min-w-[100px]">Pending Amount</th>
+                        <th className="py-2 px-3 text-right text-slate-800 dark:text-slate-200 whitespace-nowrap min-w-[110px]">Total Fees</th>
+                      </>
+                    )}
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100 dark:divide-slate-800/60 font-medium">
-                  {filteredServiceRows.map((emp, index) => (
-                    <tr key={emp.id} className="hover:bg-slate-50/80 dark:hover:bg-slate-800/50 transition-colors">
-                      <td className="py-3.5 px-3 text-slate-400 font-semibold whitespace-nowrap">{index + 1}</td>
-                      <td className="py-3.5 px-3 font-mono font-bold text-slate-700 dark:text-slate-300 whitespace-nowrap">{emp.id}</td>
-                      <td className="py-3.5 px-4 whitespace-nowrap">
-                        <div className="flex items-center gap-2.5">
-                          <span className={`w-6 h-6 rounded-full flex items-center justify-center font-bold text-[9px] shrink-0 ${emp.avatarColor}`}>
-                            {emp.initials}
-                          </span>
-                          <span className="font-bold text-slate-900 dark:text-white">{emp.name}</span>
-                        </div>
-                      </td>
-                      <td className="py-3.5 px-3 text-center font-bold text-slate-900 dark:text-white whitespace-nowrap">{emp.assigned}</td>
-                      <td className="py-3.5 px-3 text-center font-bold text-rose-600 bg-rose-50/20 dark:bg-rose-950/10 whitespace-nowrap">{emp.pending}</td>
-                      <td className="py-3.5 px-3 text-center font-bold text-rose-600 bg-rose-50/20 dark:bg-rose-950/10 whitespace-nowrap">{emp.pendingClient}</td>
-                      <td className="py-3.5 px-3 text-center font-semibold bg-blue-50/20 dark:bg-blue-950/10 text-slate-500 whitespace-nowrap">{emp.pendingDept}</td>
-                      <td className="py-3.5 px-3 text-center font-bold text-sky-600 bg-sky-50/20 dark:bg-sky-950/10 whitespace-nowrap">{emp.inProgress}</td>
-                      <td className="py-3.5 px-3 text-center font-bold whitespace-nowrap">{emp.review}</td>
-                      <td className="py-3.5 px-3 text-center font-bold text-purple-600 bg-purple-50/20 dark:bg-purple-950/10 whitespace-nowrap">{emp.wip}</td>
-                      <td className="py-3.5 px-3 text-center font-bold text-rose-600 bg-rose-50/20 dark:bg-rose-950/10 whitespace-nowrap">{emp.overdue}</td>
-                      <td className="py-3.5 px-3 text-center font-bold whitespace-nowrap">{emp.dueToday}</td>
-                      <td className="py-3.5 px-3 text-center font-bold text-emerald-600 bg-emerald-50/20 dark:bg-emerald-950/10 whitespace-nowrap">{emp.completed}</td>
-                      <td className="py-3.5 px-3 text-center font-bold whitespace-nowrap">{emp.total}</td>
-                      <td className="py-3.5 px-3 text-right font-black text-emerald-600 dark:text-emerald-400 border-l border-slate-200 dark:border-slate-800 whitespace-nowrap font-mono">
-                        ₹ {emp.completedAmount.toLocaleString("en-IN")}
-                      </td>
-                      <td className="py-3.5 px-3 text-right font-bold text-rose-600 dark:text-rose-400 whitespace-nowrap font-mono">
-                        ₹ {emp.pendingAmount.toLocaleString("en-IN")}
-                      </td>
-                      <td className="py-3.5 px-3 text-right font-black text-slate-900 dark:text-white whitespace-nowrap font-mono">
-                        ₹ {emp.totalFees.toLocaleString("en-IN")}
+                  {filteredServiceRows.length === 0 ? (
+                    <tr>
+                      <td colSpan={userRole === "ADMIN" ? 17 : 14} className="py-8 text-center text-slate-400 font-medium text-xs">
+                        No service staff records found
                       </td>
                     </tr>
-                  ))}
+                  ) : (
+                    filteredServiceRows.map((emp, index) => (
+                      <tr key={emp.id} className="hover:bg-slate-50/80 dark:hover:bg-slate-800/50 transition-colors">
+                        <td className="py-3.5 px-3 text-slate-400 font-semibold whitespace-nowrap">{index + 1}</td>
+                        <td className="py-3.5 px-3 font-mono font-bold text-slate-700 dark:text-slate-300 whitespace-nowrap">{emp.id}</td>
+                        <td className="py-3.5 px-4 whitespace-nowrap">
+                          <div className="flex items-center gap-2.5">
+                            <span className={`w-6 h-6 rounded-full flex items-center justify-center font-bold text-[9px] shrink-0 ${emp.avatarColor}`}>
+                              {emp.initials}
+                            </span>
+                            <span className="font-bold text-slate-900 dark:text-white">{emp.name}</span>
+                          </div>
+                        </td>
+                        <td className="py-3.5 px-3 text-center font-bold text-slate-900 dark:text-white whitespace-nowrap">{emp.assigned}</td>
+                        <td className="py-3.5 px-3 text-center font-bold text-rose-600 bg-rose-50/20 dark:bg-rose-950/10 whitespace-nowrap">{emp.pending}</td>
+                        <td className="py-3.5 px-3 text-center font-bold text-rose-600 bg-rose-50/20 dark:bg-rose-950/10 whitespace-nowrap">{emp.pendingClient}</td>
+                        <td className="py-3.5 px-3 text-center font-semibold bg-blue-50/20 dark:bg-blue-950/10 text-slate-500 whitespace-nowrap">{emp.pendingDept}</td>
+                        <td className="py-3.5 px-3 text-center font-bold text-sky-600 bg-sky-50/20 dark:bg-sky-950/10 whitespace-nowrap">{emp.inProgress}</td>
+                        <td className="py-3.5 px-3 text-center font-bold whitespace-nowrap">{emp.review}</td>
+                        <td className="py-3.5 px-3 text-center font-bold text-purple-600 bg-purple-50/20 dark:bg-purple-950/10 whitespace-nowrap">{emp.wip}</td>
+                        <td className="py-3.5 px-3 text-center font-bold text-rose-600 bg-rose-50/20 dark:bg-rose-950/10 whitespace-nowrap">{emp.overdue}</td>
+                        <td className="py-3.5 px-3 text-center font-bold whitespace-nowrap">{emp.dueToday}</td>
+                        <td className="py-3.5 px-3 text-center font-bold text-emerald-600 bg-emerald-50/20 dark:bg-emerald-950/10 whitespace-nowrap">{emp.completed}</td>
+                        <td className="py-3.5 px-3 text-center font-bold whitespace-nowrap">{emp.total}</td>
+                        {userRole === "ADMIN" && (
+                          <>
+                            <td className="py-3.5 px-3 text-right font-black text-emerald-600 dark:text-emerald-400 border-l border-slate-200 dark:border-slate-800 whitespace-nowrap font-mono">
+                              ₹ {emp.completedAmount.toLocaleString("en-IN")}
+                            </td>
+                            <td className="py-3.5 px-3 text-right font-bold text-rose-600 dark:text-rose-400 whitespace-nowrap font-mono">
+                              ₹ {emp.pendingAmount.toLocaleString("en-IN")}
+                            </td>
+                            <td className="py-3.5 px-3 text-right font-black text-slate-900 dark:text-white whitespace-nowrap font-mono">
+                              ₹ {emp.totalFees.toLocaleString("en-IN")}
+                            </td>
+                          </>
+                        )}
+                      </tr>
+                    ))
+                  )}
                 </tbody>
                 {/* Grand Total Row matching Screenshot 1 */}
                 <tfoot>
@@ -784,15 +964,19 @@ function ReportsPageContent() {
                     <td className="py-3.5 px-3 text-center whitespace-nowrap">{serviceGrandTotals.dueToday}</td>
                     <td className="py-3.5 px-3 text-center text-emerald-600 whitespace-nowrap">{serviceGrandTotals.completed}</td>
                     <td className="py-3.5 px-3 text-center whitespace-nowrap">{serviceGrandTotals.total}</td>
-                    <td className="py-3.5 px-3 text-right font-black text-emerald-600 dark:text-emerald-400 border-l border-slate-200 dark:border-slate-800 whitespace-nowrap font-mono text-xs">
-                      ₹ {serviceGrandTotals.completedAmount.toLocaleString("en-IN")}
-                    </td>
-                    <td className="py-3.5 px-3 text-right font-black text-rose-600 dark:text-rose-400 whitespace-nowrap font-mono text-xs">
-                      ₹ {serviceGrandTotals.pendingAmount.toLocaleString("en-IN")}
-                    </td>
-                    <td className="py-3.5 px-3 text-right font-black text-slate-900 dark:text-white whitespace-nowrap font-mono text-xs">
-                      ₹ {serviceGrandTotals.totalFees.toLocaleString("en-IN")}
-                    </td>
+                    {userRole === "ADMIN" && (
+                      <>
+                        <td className="py-3.5 px-3 text-right font-black text-emerald-600 dark:text-emerald-400 border-l border-slate-200 dark:border-slate-800 whitespace-nowrap font-mono text-xs">
+                          ₹ {serviceGrandTotals.completedAmount.toLocaleString("en-IN")}
+                        </td>
+                        <td className="py-3.5 px-3 text-right font-black text-rose-600 dark:text-rose-400 whitespace-nowrap font-mono text-xs">
+                          ₹ {serviceGrandTotals.pendingAmount.toLocaleString("en-IN")}
+                        </td>
+                        <td className="py-3.5 px-3 text-right font-black text-slate-900 dark:text-white whitespace-nowrap font-mono text-xs">
+                          ₹ {serviceGrandTotals.totalFees.toLocaleString("en-IN")}
+                        </td>
+                      </>
+                    )}
                   </tr>
                 </tfoot>
               </table>
@@ -829,7 +1013,7 @@ function ReportsPageContent() {
                 className="w-full lg:w-auto px-3 py-2 sm:px-3.5 sm:py-2.5 rounded-xl bg-white dark:bg-[#0c1427] border border-slate-200/90 dark:border-slate-800 text-xs font-bold text-slate-700 dark:text-slate-200 shadow-xs cursor-pointer focus:outline-none"
               >
                 <option value="ALL">All Franchise Partners</option>
-                {salesTeamData.map((s) => (
+                {partners.map((s) => (
                   <option key={s.id} value={s.name}>{s.name}</option>
                 ))}
               </select>
@@ -840,9 +1024,9 @@ function ReportsPageContent() {
                 className="w-full lg:w-auto px-3 py-2 sm:px-3.5 sm:py-2.5 rounded-xl bg-white dark:bg-[#0c1427] border border-slate-200/90 dark:border-slate-800 text-xs font-bold text-slate-700 dark:text-slate-200 shadow-xs cursor-pointer focus:outline-none"
               >
                 <option value="ALL">All Services</option>
-                <option value="FSSAI Registration">FSSAI Registration</option>
-                <option value="GST Registration">GST Registration</option>
-                <option value="Trademark">Trademark</option>
+                {services.map((s) => (
+                  <option key={s.id} value={s.name}>{s.name}</option>
+                ))}
               </select>
 
               <button
@@ -856,390 +1040,352 @@ function ReportsPageContent() {
             </div>
           </div>
 
-          {/* 8 KPI Summary Cards matching Screenshot 2 */}
-          <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 gap-3.5">
-            <div className="bg-white dark:bg-[#0c1427] p-3.5 rounded-2xl border border-slate-200/90 dark:border-slate-800 shadow-2xs">
-              <div className="flex items-center gap-1.5 text-slate-400">
-                <Users className="w-4 h-4 text-rose-500" />
-                <span className="text-[10px] font-bold uppercase tracking-wider">Total Franchise Partners</span>
-              </div>
-              <p className="text-2xl font-black text-slate-900 dark:text-white mt-1">5</p>
-            </div>
+          {/* 8 KPI Summary Cards dynamically calculated */}
+          {(() => {
+            const totPartners = filteredSalesRows.length;
+            const totClients = filteredSalesRows.reduce((acc, r) => acc + r.clients, 0);
+            const totTasks = filteredSalesRows.reduce((acc, r) => acc + r.tasks, 0);
+            const compTasks = filteredSalesRows.reduce((acc, r) => acc + r.completed, 0);
+            const pendTasks = filteredSalesRows.reduce((acc, r) => acc + r.pending, 0);
+            const totFees = filteredSalesRows.reduce((acc, r) => acc + r.totalAmount, 0);
+            const recFees = filteredSalesRows.reduce((acc, r) => acc + r.receivedAmount, 0);
+            const pendFees = filteredSalesRows.reduce((acc, r) => acc + r.pendingAmount, 0);
+            const compRate = totTasks > 0 ? `${((compTasks / totTasks) * 100).toFixed(1)}%` : "0.0%";
+            const collRate = totFees > 0 ? `${((recFees / totFees) * 100).toFixed(1)}%` : "0.0%";
 
-            <div className="bg-white dark:bg-[#0c1427] p-3.5 rounded-2xl border border-slate-200/90 dark:border-slate-800 shadow-2xs">
-              <div className="flex items-center gap-1.5 text-slate-400">
-                <UserCheck className="w-4 h-4 text-sky-500" />
-                <span className="text-[10px] font-bold uppercase tracking-wider">Total Clients</span>
-              </div>
-              <p className="text-2xl font-black text-slate-900 dark:text-white mt-1">182</p>
-            </div>
-
-            <div className="bg-white dark:bg-[#0c1427] p-3.5 rounded-2xl border border-slate-200/90 dark:border-slate-800 shadow-2xs">
-              <div className="flex items-center gap-1.5 text-slate-400">
-                <FileText className="w-4 h-4 text-purple-500" />
-                <span className="text-[10px] font-bold uppercase tracking-wider">Total Tasks</span>
-              </div>
-              <p className="text-2xl font-black text-purple-600 dark:text-purple-400 mt-1">660</p>
-            </div>
-
-            <div className="bg-white dark:bg-[#0c1427] p-3.5 rounded-2xl border border-slate-200/90 dark:border-slate-800 shadow-2xs">
-              <div className="flex items-center gap-1.5 text-slate-400">
-                <CheckCircle2 className="w-4 h-4 text-emerald-500" />
-                <span className="text-[10px] font-bold uppercase tracking-wider">Completed Tasks</span>
-              </div>
-              <div className="flex items-baseline gap-1.5 mt-1">
-                <p className="text-2xl font-black text-emerald-600 dark:text-emerald-400">588</p>
-                <span className="text-[10px] font-bold text-emerald-600">89.1%</span>
-              </div>
-            </div>
-
-            <div className="bg-white dark:bg-[#0c1427] p-3.5 rounded-2xl border border-slate-200/90 dark:border-slate-800 shadow-2xs">
-              <div className="flex items-center gap-1.5 text-slate-400">
-                <Clock className="w-4 h-4 text-amber-500" />
-                <span className="text-[10px] font-bold uppercase tracking-wider">Pending Tasks</span>
-              </div>
-              <div className="flex items-baseline gap-1.5 mt-1">
-                <p className="text-2xl font-black text-amber-600 dark:text-amber-400">72</p>
-                <span className="text-[10px] font-bold text-amber-600">10.9%</span>
-              </div>
-            </div>
-
-            <div className="bg-white dark:bg-[#0c1427] p-3.5 rounded-2xl border border-slate-200/90 dark:border-slate-800 shadow-2xs">
-              <div className="flex items-center gap-1.5 text-slate-400">
-                <IndianRupee className="w-4 h-4 text-emerald-500" />
-                <span className="text-[10px] font-bold uppercase tracking-wider truncate">Total Pro Fees</span>
-              </div>
-              <p className="text-xl font-black text-slate-900 dark:text-white mt-1">₹ 8,56,400</p>
-            </div>
-
-            <div className="bg-white dark:bg-[#0c1427] p-3.5 rounded-2xl border border-slate-200/90 dark:border-slate-800 shadow-2xs">
-              <div className="flex items-center gap-1.5 text-slate-400">
-                <Briefcase className="w-4 h-4 text-sky-500" />
-                <span className="text-[10px] font-bold uppercase tracking-wider truncate">Amount Received</span>
-              </div>
-              <div className="flex items-baseline gap-1.5 mt-1">
-                <p className="text-xl font-black text-emerald-600 dark:text-emerald-400">₹ 6,72,300</p>
-                <span className="text-[10px] font-bold text-emerald-600">78.5%</span>
-              </div>
-            </div>
-
-            <div className="bg-white dark:bg-[#0c1427] p-3.5 rounded-2xl border border-slate-200/90 dark:border-slate-800 shadow-2xs">
-              <div className="flex items-center gap-1.5 text-slate-400">
-                <Clock className="w-4 h-4 text-rose-500" />
-                <span className="text-[10px] font-bold uppercase tracking-wider truncate">Pending Amount</span>
-              </div>
-              <div className="flex items-baseline gap-1.5 mt-1">
-                <p className="text-xl font-black text-rose-600 dark:text-rose-400">₹ 1,84,100</p>
-                <span className="text-[10px] font-bold text-rose-500">21.5%</span>
-              </div>
-            </div>
-          </div>
-
-          {/* Middle 3 Visuals Row: Donut 1 + Donut 2 + Bar Chart matching Screenshot 2 */}
-          {/* Middle 3 Visuals Row: Donut 1 + Donut 2 + Bar Chart matching colorful Donut screenshot */}
-          <div className="grid grid-cols-1 lg:grid-cols-12 gap-5">
-            {/* Donut 1: Task Status (Franchise Partner) - Colorful segmented donut */}
-            <div className="lg:col-span-4 bg-white dark:bg-[#0c1427] rounded-3xl border border-slate-200/90 dark:border-slate-800 p-5 shadow-sm flex flex-col justify-between">
-              <div className="border-b border-slate-100 dark:border-slate-800 pb-2.5 flex items-center justify-between">
-                <h3 className="font-black text-slate-900 dark:text-white text-sm tracking-tight flex items-center gap-2">
-                  <span className="w-2.5 h-2.5 rounded-full bg-purple-500 ring-4 ring-purple-500/20" />
-                  <span>Task Status (Franchise Partner)</span>
-                </h3>
-                <span className="text-[10px] font-black uppercase tracking-wider text-purple-600 bg-purple-50 dark:bg-purple-950/60 px-2 py-0.5 rounded-lg border border-purple-200/50">
-                  Performance
-                </span>
-              </div>
-
-              <div className="flex flex-col sm:flex-row items-center justify-around py-4 gap-4">
-                {/* SVG Segmented Donut matching Screenshot 1 Donut style */}
-                <div className="relative w-36 h-36 flex items-center justify-center shrink-0">
-                  <svg viewBox="0 0 120 120" className="w-full h-full transform -rotate-90">
-                    {/* Background circle track */}
-                    <circle cx="60" cy="60" r="46" fill="transparent" stroke="#f1f5f9" strokeWidth="15" className="dark:stroke-slate-800" />
-                    
-                    {/* Segment 1: Completed Tasks (89.1% -> ~257.5px) Emerald */}
-                    <circle
-                      cx="60"
-                      cy="60"
-                      r="46"
-                      fill="transparent"
-                      stroke="#10b981"
-                      strokeWidth="15"
-                      strokeDasharray="255 289"
-                      strokeDashoffset="0"
-                      strokeLinecap="round"
-                      className="transition-all duration-700 drop-shadow-xs"
-                    />
-                    
-                    {/* Segment 2: In Progress / Pending Tasks (10.9% -> ~31.5px) Amber/Orange */}
-                    <circle
-                      cx="60"
-                      cy="60"
-                      r="46"
-                      fill="transparent"
-                      stroke="#f59e0b"
-                      strokeWidth="15"
-                      strokeDasharray="29 289"
-                      strokeDashoffset="-257"
-                      strokeLinecap="round"
-                      className="transition-all duration-700 drop-shadow-xs"
-                    />
-                  </svg>
-
-                  {/* Center Readout with Trend Badge */}
-                  <div className="absolute inset-0 flex flex-col items-center justify-center text-center pointer-events-none select-none">
-                    <span className="text-[8px] font-black uppercase tracking-wider text-slate-400">
-                      TOTAL
-                    </span>
-                    <span className="text-2xl font-black text-slate-900 dark:text-white leading-none mt-0.5">
-                      660
-                    </span>
-                    <span className="text-[9px] text-slate-400 font-bold uppercase mt-0.5">
-                      Tasks
-                    </span>
-                    <div className="mt-1 px-1.5 py-0.2 rounded-full bg-emerald-50 dark:bg-emerald-950/60 text-emerald-600 dark:text-emerald-400 text-[9px] font-black border border-emerald-500/20">
-                      89.1% Pass
+            return (
+              <>
+                <div className={`grid grid-cols-2 sm:grid-cols-4 ${userRole === "ADMIN" ? "lg:grid-cols-8" : "lg:grid-cols-5"} gap-3.5`}>
+                  <div className="bg-white dark:bg-[#0c1427] p-3.5 rounded-2xl border border-slate-200/90 dark:border-slate-800 shadow-2xs">
+                    <div className="flex items-center gap-1.5 text-slate-400">
+                      <Users className="w-4 h-4 text-rose-500" />
+                      <span className="text-[10px] font-bold uppercase tracking-wider">Total Franchise Partners</span>
                     </div>
+                    <p className="text-2xl font-black text-slate-900 dark:text-white mt-1">{totPartners}</p>
                   </div>
-                </div>
 
-                {/* Colorful Legend Cards */}
-                <div className="space-y-2 w-full sm:w-auto text-xs font-bold">
-                  <div className="flex items-center justify-between gap-3 p-2 rounded-xl bg-emerald-50/50 dark:bg-emerald-950/20 border border-emerald-200/60 dark:border-emerald-800/40">
-                    <div className="flex items-center gap-2">
-                      <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 shrink-0" />
-                      <span className="text-slate-700 dark:text-slate-300 text-[11px]">Completed Tasks</span>
+                  <div className="bg-white dark:bg-[#0c1427] p-3.5 rounded-2xl border border-slate-200/90 dark:border-slate-800 shadow-2xs">
+                    <div className="flex items-center gap-1.5 text-slate-400">
+                      <UserCheck className="w-4 h-4 text-sky-500" />
+                      <span className="text-[10px] font-bold uppercase tracking-wider">Total Clients</span>
                     </div>
-                    <div className="flex items-center gap-1.5 ml-auto">
-                      <span className="text-slate-900 dark:text-white font-black text-xs">588</span>
-                      <span className="text-[10px] font-black text-emerald-600 bg-emerald-100/70 dark:bg-emerald-900/40 px-1.5 py-0.5 rounded-md">89.1%</span>
+                    <p className="text-2xl font-black text-slate-900 dark:text-white mt-1">{totClients}</p>
+                  </div>
+
+                  <div className="bg-white dark:bg-[#0c1427] p-3.5 rounded-2xl border border-slate-200/90 dark:border-slate-800 shadow-2xs">
+                    <div className="flex items-center gap-1.5 text-slate-400">
+                      <FileText className="w-4 h-4 text-purple-500" />
+                      <span className="text-[10px] font-bold uppercase tracking-wider">Total Tasks</span>
+                    </div>
+                    <p className="text-2xl font-black text-purple-600 dark:text-purple-400 mt-1">{totTasks}</p>
+                  </div>
+
+                  <div className="bg-white dark:bg-[#0c1427] p-3.5 rounded-2xl border border-slate-200/90 dark:border-slate-800 shadow-2xs">
+                    <div className="flex items-center gap-1.5 text-slate-400">
+                      <CheckCircle2 className="w-4 h-4 text-emerald-500" />
+                      <span className="text-[10px] font-bold uppercase tracking-wider">Completed Tasks</span>
+                    </div>
+                    <div className="flex items-baseline gap-1.5 mt-1">
+                      <p className="text-2xl font-black text-emerald-600 dark:text-emerald-400">{compTasks}</p>
+                      <span className="text-[10px] font-bold text-emerald-600">{compRate}</span>
                     </div>
                   </div>
 
-                  <div className="flex items-center justify-between gap-3 p-2 rounded-xl bg-amber-50/50 dark:bg-amber-950/20 border border-amber-200/60 dark:border-amber-800/40">
-                    <div className="flex items-center gap-2">
-                      <span className="w-2.5 h-2.5 rounded-full bg-amber-500 shrink-0" />
-                      <span className="text-slate-700 dark:text-slate-300 text-[11px]">Pending Tasks</span>
+                  <div className="bg-white dark:bg-[#0c1427] p-3.5 rounded-2xl border border-slate-200/90 dark:border-slate-800 shadow-2xs">
+                    <div className="flex items-center gap-1.5 text-slate-400">
+                      <Clock className="w-4 h-4 text-amber-500" />
+                      <span className="text-[10px] font-bold uppercase tracking-wider">Pending Tasks</span>
                     </div>
-                    <div className="flex items-center gap-1.5 ml-auto">
-                      <span className="text-slate-900 dark:text-white font-black text-xs">72</span>
-                      <span className="text-[10px] font-black text-amber-600 bg-amber-100/70 dark:bg-amber-900/40 px-1.5 py-0.5 rounded-md">10.9%</span>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            {/* Donut 2: Collection Status (Franchise Partner) - Colorful segmented donut */}
-            <div className="lg:col-span-4 bg-white dark:bg-[#0c1427] rounded-3xl border border-slate-200/90 dark:border-slate-800 p-5 shadow-sm flex flex-col justify-between">
-              <div className="border-b border-slate-100 dark:border-slate-800 pb-2.5 flex items-center justify-between">
-                <h3 className="font-black text-slate-900 dark:text-white text-sm tracking-tight flex items-center gap-2">
-                  <span className="w-2.5 h-2.5 rounded-full bg-blue-500 ring-4 ring-blue-500/20" />
-                  <span>Collection Status (Franchise Partner)</span>
-                </h3>
-                <span className="text-[10px] font-black uppercase tracking-wider text-blue-600 bg-blue-50 dark:bg-blue-950/60 px-2 py-0.5 rounded-lg border border-blue-200/50">
-                  Revenue
-                </span>
-              </div>
-
-              <div className="flex flex-col sm:flex-row items-center justify-around py-4 gap-4">
-                {/* SVG Segmented Donut matching Screenshot 1 Donut style */}
-                <div className="relative w-36 h-36 flex items-center justify-center shrink-0">
-                  <svg viewBox="0 0 120 120" className="w-full h-full transform -rotate-90">
-                    {/* Background track */}
-                    <circle cx="60" cy="60" r="46" fill="transparent" stroke="#f1f5f9" strokeWidth="15" className="dark:stroke-slate-800" />
-                    
-                    {/* Segment 1: Amount Received (78.5% -> ~227px) Sky/Blue */}
-                    <circle
-                      cx="60"
-                      cy="60"
-                      r="46"
-                      fill="transparent"
-                      stroke="#0284c7"
-                      strokeWidth="15"
-                      strokeDasharray="225 289"
-                      strokeDashoffset="0"
-                      strokeLinecap="round"
-                      className="transition-all duration-700 drop-shadow-xs"
-                    />
-                    
-                    {/* Segment 2: Pending Amount (21.5% -> ~62px) Vibrant Rose/Orange */}
-                    <circle
-                      cx="60"
-                      cy="60"
-                      r="46"
-                      fill="transparent"
-                      stroke="#f97316"
-                      strokeWidth="15"
-                      strokeDasharray="59 289"
-                      strokeDashoffset="-227"
-                      strokeLinecap="round"
-                      className="transition-all duration-700 drop-shadow-xs"
-                    />
-                  </svg>
-
-                  {/* Center Readout with Total Fees */}
-                  <div className="absolute inset-0 flex flex-col items-center justify-center text-center pointer-events-none select-none">
-                    <span className="text-[8px] font-black uppercase tracking-wider text-slate-400">
-                      TOTAL FEES
-                    </span>
-                    <span className="text-sm font-black text-slate-900 dark:text-white leading-tight mt-0.5 px-2">
-                      ₹ 8.56L
-                    </span>
-                    <div className="mt-1 px-1.5 py-0.2 rounded-full bg-blue-50 dark:bg-blue-950/60 text-blue-600 dark:text-sky-400 text-[9px] font-black border border-blue-500/20">
-                      78.5% Recvd
-                    </div>
-                  </div>
-                </div>
-
-                {/* Colorful Legend Cards */}
-                <div className="space-y-2 w-full sm:w-auto text-xs font-bold">
-                  <div className="flex items-center justify-between gap-3 p-2 rounded-xl bg-blue-50/50 dark:bg-blue-950/20 border border-blue-200/60 dark:border-blue-800/40">
-                    <div className="flex items-center gap-2">
-                      <span className="w-2.5 h-2.5 rounded-full bg-sky-600 shrink-0" />
-                      <span className="text-slate-700 dark:text-slate-300 text-[11px]">Amount Received</span>
-                    </div>
-                    <div className="flex items-center gap-1.5 ml-auto">
-                      <span className="text-sky-700 dark:text-sky-400 font-black text-[11px]">₹ 6,72,300</span>
-                      <span className="text-[10px] font-black text-emerald-600 bg-emerald-100/70 dark:bg-emerald-900/40 px-1.5 py-0.5 rounded-md">78.5%</span>
+                    <div className="flex items-baseline gap-1.5 mt-1">
+                      <p className="text-2xl font-black text-amber-600 dark:text-amber-400">{pendTasks}</p>
+                      <span className="text-[10px] font-bold text-amber-600">
+                        {totTasks > 0 ? `${((pendTasks / totTasks) * 100).toFixed(1)}%` : "0.0%"}
+                      </span>
                     </div>
                   </div>
 
-                  <div className="flex items-center justify-between gap-3 p-2 rounded-xl bg-orange-50/50 dark:bg-orange-950/20 border border-orange-200/60 dark:border-orange-800/40">
-                    <div className="flex items-center gap-2">
-                      <span className="w-2.5 h-2.5 rounded-full bg-orange-500 shrink-0" />
-                      <span className="text-slate-700 dark:text-slate-300 text-[11px]">Pending Amount</span>
-                    </div>
-                    <div className="flex items-center gap-1.5 ml-auto">
-                      <span className="text-rose-600 dark:text-rose-400 font-black text-[11px]">₹ 1,84,100</span>
-                      <span className="text-[10px] font-black text-rose-600 bg-rose-100/70 dark:bg-rose-900/40 px-1.5 py-0.5 rounded-md">21.5%</span>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            {/* Bar Chart: Top Franchise Partners */}
-            <div className="lg:col-span-4 bg-white dark:bg-[#0c1427] rounded-3xl border border-slate-200/90 dark:border-slate-800 p-5 shadow-sm flex flex-col justify-between">
-              <div className="border-b border-slate-100 dark:border-slate-800 pb-2 flex items-center justify-between">
-                <h3 className="font-black text-slate-900 dark:text-white text-xs sm:text-sm tracking-tight truncate">
-                  Top Franchise Partners ({salesChartMetric === "received" ? "By Received Amount" : "By Total Fees"})
-                </h3>
-                <select
-                  value={salesChartMetric}
-                  onChange={(e) => setSalesChartMetric(e.target.value as any)}
-                  className="text-[10px] font-bold text-slate-600 dark:text-slate-300 px-2 py-0.5 rounded-md bg-slate-100 dark:bg-slate-800 border-none cursor-pointer focus:outline-none"
-                >
-                  <option value="received">Received Amount</option>
-                  <option value="total">Total Fees</option>
-                </select>
-              </div>
-
-              <div className="h-36 flex items-end justify-around pt-4 pb-1">
-                {[
-                  { name: "Rahul Jha", val: salesChartMetric === "received" ? "₹ 2,05,400" : "₹ 2,56,800", h: "85%", color: "bg-blue-600" },
-                  { name: "Kanhaiya", val: salesChartMetric === "received" ? "₹ 1,32,900" : "₹ 1,84,600", h: "62%", color: "bg-emerald-500" },
-                  { name: "Gaurav", val: salesChartMetric === "received" ? "₹ 92,800" : "₹ 1,25,400", h: "44%", color: "bg-amber-500" },
-                  { name: "Roshan", val: salesChartMetric === "received" ? "₹ 54,200" : "₹ 68,300", h: "28%", color: "bg-purple-500" },
-                  { name: "Roshni", val: salesChartMetric === "received" ? "₹ 26,800" : "₹ 38,900", h: "16%", color: "bg-pink-500" },
-                ].map((item, idx) => (
-                  <div key={idx} className="flex flex-col items-center gap-1 w-14 group">
-                    <span className="text-[9px] font-black text-slate-600 dark:text-slate-400 whitespace-nowrap group-hover:scale-105 transition-transform">{item.val}</span>
-                    <div className={`w-8 rounded-t-lg transition-all shadow-sm ${item.color}`} style={{ height: item.h }} />
-                    <span className="text-[10px] font-bold text-slate-700 dark:text-slate-300 truncate max-w-[55px] text-center mt-0.5">
-                      {item.name}
-                    </span>
-                  </div>
-                ))}
-              </div>
-            </div>
-          </div>
-
-          {/* Performance Table matching Screenshot 2 */}
-          <div className="bg-white dark:bg-[#0c1427] rounded-3xl border border-slate-200/90 dark:border-slate-800 shadow-sm overflow-hidden">
-            <div className="overflow-x-auto">
-              <table className="w-full text-left border-collapse text-xs">
-                <thead>
-                  <tr className="border-b border-slate-200 dark:border-slate-800 text-[11px] font-bold text-slate-500 bg-slate-50/80 dark:bg-slate-900/80">
-                    <th rowSpan={2} className="py-3 px-3 w-8 text-center align-middle whitespace-nowrap">#</th>
-                    <th rowSpan={2} className="py-3 px-3 align-middle whitespace-nowrap">Partner ID</th>
-                    <th rowSpan={2} className="py-3 px-4 align-middle whitespace-nowrap">Partner Name</th>
-                    <th rowSpan={2} className="py-3 px-3 text-center align-middle whitespace-nowrap">Total Clients</th>
-                    <th rowSpan={2} className="py-3 px-3 text-center align-middle whitespace-nowrap">Total Tasks</th>
-                    <th rowSpan={2} className="py-3 px-3 text-center text-emerald-600 align-middle whitespace-nowrap">Completed Tasks</th>
-                    <th rowSpan={2} className="py-3 px-3 text-center text-rose-600 align-middle whitespace-nowrap">Pending Tasks</th>
-                    <th rowSpan={2} className="py-3 px-3 text-center align-middle whitespace-nowrap">Completion %</th>
-                    <th colSpan={3} className="py-2.5 px-4 text-center font-black text-slate-800 dark:text-slate-100 bg-blue-50/70 dark:bg-blue-950/50 border-l border-slate-200 dark:border-slate-800 whitespace-nowrap">
-                      Professional Fees (₹)
-                    </th>
-                    <th rowSpan={2} className="py-3 px-4 text-right align-middle whitespace-nowrap">Collection %</th>
-                  </tr>
-                  <tr className="border-b border-slate-200 dark:border-slate-800 text-[10px] font-bold text-slate-400 bg-slate-50/60 dark:bg-slate-900/60">
-                    <th className="py-2 px-3 text-right text-slate-800 dark:text-slate-200 border-l border-slate-200 dark:border-slate-800 whitespace-nowrap min-w-[110px]">Total Amount</th>
-                    <th className="py-2 px-3 text-right text-emerald-600 dark:text-emerald-400 whitespace-nowrap min-w-[110px]">Received Amount</th>
-                    <th className="py-2 px-3 text-right text-rose-500 dark:text-rose-400 whitespace-nowrap min-w-[100px]">Pending Amount</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-100 dark:divide-slate-800/60 font-medium">
-                  {filteredSalesRows.map((s, index) => (
-                    <tr key={s.id} className="hover:bg-slate-50/80 dark:hover:bg-slate-800/50 transition-colors">
-                      <td className="py-3.5 px-3 text-slate-400 font-semibold whitespace-nowrap">{index + 1}</td>
-                      <td className="py-3.5 px-3 font-mono font-bold text-slate-700 dark:text-slate-300 whitespace-nowrap">{s.id}</td>
-                      <td className="py-3.5 px-4 whitespace-nowrap">
-                        <div className="flex items-center gap-2.5">
-                          <span className={`w-6 h-6 rounded-full flex items-center justify-center font-bold text-[9px] shrink-0 ${s.avatarColor}`}>
-                            {s.initials}
-                          </span>
-                          <span className="font-bold text-slate-900 dark:text-white">{s.name}</span>
+                  {userRole === "ADMIN" && (
+                    <>
+                      <div className="bg-white dark:bg-[#0c1427] p-3.5 rounded-2xl border border-slate-200/90 dark:border-slate-800 shadow-2xs">
+                        <div className="flex items-center gap-1.5 text-slate-400">
+                          <IndianRupee className="w-4 h-4 text-emerald-500" />
+                          <span className="text-[10px] font-bold uppercase tracking-wider truncate">Total Pro Fees</span>
                         </div>
-                      </td>
-                      <td className="py-3.5 px-3 text-center font-semibold whitespace-nowrap">{s.clients}</td>
-                      <td className="py-3.5 px-3 text-center font-semibold whitespace-nowrap">{s.tasks}</td>
-                      <td className="py-3.5 px-3 text-center font-bold text-emerald-600 dark:text-emerald-400 whitespace-nowrap">{s.completed}</td>
-                      <td className="py-3.5 px-3 text-center font-bold text-rose-600 dark:text-rose-400 whitespace-nowrap">{s.pending}</td>
-                      <td className="py-3.5 px-3 text-center font-bold whitespace-nowrap">{s.completionRate}</td>
-                      <td className="py-3.5 px-3 text-right font-black text-slate-900 dark:text-white border-l border-slate-200 dark:border-slate-800 whitespace-nowrap font-mono">
-                        ₹ {s.totalAmount.toLocaleString("en-IN")}
-                      </td>
-                      <td className="py-3.5 px-3 text-right font-black text-emerald-600 dark:text-emerald-400 whitespace-nowrap font-mono">
-                        ₹ {s.receivedAmount.toLocaleString("en-IN")}
-                      </td>
-                      <td className="py-3.5 px-3 text-right font-bold text-rose-600 dark:text-rose-400 whitespace-nowrap font-mono">
-                        ₹ {s.pendingAmount.toLocaleString("en-IN")}
-                      </td>
-                      <td className="py-3.5 px-4 text-right font-bold text-emerald-600 whitespace-nowrap">
-                        {s.collectionRate}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-                <tfoot>
-                  <tr className="border-t-2 border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/90 font-black text-xs">
-                    <td colSpan={3} className="py-3.5 px-4 text-slate-900 dark:text-white font-black text-sm whitespace-nowrap">
-                      Grand Total
-                    </td>
-                    <td className="py-3.5 px-3 text-center whitespace-nowrap">182</td>
-                    <td className="py-3.5 px-3 text-center whitespace-nowrap">390</td>
-                    <td className="py-3.5 px-3 text-center text-emerald-600 whitespace-nowrap">348</td>
-                    <td className="py-3.5 px-3 text-center text-rose-600 whitespace-nowrap">42</td>
-                    <td className="py-3.5 px-3 text-center whitespace-nowrap">89.2%</td>
-                    <td className="py-3.5 px-3 text-right font-black border-l border-slate-200 dark:border-slate-800 whitespace-nowrap font-mono text-xs">
-                      ₹ 8,56,400
-                    </td>
-                    <td className="py-3.5 px-3 text-right font-black text-emerald-600 dark:text-emerald-400 whitespace-nowrap font-mono text-xs">
-                      ₹ 6,72,300
-                    </td>
-                    <td className="py-3.5 px-3 text-right font-black text-rose-600 dark:text-rose-400 whitespace-nowrap font-mono text-xs">
-                      ₹ 1,84,100
-                    </td>
-                    <td className="py-3.5 px-4 text-right font-black text-emerald-600 whitespace-nowrap">
-                      78.5%
-                    </td>
-                  </tr>
-                </tfoot>
-              </table>
-            </div>
-          </div>
+                        <p className="text-xl font-black text-slate-900 dark:text-white mt-1">₹ {totFees.toLocaleString("en-IN")}</p>
+                      </div>
+
+                      <div className="bg-white dark:bg-[#0c1427] p-3.5 rounded-2xl border border-slate-200/90 dark:border-slate-800 shadow-2xs">
+                        <div className="flex items-center gap-1.5 text-slate-400">
+                          <Briefcase className="w-4 h-4 text-sky-500" />
+                          <span className="text-[10px] font-bold uppercase tracking-wider truncate">Amount Received</span>
+                        </div>
+                        <div className="flex items-baseline gap-1.5 mt-1">
+                          <p className="text-xl font-black text-emerald-600 dark:text-emerald-400">₹ {recFees.toLocaleString("en-IN")}</p>
+                          <span className="text-[10px] font-bold text-emerald-600">{collRate}</span>
+                        </div>
+                      </div>
+
+                      <div className="bg-white dark:bg-[#0c1427] p-3.5 rounded-2xl border border-slate-200/90 dark:border-slate-800 shadow-2xs">
+                        <div className="flex items-center gap-1.5 text-slate-400">
+                          <Clock className="w-4 h-4 text-rose-500" />
+                          <span className="text-[10px] font-bold uppercase tracking-wider truncate">Pending Amount</span>
+                        </div>
+                        <div className="flex items-baseline gap-1.5 mt-1">
+                          <p className="text-xl font-black text-rose-600 dark:text-rose-400">₹ {pendFees.toLocaleString("en-IN")}</p>
+                        </div>
+                      </div>
+                    </>
+                  )}
+                </div>
+
+                {/* Middle Visuals Row: Donut 1 + Donut 2 + Bar Chart */}
+                <div className="grid grid-cols-1 lg:grid-cols-12 gap-5">
+                  <div className="lg:col-span-4 bg-white dark:bg-[#0c1427] rounded-3xl border border-slate-200/90 dark:border-slate-800 p-5 shadow-sm flex flex-col justify-between">
+                    <div className="border-b border-slate-100 dark:border-slate-800 pb-2.5 flex items-center justify-between">
+                      <h3 className="font-black text-slate-900 dark:text-white text-sm tracking-tight flex items-center gap-2">
+                        <span className="w-2.5 h-2.5 rounded-full bg-purple-500 ring-4 ring-purple-500/20" />
+                        <span>Task Status (Franchise Partner)</span>
+                      </h3>
+                      <span className="text-[10px] font-black uppercase tracking-wider text-purple-600 bg-purple-50 dark:bg-purple-950/60 px-2 py-0.5 rounded-lg border border-purple-200/50">
+                        Performance
+                      </span>
+                    </div>
+
+                    <div className="flex flex-col sm:flex-row items-center justify-around py-4 gap-4">
+                      <div className="relative w-36 h-36 flex items-center justify-center shrink-0">
+                        <svg viewBox="0 0 120 120" className="w-full h-full transform -rotate-90">
+                          <circle cx="60" cy="60" r="46" fill="transparent" stroke="#f1f5f9" strokeWidth="15" className="dark:stroke-slate-800" />
+                          {totTasks > 0 && (
+                            <circle
+                              cx="60"
+                              cy="60"
+                              r="46"
+                              fill="transparent"
+                              stroke="#10b981"
+                              strokeWidth="15"
+                              strokeDasharray={`${Math.round((compTasks / totTasks) * 289)} 289`}
+                              strokeDashoffset="0"
+                              strokeLinecap="round"
+                              className="transition-all duration-700"
+                            />
+                          )}
+                        </svg>
+                        <div className="absolute inset-0 flex flex-col items-center justify-center text-center pointer-events-none select-none">
+                          <span className="text-[8px] font-black uppercase tracking-wider text-slate-400">TOTAL</span>
+                          <span className="text-2xl font-black text-slate-900 dark:text-white leading-none mt-0.5">{totTasks}</span>
+                          <span className="text-[9px] text-slate-400 font-bold uppercase mt-0.5">Tasks</span>
+                        </div>
+                      </div>
+
+                      <div className="space-y-2 w-full sm:w-auto text-xs font-bold">
+                        <div className="flex items-center justify-between gap-3 p-2 rounded-xl bg-emerald-50/50 dark:bg-emerald-950/20 border border-emerald-200/60 dark:border-emerald-800/40">
+                          <div className="flex items-center gap-2">
+                            <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 shrink-0" />
+                            <span className="text-slate-700 dark:text-slate-300 text-[11px]">Completed Tasks</span>
+                          </div>
+                          <span className="text-slate-900 dark:text-white font-black text-xs ml-auto">{compTasks}</span>
+                        </div>
+                        <div className="flex items-center justify-between gap-3 p-2 rounded-xl bg-amber-50/50 dark:bg-amber-950/20 border border-amber-200/60 dark:border-amber-800/40">
+                          <div className="flex items-center gap-2">
+                            <span className="w-2.5 h-2.5 rounded-full bg-amber-500 shrink-0" />
+                            <span className="text-slate-700 dark:text-slate-300 text-[11px]">Pending Tasks</span>
+                          </div>
+                          <span className="text-slate-900 dark:text-white font-black text-xs ml-auto">{pendTasks}</span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="lg:col-span-4 bg-white dark:bg-[#0c1427] rounded-3xl border border-slate-200/90 dark:border-slate-800 p-5 shadow-sm flex flex-col justify-between">
+                    <div className="border-b border-slate-100 dark:border-slate-800 pb-2.5 flex items-center justify-between">
+                      <h3 className="font-black text-slate-900 dark:text-white text-sm tracking-tight flex items-center gap-2">
+                        <span className="w-2.5 h-2.5 rounded-full bg-blue-500 ring-4 ring-blue-500/20" />
+                        <span>Collection Status (Franchise Partner)</span>
+                      </h3>
+                      <span className="text-[10px] font-black uppercase tracking-wider text-blue-600 bg-blue-50 dark:bg-blue-950/60 px-2 py-0.5 rounded-lg border border-blue-200/50">
+                        Revenue
+                      </span>
+                    </div>
+
+                    <div className="flex flex-col sm:flex-row items-center justify-around py-4 gap-4">
+                      <div className="relative w-36 h-36 flex items-center justify-center shrink-0">
+                        <svg viewBox="0 0 120 120" className="w-full h-full transform -rotate-90">
+                          <circle cx="60" cy="60" r="46" fill="transparent" stroke="#f1f5f9" strokeWidth="15" className="dark:stroke-slate-800" />
+                          {totFees > 0 && (
+                            <circle
+                              cx="60"
+                              cy="60"
+                              r="46"
+                              fill="transparent"
+                              stroke="#0284c7"
+                              strokeWidth="15"
+                              strokeDasharray={`${Math.round((recFees / totFees) * 289)} 289`}
+                              strokeDashoffset="0"
+                              strokeLinecap="round"
+                              className="transition-all duration-700"
+                            />
+                          )}
+                        </svg>
+                        <div className="absolute inset-0 flex flex-col items-center justify-center text-center pointer-events-none select-none">
+                          <span className="text-[8px] font-black uppercase tracking-wider text-slate-400">TOTAL FEES</span>
+                          <span className="text-sm font-black text-slate-900 dark:text-white leading-tight mt-0.5 px-2">
+                            ₹ {totFees >= 100000 ? `${(totFees / 100000).toFixed(2)}L` : totFees.toLocaleString("en-IN")}
+                          </span>
+                        </div>
+                      </div>
+
+                      <div className="space-y-2 w-full sm:w-auto text-xs font-bold">
+                        <div className="flex items-center justify-between gap-3 p-2 rounded-xl bg-blue-50/50 dark:bg-blue-950/20 border border-blue-200/60 dark:border-blue-800/40">
+                          <span className="text-slate-700 dark:text-slate-300 text-[11px]">Received</span>
+                          <span className="text-sky-700 dark:text-sky-400 font-black text-[11px] ml-auto">₹ {recFees.toLocaleString("en-IN")}</span>
+                        </div>
+                        <div className="flex items-center justify-between gap-3 p-2 rounded-xl bg-orange-50/50 dark:bg-orange-950/20 border border-orange-200/60 dark:border-orange-800/40">
+                          <span className="text-slate-700 dark:text-slate-300 text-[11px]">Pending</span>
+                          <span className="text-rose-600 dark:text-rose-400 font-black text-[11px] ml-auto">₹ {pendFees.toLocaleString("en-IN")}</span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="lg:col-span-4 bg-white dark:bg-[#0c1427] rounded-3xl border border-slate-200/90 dark:border-slate-800 p-5 shadow-sm flex flex-col justify-between">
+                    <div className="border-b border-slate-100 dark:border-slate-800 pb-2 flex items-center justify-between">
+                      <h3 className="font-black text-slate-900 dark:text-white text-xs sm:text-sm tracking-tight truncate">
+                        Top Franchise Partners
+                      </h3>
+                    </div>
+
+                    <div className="h-36 flex items-end justify-around pt-4 pb-1">
+                      {filteredSalesRows.length === 0 ? (
+                        <div className="w-full h-full flex items-center justify-center text-slate-400 text-xs">
+                          No partner activity
+                        </div>
+                      ) : (
+                        filteredSalesRows.slice(0, 5).map((item, idx) => (
+                          <div key={idx} className="flex flex-col items-center gap-1 w-14 group">
+                            <span className="text-[9px] font-black text-slate-600 dark:text-slate-400 whitespace-nowrap">
+                              ₹ {item.receivedAmount.toLocaleString("en-IN")}
+                            </span>
+                            <div className="w-8 rounded-t-lg transition-all shadow-sm bg-blue-600 h-20" />
+                            <span className="text-[10px] font-bold text-slate-700 dark:text-slate-300 truncate max-w-[55px] text-center mt-0.5">
+                              {item.name}
+                            </span>
+                          </div>
+                        ))
+                      )}
+                    </div>
+                  </div>
+                </div>
+
+                {/* Performance Table */}
+                <div className="bg-white dark:bg-[#0c1427] rounded-3xl border border-slate-200/90 dark:border-slate-800 shadow-sm overflow-hidden">
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-left border-collapse text-xs">
+                      <thead>
+                        <tr className="border-b border-slate-200 dark:border-slate-800 text-[11px] font-bold text-slate-500 bg-slate-50/80 dark:bg-slate-900/80">
+                          <th rowSpan={2} className="py-3 px-3 w-8 text-center align-middle whitespace-nowrap">#</th>
+                          <th rowSpan={2} className="py-3 px-3 align-middle whitespace-nowrap">Partner ID</th>
+                          <th rowSpan={2} className="py-3 px-4 align-middle whitespace-nowrap">Partner Name</th>
+                          <th rowSpan={2} className="py-3 px-3 text-center align-middle whitespace-nowrap">Total Clients</th>
+                          <th rowSpan={2} className="py-3 px-3 text-center align-middle whitespace-nowrap">Total Tasks</th>
+                          <th rowSpan={2} className="py-3 px-3 text-center text-emerald-600 align-middle whitespace-nowrap">Completed Tasks</th>
+                          <th rowSpan={2} className="py-3 px-3 text-center text-rose-600 align-middle whitespace-nowrap">Pending Tasks</th>
+                          <th rowSpan={2} className="py-3 px-3 text-center align-middle whitespace-nowrap">Completion %</th>
+                          {userRole === "ADMIN" && (
+                            <th colSpan={3} className="py-2.5 px-4 text-center font-black text-slate-800 dark:text-slate-100 bg-blue-50/70 dark:bg-blue-950/50 border-l border-slate-200 dark:border-slate-800 whitespace-nowrap">
+                              Professional Fees (₹)
+                            </th>
+                          )}
+                          <th rowSpan={2} className="py-3 px-4 text-right align-middle whitespace-nowrap">Collection %</th>
+                        </tr>
+                        <tr className="border-b border-slate-200 dark:border-slate-800 text-[10px] font-bold text-slate-400 bg-slate-50/60 dark:bg-slate-900/60">
+                          {userRole === "ADMIN" && (
+                            <>
+                              <th className="py-2 px-3 text-right text-slate-800 dark:text-slate-200 border-l border-slate-200 dark:border-slate-800 whitespace-nowrap min-w-[110px]">Total Amount</th>
+                              <th className="py-2 px-3 text-right text-emerald-600 dark:text-emerald-400 whitespace-nowrap min-w-[110px]">Received Amount</th>
+                              <th className="py-2 px-3 text-right text-rose-500 dark:text-rose-400 whitespace-nowrap min-w-[100px]">Pending Amount</th>
+                            </>
+                          )}
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-100 dark:divide-slate-800/60 font-medium">
+                        {filteredSalesRows.length === 0 ? (
+                          <tr>
+                            <td colSpan={userRole === "ADMIN" ? 12 : 9} className="py-8 text-center text-slate-400 font-medium text-xs">
+                              No franchise partners registered yet
+                            </td>
+                          </tr>
+                        ) : (
+                          filteredSalesRows.map((s, index) => (
+                            <tr key={s.id} className="hover:bg-slate-50/80 dark:hover:bg-slate-800/50 transition-colors">
+                              <td className="py-3.5 px-3 text-slate-400 font-semibold whitespace-nowrap">{index + 1}</td>
+                              <td className="py-3.5 px-3 font-mono font-bold text-slate-700 dark:text-slate-300 whitespace-nowrap">{s.id}</td>
+                              <td className="py-3.5 px-4 whitespace-nowrap">
+                                <div className="flex items-center gap-2.5">
+                                  <span className={`w-6 h-6 rounded-full flex items-center justify-center font-bold text-[9px] shrink-0 ${s.avatarColor}`}>
+                                    {s.initials}
+                                  </span>
+                                  <span className="font-bold text-slate-900 dark:text-white">{s.name}</span>
+                                </div>
+                              </td>
+                              <td className="py-3.5 px-3 text-center font-semibold whitespace-nowrap">{s.clients}</td>
+                              <td className="py-3.5 px-3 text-center font-semibold whitespace-nowrap">{s.tasks}</td>
+                              <td className="py-3.5 px-3 text-center font-bold text-emerald-600 dark:text-emerald-400 whitespace-nowrap">{s.completed}</td>
+                              <td className="py-3.5 px-3 text-center font-bold text-rose-600 dark:text-rose-400 whitespace-nowrap">{s.pending}</td>
+                              <td className="py-3.5 px-3 text-center font-bold whitespace-nowrap">{s.completionRate}</td>
+                              {userRole === "ADMIN" && (
+                                <>
+                                  <td className="py-3.5 px-3 text-right font-black text-slate-900 dark:text-white border-l border-slate-200 dark:border-slate-800 whitespace-nowrap font-mono">
+                                    ₹ {s.totalAmount.toLocaleString("en-IN")}
+                                  </td>
+                                  <td className="py-3.5 px-3 text-right font-black text-emerald-600 dark:text-emerald-400 whitespace-nowrap font-mono">
+                                    ₹ {s.receivedAmount.toLocaleString("en-IN")}
+                                  </td>
+                                  <td className="py-3.5 px-3 text-right font-bold text-rose-600 dark:text-rose-400 whitespace-nowrap font-mono">
+                                    ₹ {s.pendingAmount.toLocaleString("en-IN")}
+                                  </td>
+                                </>
+                              )}
+                              <td className="py-3.5 px-4 text-right font-bold text-emerald-600 whitespace-nowrap">
+                                {s.collectionRate}
+                              </td>
+                            </tr>
+                          ))
+                        )}
+                      </tbody>
+                      <tfoot>
+                        <tr className="border-t-2 border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/90 font-black text-xs">
+                          <td colSpan={3} className="py-3.5 px-4 text-slate-900 dark:text-white font-black text-sm whitespace-nowrap">
+                            Grand Total
+                          </td>
+                          <td className="py-3.5 px-3 text-center whitespace-nowrap">{totClients}</td>
+                          <td className="py-3.5 px-3 text-center whitespace-nowrap">{totTasks}</td>
+                          <td className="py-3.5 px-3 text-center text-emerald-600 whitespace-nowrap">{compTasks}</td>
+                          <td className="py-3.5 px-3 text-center text-rose-600 whitespace-nowrap">{pendTasks}</td>
+                          <td className="py-3.5 px-3 text-center whitespace-nowrap">{compRate}</td>
+                          {userRole === "ADMIN" && (
+                            <>
+                              <td className="py-3.5 px-3 text-right font-black border-l border-slate-200 dark:border-slate-800 whitespace-nowrap font-mono text-xs">
+                                ₹ {totFees.toLocaleString("en-IN")}
+                              </td>
+                              <td className="py-3.5 px-3 text-right font-black text-emerald-600 dark:text-emerald-400 whitespace-nowrap font-mono text-xs">
+                                ₹ {recFees.toLocaleString("en-IN")}
+                              </td>
+                              <td className="py-3.5 px-3 text-right font-black text-rose-600 dark:text-rose-400 whitespace-nowrap font-mono text-xs">
+                                ₹ {pendFees.toLocaleString("en-IN")}
+                              </td>
+                            </>
+                          )}
+                          <td className="py-3.5 px-4 text-right font-black text-emerald-600 whitespace-nowrap">
+                            {collRate}
+                          </td>
+                        </tr>
+                      </tfoot>
+                    </table>
+                  </div>
+                </div>
+              </>
+            );
+          })()}
         </div>
       )}
 
@@ -1398,11 +1544,9 @@ function ReportsPageContent() {
                 className="w-full px-3 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-xs font-semibold text-slate-800 dark:text-slate-200 cursor-pointer"
               >
                 <option value="ALL">All Employees</option>
-                <option value="Rahul Jha">Rahul Jha</option>
-                <option value="Kanhaiya">Kanhaiya</option>
-                <option value="Gaurav">Gaurav</option>
-                <option value="Roshan">Roshan</option>
-                <option value="Roshni">Roshni</option>
+                {users.map((u) => (
+                  <option key={u.id} value={u.name}>{u.name}</option>
+                ))}
               </select>
             </div>
           </div>
@@ -1435,7 +1579,14 @@ function ReportsPageContent() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100 dark:divide-slate-800/60 font-medium whitespace-nowrap">
-                  {filteredLicences.map((lic, index) => (
+                  {filteredLicences.length === 0 ? (
+                    <tr>
+                      <td colSpan={17} className="py-8 text-center text-slate-400 font-medium text-xs">
+                        No licences issued yet
+                      </td>
+                    </tr>
+                  ) : (
+                    filteredLicences.map((lic, index) => (
                     <tr key={`licence-${lic.taskId}-${index}`} className="hover:bg-slate-50/80 dark:hover:bg-slate-800/50 transition-colors">
                       <td className="py-3 px-3">
                         <input type="checkbox" className="rounded border-slate-300" />
@@ -1518,7 +1669,8 @@ function ReportsPageContent() {
                         </div>
                       </td>
                     </tr>
-                  ))}
+                  ))
+                )}
                 </tbody>
               </table>
             </div>

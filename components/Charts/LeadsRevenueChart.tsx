@@ -3,50 +3,14 @@
 import { useState, useMemo } from "react";
 import { IndianRupee, Users, ChevronDown, Check } from "lucide-react";
 
+import { useCrmStore } from "@/lib/crmStore";
+
 interface DailyPoint {
   day: number;
   dateStr: string;
   leads: number;
   revenue: number;
 }
-
-const baseMonthData: DailyPoint[] = [
-  { day: 1, dateStr: "01 Sep 2026", leads: 34, revenue: 48000 },
-  { day: 3, dateStr: "03 Sep 2026", leads: 52, revenue: 72000 },
-  { day: 5, dateStr: "05 Sep 2026", leads: 46, revenue: 64000 },
-  { day: 7, dateStr: "07 Sep 2026", leads: 60, revenue: 84000 },
-  { day: 9, dateStr: "09 Sep 2026", leads: 68, revenue: 98000 },
-  { day: 11, dateStr: "11 Sep 2026", leads: 62, revenue: 89000 },
-  { day: 13, dateStr: "13 Sep 2026", leads: 76, revenue: 112000 },
-  { day: 15, dateStr: "15 Sep 2026", leads: 58, revenue: 85000 },
-  { day: 17, dateStr: "17 Sep 2026", leads: 74, revenue: 119000 },
-  { day: 19, dateStr: "19 Sep 2026", leads: 70, revenue: 106000 },
-  { day: 21, dateStr: "21 Sep 2026", leads: 82, revenue: 134000 },
-  { day: 23, dateStr: "23 Sep 2026", leads: 88, revenue: 148000 },
-  { day: 25, dateStr: "25 Sep 2026", leads: 84, revenue: 152000 },
-  { day: 27, dateStr: "27 Sep 2026", leads: 95, revenue: 178000 },
-  { day: 29, dateStr: "29 Sep 2026", leads: 98, revenue: 195000 },
-  { day: 30, dateStr: "30 Sep 2026", leads: 94, revenue: 188000 },
-];
-
-const last7DaysData: DailyPoint[] = [
-  { day: 24, dateStr: "24 Sep 2026", leads: 78, revenue: 142000 },
-  { day: 25, dateStr: "25 Sep 2026", leads: 84, revenue: 152000 },
-  { day: 26, dateStr: "26 Sep 2026", leads: 89, revenue: 164000 },
-  { day: 27, dateStr: "27 Sep 2026", leads: 95, revenue: 178000 },
-  { day: 28, dateStr: "28 Sep 2026", leads: 91, revenue: 172000 },
-  { day: 29, dateStr: "29 Sep 2026", leads: 98, revenue: 195000 },
-  { day: 30, dateStr: "30 Sep 2026", leads: 94, revenue: 188000 },
-];
-
-const todayHoursData: DailyPoint[] = [
-  { day: 1, dateStr: "09:00 AM", leads: 4, revenue: 8000 },
-  { day: 2, dateStr: "11:00 AM", leads: 12, revenue: 24000 },
-  { day: 3, dateStr: "01:00 PM", leads: 19, revenue: 38000 },
-  { day: 4, dateStr: "03:00 PM", leads: 28, revenue: 56000 },
-  { day: 5, dateStr: "05:00 PM", leads: 38, revenue: 76000 },
-  { day: 6, dateStr: "07:00 PM", leads: 42, revenue: 84000 },
-];
 
 interface LeadsRevenueChartProps {
   selectedBranch?: string;
@@ -61,52 +25,34 @@ export default function LeadsRevenueChart({
   const [isRangeOpen, setIsRangeOpen] = useState(false);
   const [hoveredPoint, setHoveredPoint] = useState<DailyPoint | null>(null);
 
-  // Compute branch multiplier
-  const branchMultiplier = useMemo(() => {
-    switch (selectedBranch) {
-      case "Delhi HQ":
-        return 0.41;
-      case "Mumbai Regional":
-        return 0.25;
-      case "Noida Branch":
-        return 0.18;
-      case "Bengaluru Tech Hub":
-        return 0.11;
-      case "Kolkata Hub":
-        return 0.07;
-      default:
-        return 1.0;
-    }
-  }, [selectedBranch]);
+  const { tasks, services, manualClients } = useCrmStore();
 
-  // Choose dataset based on global dateRange or internal activeRange
-  const activeDataset = useMemo(() => {
-    let sourceData = baseMonthData;
-    if (dateRange.includes("Today") || dateRange.includes("Yesterday")) {
-      sourceData = todayHoursData;
-    } else if (dateRange.includes("Last 7 Days")) {
-      sourceData = last7DaysData;
-    } else if (activeRange === "Last Month" || dateRange.includes("Aug")) {
-      sourceData = baseMonthData.map((d) => ({
-        ...d,
-        dateStr: d.dateStr.replace("Sep", "Aug"),
-        leads: Math.round(d.leads * 0.88),
-        revenue: Math.round(d.revenue * 0.85),
-      }));
-    } else if (activeRange === "This Quarter") {
-      sourceData = baseMonthData.map((d) => ({
-        ...d,
-        leads: Math.round(d.leads * 1.15),
-        revenue: Math.round(d.revenue * 1.2),
+  const activeDataset: DailyPoint[] = useMemo(() => {
+    // If no real tasks or clients exist, return flat 0 points
+    const days = [1, 5, 10, 15, 20, 25, 30];
+    const totalLeads = manualClients.length + tasks.length;
+    const completedTasks = tasks.filter(t => t.status === "Completed");
+    const totalRev = completedTasks.reduce((acc, t) => {
+      const match = services.find(s => s.name.toLowerCase() === t.service?.toLowerCase());
+      return acc + (match?.price || 0);
+    }, 0);
+
+    if (totalLeads === 0 && totalRev === 0) {
+      return days.map(d => ({
+        day: d,
+        dateStr: `${d < 10 ? "0" + d : d} Sep`,
+        leads: 0,
+        revenue: 0,
       }));
     }
 
-    return sourceData.map((pt) => ({
-      ...pt,
-      leads: Math.max(1, Math.round(pt.leads * branchMultiplier)),
-      revenue: Math.max(500, Math.round(pt.revenue * branchMultiplier)),
+    return days.map((d, i) => ({
+      day: d,
+      dateStr: `${d < 10 ? "0" + d : d} Sep`,
+      leads: Math.round(totalLeads / days.length),
+      revenue: Math.round(totalRev / days.length),
     }));
-  }, [dateRange, activeRange, branchMultiplier]);
+  }, [tasks, services, manualClients]);
 
   const svgWidth = 560;
   const svgHeight = 185;

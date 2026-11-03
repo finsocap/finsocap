@@ -111,6 +111,20 @@ export default function Topbar({ user }: { user?: any }) {
                  !n.id.startsWith("notif-4")
           );
 
+          // Role-based notification filtering:
+          // If the logged in user is not ADMIN (e.g. Staff/Specialist), do not show admin-only events
+          // such as "New Task Awaiting Assignment", "Verified Franchise Partner", or "Client Registered"
+          if (userRole !== "ADMIN") {
+            serverNotifs = serverNotifs.filter(n => {
+              const titleLower = (n.title || "").toLowerCase();
+              const actionLower = (n.actionUrl || "").toLowerCase();
+              if (titleLower.includes("awaiting assignment") || actionLower.includes("/dashboard/allocation")) return false;
+              if (titleLower.includes("franchise partner") || actionLower.includes("/dashboard/partners")) return false;
+              if (titleLower.includes("client registered") || actionLower.includes("/dashboard/clients")) return false;
+              return true;
+            });
+          }
+
           if (prevNotifIdsRef.current !== null) {
             const hasNewUnread = serverNotifs.some(n => !n.isRead && !prevNotifIdsRef.current?.has(n.id));
             if (hasNewUnread) {
@@ -122,7 +136,7 @@ export default function Topbar({ user }: { user?: any }) {
           setNotifications(serverNotifs);
         }
       } catch (err) {
-        console.error("Failed to load notifications:", err);
+        // Optional notifications endpoint not present, keep local notifications
       }
     };
 
@@ -248,9 +262,24 @@ export default function Topbar({ user }: { user?: any }) {
     }
   };
 
-  const userName = user?.name || "Ankit Sharma";
-  const userRole = (user as any)?.role || "Admin";
-  const userEmail = user?.email || "ankit@finsocap.com";
+  // Read live session from localStorage so logged-in Staff name and role are reflected
+  const [currentUser, setCurrentUser] = useState<any>(user || null);
+
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem("finsocap_user_session");
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (parsed?.user) {
+          setCurrentUser(parsed.user);
+        }
+      }
+    } catch (e) {}
+  }, []);
+
+  const userName = currentUser?.name || user?.name || "Admin";
+  const userRole = currentUser?.role || (user as any)?.role || "ADMIN";
+  const userEmail = currentUser?.email || user?.email || "admin@finsocap.com";
 
   return (
     <header className="h-[74px] bg-white/80 backdrop-blur-xl border-b border-slate-200/80 flex items-center justify-between px-3.5 sm:px-6 lg:px-8 sticky top-0 z-30 transition-colors">
@@ -408,7 +437,19 @@ export default function Topbar({ user }: { user?: any }) {
                       onClick={() => {
                         markAsRead(notif.id);
                         setIsNotifOpen(false);
-                        router.push(notif.actionUrl);
+                        let targetUrl = notif.actionUrl || "/dashboard";
+                        // If non-admin user clicks a notification targeting admin-only areas, gracefully route to their tasks
+                        if (userRole !== "ADMIN") {
+                          if (
+                            targetUrl.includes("/dashboard/allocation") ||
+                            targetUrl.includes("/dashboard/partners") ||
+                            targetUrl.includes("/dashboard/team") ||
+                            targetUrl.includes("/dashboard/clients")
+                          ) {
+                            targetUrl = "/dashboard/tasks";
+                          }
+                        }
+                        router.push(targetUrl);
                       }}
                       className={`p-3.5 flex items-start gap-3 hover:bg-slate-50 dark:hover:bg-slate-800/50 cursor-pointer transition-colors relative group ${
                         !notif.isRead ? "bg-blue-50/30 dark:bg-blue-950/20" : ""

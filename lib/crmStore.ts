@@ -1,4 +1,6 @@
-import { useSyncExternalStore, useCallback, useMemo } from "react";
+import { useSyncExternalStore, useCallback, useMemo, useEffect } from "react";
+import { apiClient } from "./api/apiClient";
+import { ApiResponse, BackendTask, PartnerSummary, ClientProfile, Specialist, CatalogService, LicenceReportMetrics } from "@/types/api";
 
 export interface ServiceModel {
   id: number;
@@ -7,14 +9,27 @@ export interface ServiceModel {
   recurring: boolean;
   frequency: string;
   price: number;
+  partnerProfit?: number;
   gov: number;
   time: string;
   status: "Active" | "Inactive" | "Draft";
   description?: string;
+  requiredDocuments?: string[];
+  keyFeatures?: string[];
+  workflowSteps?: string[];
+  officialGovernmentPortalLinks?: string[];
+  trainingVideoTutorials?: string[];
+  studyMaterials?: string[];
+  faqs?: string[];
+  contentDetails?: string;
+  yearWiseFeesEnabled?: boolean;
+  yearWiseFees?: any[];
+  baseGovernmentFee?: string | number;
 }
 
 export interface TaskModel {
   id: string;
+  numericId?: number;
   partner: string;
   partnerPhone: string;
   client: string;
@@ -26,6 +41,7 @@ export interface TaskModel {
   date: string;
   due: string;
   assignee: string;
+  assigneeId?: number | null;
   priority: "High" | "Medium" | "Normal" | "Low";
   sales: string;
   comments: string[];
@@ -40,7 +56,7 @@ export interface UserModel {
   role: string;
   dept: string;
   skill: string;
-  skills?: string[]; // Multiple service skill categories matching catalog
+  skills?: string[];
   phone: string;
   password?: string;
   status: "Active" | "Deactivated";
@@ -60,17 +76,17 @@ export interface ClientModel {
 }
 
 export interface PartnerModel {
-  id: string; // "p-101", etc.
-  partnerId: string; // "P-101", etc.
+  id: string;
+  partnerId: string;
   name: string;
   shortName: string;
   email?: string;
   phone: string;
-  userId?: string; // defaults to phone number
+  userId?: string;
   password?: string;
   dob?: string;
   shopName?: string;
-  currentAddress?: string; // Shop live/exact location
+  currentAddress?: string;
   completeShopAddress?: string;
   panNumber?: string;
   adhaarNumber?: string;
@@ -118,138 +134,6 @@ export interface LicenceModel {
   assignedTo?: string;
 }
 
-const defaultServices: ServiceModel[] = [
-  { id: 1, name: "FSSAI Registration (Basic)", category: "Food & Beverage", recurring: true, frequency: "Yearly", price: 4700, gov: 100, time: "1 - 3 Days", status: "Active" },
-  { id: 2, name: "FSSAI State License", category: "Food & Beverage", recurring: true, frequency: "Yearly", price: 7500, gov: 2000, time: "7 - 15 Days", status: "Active" },
-  { id: 3, name: "FSSAI Central License", category: "Food & Beverage", recurring: true, frequency: "Yearly", price: 12000, gov: 7500, time: "15 - 30 Days", status: "Active" },
-  { id: 4, name: "GST Registration", category: "Taxation", recurring: false, frequency: "One Time", price: 3500, gov: 0, time: "3 - 7 Days", status: "Active" },
-  { id: 5, name: "GST Return Filing", category: "Taxation", recurring: true, frequency: "Monthly", price: 750, gov: 0, time: "1 - 2 Days", status: "Active" },
-  { id: 6, name: "ITR Filing (Individual)", category: "Taxation", recurring: false, frequency: "One Time", price: 1000, gov: 0, time: "1 - 2 Days", status: "Active" },
-  { id: 7, name: "Trademark Registration", category: "Intellectual Property", recurring: false, frequency: "One Time", price: 8000, gov: 4500, time: "3 - 6 Months", status: "Active" },
-  { id: 8, name: "Shop Act / Trade License", category: "Business Compliance", recurring: false, frequency: "One Time", price: 1000, gov: 0, time: "7 - 15 Days", status: "Active" },
-  { id: 9, name: "Import Export (IEC Registration)", category: "Import Export", recurring: false, frequency: "One Time", price: 3500, gov: 0, time: "7 - 10 Days", status: "Active" },
-  { id: 10, name: "Digital Signature Certificate (DSC)", category: "Digital Services", recurring: false, frequency: "One Time", price: 1500, gov: 0, time: "1 - 2 Days", status: "Active" },
-  { id: 11, name: "Zomato Onboarding", category: "Business Growth", recurring: false, frequency: "One Time", price: 1000, gov: 0, time: "3 - 5 Days", status: "Active" },
-  { id: 12, name: "Swiggy Onboarding", category: "Business Growth", recurring: false, frequency: "One Time", price: 1000, gov: 0, time: "3 - 5 Days", status: "Active" },
-];
-
-const defaultTasks: TaskModel[] = [
-  { id: "T-1001", partner: "Rahul Jha", partnerPhone: "9873207632", client: "Amit Kumar", phone: "9876543210", business: "Shri Foods", category: "Compliance", service: "FSSAI Registration (Basic)", status: "Pending", date: "10 Sep 2026", due: "20 Sep 2026", assignee: "", priority: "High", sales: "Rahul Jha", comments: ["Application draft prepared. Waiting for client confirmation.", "Client has shared address proof."], files: ["Aadhaar_Card_Front_Back.pdf", "PAN_Card_Applicant.pdf", "Electricity_Bill_Premises.pdf", "Passport_Photo.jpg", "Business_Photo.jpg"] },
-  { id: "T-1002", partner: "Kanhaiya", partnerPhone: "7011340730", client: "Neha Verma", phone: "9899989898", business: "Fresh Bites", category: "Taxation", service: "GST Registration", status: "In Progress", date: "12 Sep 2026", due: "18 Sep 2026", assignee: "Pooja Mehta", priority: "Medium", sales: "Kanhaiya", comments: ["Documents verified."], files: ["PAN_Card_Enterprise.pdf", "Aadhaar_Card_Signatory.pdf", "Bank_Passbook_Cancelled_Cheque.pdf"] },
-  { id: "T-1003", partner: "Gaurav", partnerPhone: "9312345678", client: "Rohit Sharma", phone: "9876123456", business: "Sharma Traders", category: "Licensing", service: "Shop Act / Trade License", status: "Pending", date: "14 Sep 2026", due: "21 Sep 2026", assignee: "", priority: "Normal", sales: "Rahul Jha", comments: [], files: ["Aadhaar_Card.pdf", "Shop_Rent_Agreement.pdf", "Electricity_Bill.pdf", "Shop_Signboard_Photo.jpg"] },
-  { id: "T-1004", partner: "Roshan", partnerPhone: "9998887776", client: "Pooja Mehta", phone: "9877001122", business: "Mehta Enterprises", category: "Compliance", service: "FSSAI State License", status: "Pending from Client", date: "16 Sep 2026", due: "25 Sep 2026", assignee: "Ankit Kumar", priority: "High", sales: "Kanhaiya", comments: ["Need updated rental agreement."], files: ["PAN_Card.pdf", "Aadhaar_Card.pdf"] },
-  { id: "T-1005", partner: "Roshni", partnerPhone: "8887776655", client: "Vikram Singh", phone: "9855221133", business: "VS Exports", category: "Import Export", service: "Import Export (IEC Registration)", status: "Pending from Department", date: "18 Sep 2026", due: "28 Sep 2026", assignee: "Gaurav Sharma", priority: "Normal", sales: "Gaurav Sharma", comments: [], files: ["IEC_Application.pdf", "PAN_Card.pdf", "Cancelled_Cheque.pdf"] },
-  { id: "T-1006", partner: "Rahul Jha", partnerPhone: "9873207632", client: "Priya Sinha", phone: "9876549876", business: "Priya Cafe", category: "IPR", service: "Trademark Registration", status: "Completed", date: "20 Sep 2026", due: "26 Sep 2026", assignee: "Rohit Jain", priority: "Normal", sales: "Rahul Jha", comments: ["Certificate delivered."], files: ["Trademark_Certificate.pdf", "Brand_Logo_Representation.png"], license: "TM-2026-0158" },
-  { id: "T-1007", partner: "Kanhaiya", partnerPhone: "7011340730", client: "Sandeep Jain", phone: "9898001122", business: "Jain Enterprises", category: "Compliance", service: "Digital Signature Certificate (DSC)", status: "Pending", date: "21 Sep 2026", due: "29 Sep 2026", assignee: "", priority: "High", sales: "Kanhaiya", comments: [], files: ["Aadhaar_Card_eKYC.pdf", "PAN_Card_Applicant.pdf", "Applicant_Photo.jpg"] },
-  { id: "T-1008", partner: "Gaurav", partnerPhone: "9312345678", client: "Anjali Verma", phone: "9871234567", business: "Anjali Foods", category: "Business Growth", service: "Zomato Onboarding", status: "Pending", date: "22 Sep 2026", due: "27 Sep 2026", assignee: "", priority: "Normal", sales: "Gaurav Sharma", comments: [], files: ["FSSAI_Certificate.pdf", "GSTIN_Certificate.pdf", "Menu_Card.pdf", "Restaurant_Photos.zip"] },
-];
-
-const defaultUsers: UserModel[] = [
-  { id: 1, name: "Ankit Kumar", email: "ankit.kumar@finsocap.com", role: "Executive", dept: "Operations", skill: "Food & Beverage, Compliance", skills: ["Food & Beverage", "Compliance", "Business Compliance"], phone: "8505828033", password: "Password@123", status: "Active", tasks: 33 },
-  { id: 2, name: "Pooja Mehta", email: "pooja.mehta@finsocap.com", role: "CA", dept: "Taxation", skill: "Taxation", skills: ["Taxation"], phone: "8796951056", password: "Password@123", status: "Active", tasks: 34 },
-  { id: 3, name: "Rohit Jain", email: "rohit.jain@finsocap.com", role: "CS", dept: "Compliance", skill: "Intellectual Property, Compliance", skills: ["Intellectual Property", "Compliance"], phone: "9355749363", password: "Password@123", status: "Active", tasks: 3 },
-  { id: 4, name: "Neha Verma", email: "neha.verma@finsocap.com", role: "Legal Executive", dept: "Legal", skill: "Business Compliance, Licensing", skills: ["Business Compliance", "Licensing", "Compliance"], phone: "9811637390", password: "Password@123", status: "Active", tasks: 1 },
-  { id: 5, name: "Gaurav Sharma", email: "gaurav.sharma@finsocap.com", role: "Executive", dept: "Operations", skill: "Import Export, Taxation, Digital Services", skills: ["Import Export", "Taxation", "Digital Services"], phone: "9873207632", password: "Password@123", status: "Active", tasks: 14 },
-  { id: 6, name: "Rahul Jha", email: "rahul.jha@finsocap.com", role: "Manager", dept: "Franchise Partner", skill: "Compliance, Food & Beverage", skills: ["Compliance", "Food & Beverage"], phone: "9873207632", password: "Password@123", status: "Active", tasks: 22 },
-];
-
-// 10 Real Verified Entries matching Screenshot 3 Exactly
-const defaultLicences: LicenceModel[] = [
-  { task: "T-1001", partner: "Rahul Jha", partnerPhone: "9873207632", client: "SunBounty India", phone: "9818176909", type: "FSSAI Basic Licence", category: "Compliance", service: "FSSAI Registration", number: "22726922001382", issue: "26-09-2026", expiry: "25-09-2027", user: "UPFSSAI123", password: "Abc@1234", status: "Active", url: true, files: 2, assignedTo: "Rahul Jha" },
-  { task: "T-1002", partner: "Rahul Jha", partnerPhone: "9873207632", client: "Mahalaxmi Chhola bhatura", phone: "7007433823", type: "FSSAI Basic Licence", category: "Compliance", service: "FSSAI Registration", number: "22725271000986", issue: "26-09-2026", expiry: "05-10-2028", user: "UPFSSAI456", password: "Xyz@5678", status: "Expiring in 30 Days", url: true, files: 1, assignedTo: "Rahul Jha" },
-  { task: "T-1003", partner: "Kanhaiya", partnerPhone: "8796951056", client: "Kushali Ventures", phone: "9412128685", type: "FSSAI Basic Licence", category: "Compliance", service: "FSSAI Registration", number: "22726877000140", issue: "25-09-2026", expiry: "24-09-2027", user: "UPFSSAI789", password: "Test@123", status: "Active", url: true, files: 3, assignedTo: "Kanhaiya" },
-  { task: "T-1004", partner: "Kanhaiya", partnerPhone: "8796951056", client: "Divine brew and bites", phone: "9426110441", type: "FSSAI Basic Licence", category: "Compliance", service: "FSSAI Registration", number: "20726015001176", issue: "23-09-2026", expiry: "22-09-2027", user: "UPFSSAI321", password: "Pass@456", status: "Active", url: true, files: 1, assignedTo: "Kanhaiya" },
-  { task: "T-1005", partner: "Gaurav", partnerPhone: "9355749363", client: "Miglani Retail", phone: "9718710045", type: "FSSAI Central Licence", category: "Compliance", service: "FSSAI Registration", number: "13325999000692", issue: "15-10-2025", expiry: "13-10-2026", user: "CENTFSSAI01", password: "Demo@789", status: "Expiring in 30 Days", url: true, files: 2, assignedTo: "Gaurav" },
-  { task: "T-1006", partner: "Gaurav", partnerPhone: "9355749363", client: "GAURAV SHISHODIA", phone: "8171144666", type: "FSSAI Basic Licence", category: "Compliance", service: "FSSAI Registration", number: "22724999000371", issue: "25-09-2026", expiry: "29-09-2031", user: "UPFSSAI654", password: "Aa@1122", status: "Active", url: true, files: 1, assignedTo: "Gaurav" },
-  { task: "T-1007", partner: "Roshan", partnerPhone: "9873207632", client: "SANVIN INC", phone: "9811176768", type: "FSSAI Central Licence", category: "Compliance", service: "FSSAI Registration", number: "12721999000371", issue: "25-09-2026", expiry: "19-10-2031", user: "CENTFSSAI02", password: "Bb@3344", status: "Active", url: true, files: 2, assignedTo: "Roshan" },
-  { task: "T-1008", partner: "Roshan", partnerPhone: "9873207632", client: "Kulcha and Parantha Co", phone: "7206666744", type: "FSSAI Basic Licence", category: "Compliance", service: "FSSAI Registration", number: "20826001001474", issue: "24-09-2026", expiry: "23-09-2027", user: "UPFSSAI987", password: "Cc@5566", status: "Active", url: true, files: 1, assignedTo: "Roshan" },
-  { task: "T-1009", partner: "Roshni", partnerPhone: "9811637390", client: "Narula food and Beverages", phone: "9058063705", type: "FSSAI Basic Licence", category: "Compliance", service: "FSSAI Registration", number: "20926016000079", issue: "10-09-2026", expiry: "09-09-2027", user: "UPFSSAI654", password: "Dd@7788", status: "Active", url: true, files: 3, assignedTo: "Roshni" },
-  { task: "T-1010", partner: "Roshni", partnerPhone: "9811637390", client: "SABER DINING", phone: "7264040445", type: "FSSAI Basic Licence", category: "Compliance", service: "FSSAI Registration", number: "21526083016333", issue: "22-09-2026", expiry: "21-09-2027", user: "UPFSSAI111", password: "Ee@9900", status: "Active", url: false, files: 1, assignedTo: "Roshni" },
-];
-
-export const defaultPartners: PartnerModel[] = [
-  {
-    id: "p-101",
-    partnerId: "P-101",
-    name: "Rahul Jha",
-    shortName: "P-101 • Rahul Jha",
-    email: "rahul.jha@finsocap.com",
-    phone: "9873207632",
-    city: "Patna",
-    state: "Bihar",
-    status: "Active",
-    tier: "Gold Franchise",
-    registeredAt: "10 Jan 2026",
-    leadsCount: 512,
-    revenueStr: "₹3.84L",
-    activeTasks: 38,
-  },
-  {
-    id: "p-102",
-    partnerId: "P-102",
-    name: "Kanhaiya",
-    shortName: "P-102 • Kanhaiya",
-    email: "kanhaiya@finsocap.com",
-    phone: "7011340730",
-    city: "Noida",
-    state: "Uttar Pradesh",
-    status: "Active",
-    tier: "Silver Franchise",
-    registeredAt: "14 Jan 2026",
-    leadsCount: 224,
-    revenueStr: "₹1.48L",
-    activeTasks: 18,
-  },
-  {
-    id: "p-103",
-    partnerId: "P-103",
-    name: "Gaurav Sharma",
-    shortName: "P-103 • Gaurav",
-    email: "gaurav.sharma@finsocap.com",
-    phone: "9312345678",
-    city: "Mumbai",
-    state: "Maharashtra",
-    status: "Active",
-    tier: "Gold Franchise",
-    registeredAt: "22 Jan 2026",
-    leadsCount: 286,
-    revenueStr: "₹2.12L",
-    activeTasks: 22,
-  },
-  {
-    id: "p-104",
-    partnerId: "P-104",
-    name: "Roshan Enterprises",
-    shortName: "P-104 • Roshan",
-    email: "roshan@finsocap.com",
-    phone: "9998887776",
-    city: "Bengaluru",
-    state: "Karnataka",
-    status: "Active",
-    tier: "Bronze Franchise",
-    registeredAt: "05 Feb 2026",
-    leadsCount: 136,
-    revenueStr: "₹88K",
-    activeTasks: 12,
-  },
-  {
-    id: "p-105",
-    partnerId: "P-105",
-    name: "Roshni Roy",
-    shortName: "P-105 • Roshni",
-    email: "roshni.roy@finsocap.com",
-    phone: "8887776655",
-    city: "Kolkata",
-    state: "West Bengal",
-    status: "Active",
-    tier: "Bronze Franchise",
-    registeredAt: "18 Feb 2026",
-    leadsCount: 90,
-    revenueStr: "₹40.5K",
-    activeTasks: 6,
-  },
-];
-
 interface CrmData {
   services: ServiceModel[];
   tasks: TaskModel[];
@@ -262,12 +146,12 @@ interface CrmData {
 function loadInitialData(): CrmData {
   if (typeof window === "undefined") {
     return {
-      services: defaultServices,
-      tasks: defaultTasks,
-      users: defaultUsers,
-      licences: defaultLicences,
+      services: [],
+      tasks: [],
+      users: [],
+      licences: [],
       manualClients: [],
-      partners: defaultPartners,
+      partners: [],
     };
   }
 
@@ -275,32 +159,13 @@ function loadInitialData(): CrmData {
     const raw = localStorage.getItem("finsocap-crm-data");
     if (raw) {
       const parsed = JSON.parse(raw);
-      // Ensure licences include verified default entries and credentials
-      const storedLicences: LicenceModel[] = parsed.licences || [];
-      const hasFullLicences = storedLicences.length >= 10 && storedLicences.some((l) => !!l.password);
-      
-      // Ensure tasks are merged so enriched client documents & unassigned requests are always active
-      const storedTasks: TaskModel[] = parsed.tasks && parsed.tasks.length > 0 ? parsed.tasks : defaultTasks;
-      const mergedTasks = storedTasks.map((st) => {
-        const def = defaultTasks.find((dt) => dt.id === st.id);
-        if (def && (!st.files || st.files.length === 0)) {
-          return { ...st, files: def.files };
-        }
-        return st;
-      });
-      // If no tasks were unassigned in stored cache, re-include default unassigned tasks
-      const hasUnassigned = mergedTasks.some((t) => !t.assignee && t.status !== "Completed");
-      const finalTasks = hasUnassigned 
-        ? mergedTasks 
-        : [...defaultTasks.filter((dt) => !dt.assignee), ...mergedTasks.filter((t) => t.assignee)];
-
       return {
-        services: parsed.services && parsed.services.length > 0 ? parsed.services : defaultServices,
-        tasks: finalTasks,
-        users: parsed.users && parsed.users.length > 0 ? parsed.users : defaultUsers,
-        licences: hasFullLicences ? storedLicences : defaultLicences,
-        manualClients: parsed.manualClients || [],
-        partners: parsed.partners && parsed.partners.length > 0 ? parsed.partners : defaultPartners,
+        services: Array.isArray(parsed.services) ? parsed.services : [],
+        tasks: Array.isArray(parsed.tasks) ? parsed.tasks : [],
+        users: Array.isArray(parsed.users) ? parsed.users : [],
+        licences: Array.isArray(parsed.licences) ? parsed.licences : [],
+        manualClients: Array.isArray(parsed.manualClients) ? parsed.manualClients : [],
+        partners: Array.isArray(parsed.partners) ? parsed.partners : [],
       };
     }
   } catch (e) {
@@ -308,16 +173,15 @@ function loadInitialData(): CrmData {
   }
 
   return {
-    services: defaultServices,
-    tasks: defaultTasks,
-    users: defaultUsers,
-    licences: defaultLicences,
+    services: [],
+    tasks: [],
+    users: [],
+    licences: [],
     manualClients: [],
-    partners: defaultPartners,
+    partners: [],
   };
 }
 
-// Global Single In-Memory Store
 let memoryStore: CrmData = loadInitialData();
 const listeners = new Set<() => void>();
 
@@ -333,12 +197,12 @@ function getSnapshot(): CrmData {
 }
 
 const serverSnapshot: CrmData = {
-  services: defaultServices,
-  tasks: defaultTasks,
-  users: defaultUsers,
-  licences: defaultLicences,
+  services: [],
+  tasks: [],
+  users: [],
+  licences: [],
   manualClients: [],
-  partners: defaultPartners,
+  partners: [],
 };
 
 function getServerSnapshot(): CrmData {
@@ -354,8 +218,175 @@ function updateStore(updater: (prev: CrmData) => CrmData) {
       console.error("Failed to save crm data", e);
     }
   }
-  // Notify listeners outside of React's synchronous render cycle
   listeners.forEach((listener) => listener());
+}
+
+/**
+ * Live Background Synchronization from FinSoCap REST API
+ */
+export async function fetchLiveDbData(): Promise<void> {
+  if (typeof window === "undefined") return;
+
+  try {
+    const [tasksRes, partnersRes, clientsRes, specialistsRes, servicesRes, licencesRes] = await Promise.allSettled([
+      apiClient.get<ApiResponse<BackendTask[]>>("/tasks"),
+      apiClient.get<ApiResponse<PartnerSummary[]>>("/partners/network"),
+      apiClient.get<ApiResponse<ClientProfile[]>>("/clients"),
+      apiClient.get<ApiResponse<Specialist[]>>("/team/specialists"),
+      apiClient.get<ApiResponse<CatalogService[]>>("/services"),
+      apiClient.get<ApiResponse<LicenceReportMetrics>>("/reports/licences"),
+    ]);
+
+    updateStore((prev) => {
+      let newTasks = prev.tasks;
+      if (tasksRes.status === "fulfilled" && tasksRes.value?.success && Array.isArray(tasksRes.value.data)) {
+        newTasks = tasksRes.value.data.map((bt) => {
+          let mappedStatus: TaskModel["status"] = "Pending";
+          const s = (bt.status || "").toUpperCase();
+          if (s === "IN_PROGRESS") mappedStatus = "In Progress";
+          else if (s === "PENDING_FROM_CLIENT") mappedStatus = "Pending from Client";
+          else if (s === "COMPLETED") mappedStatus = "Completed";
+          else if (s === "PENDING_REVIEW") mappedStatus = "Sent for Review";
+          else if (s === "CANCELLED") mappedStatus = "Cancelled";
+
+          return {
+            id: bt.taskId || `T-${bt.id}`,
+            numericId: bt.id,
+            partner: bt.partnerName || "HQ",
+            partnerPhone: bt.partnerContact || "",
+            client: bt.clientName || "",
+            phone: bt.contactNumber || "",
+            business: bt.nameOfBusiness || bt.clientName || "",
+            category: bt.taskCategory || "General",
+            service: bt.serviceName || "",
+            status: mappedStatus,
+            date: bt.taskDate || "Today",
+            due: bt.dueDate || "",
+            assignee: bt.assignedToName || "",
+            assigneeId: bt.assignedToId || null,
+            priority: (bt.priority === "URGENT" || bt.priority === "HIGH" ? "High" : "Normal") as TaskModel["priority"],
+            sales: bt.partnerName || "Admin",
+            comments: bt.adminRemarks ? [bt.adminRemarks] : [],
+            files: [],
+          };
+        });
+      }
+
+      let newPartners = prev.partners;
+      if (partnersRes.status === "fulfilled" && partnersRes.value?.success && Array.isArray(partnersRes.value.data)) {
+        newPartners = partnersRes.value.data.map((p) => {
+          const loc = p.hubLocation || "";
+          const parts = loc.split(",");
+          const city = parts[0]?.trim() || "Headquarters";
+          const state = parts[1]?.trim() || "";
+          const statusMapped = p.status === "APPROVED" ? "Active" : p.status === "PENDING" ? "Pending" : "Deactivated";
+
+          return {
+            id: String(p.id),
+            partnerId: p.partnerId || `P-${p.id}`,
+            name: p.name,
+            shortName: `${p.partnerId || `P-${p.id}`} • ${p.name}`,
+            email: p.email,
+            phone: p.phone,
+            city,
+            state,
+            status: statusMapped,
+            tier: p.franchiseTier?.replace(/_/g, " ") || "Gold Franchise",
+            leadsCount: p.totalCasesSubmitted || 0,
+            revenueStr: `₹${((p.totalEarnedCommission || 0) / 1000).toFixed(1)}k`,
+            activeTasks: p.activeTasks || 0,
+            documents: {
+              panDoc: p.panCardUrl,
+              shopDoc: p.shopPhotoUrl,
+            },
+          };
+        });
+      }
+
+      let newClients = prev.manualClients;
+      if (clientsRes.status === "fulfilled" && clientsRes.value?.success && Array.isArray(clientsRes.value.data)) {
+        newClients = clientsRes.value.data.map((c) => ({
+          id: String(c.id),
+          name: c.name,
+          phone: c.phone,
+          business: c.businessName || c.name,
+          partner: c.partnerName || c.partnerCode || "Direct",
+          tasks: c.serviceCases || 0,
+          last: "Active",
+          status: c.latestStatus || "Active",
+        }));
+      }
+
+      let newUsers = prev.users;
+      if (specialistsRes.status === "fulfilled" && specialistsRes.value?.success && Array.isArray(specialistsRes.value.data)) {
+        newUsers = specialistsRes.value.data.map((s) => ({
+          id: s.id,
+          name: s.fullName,
+          email: s.email,
+          role: s.designation || "Specialist",
+          dept: s.department ? s.department.charAt(0) + s.department.slice(1).toLowerCase() : "Operations",
+          skill: (s.competencies || []).join(", ") || "General",
+          skills: s.competencies || [],
+          phone: s.phone || "",
+          status: "Active",
+          tasks: s.activeTasks || 0,
+          access: s.department === "OPERATIONS" ? "Admin" : "Employee",
+        }));
+      }
+
+      let newServices = prev.services;
+      if (servicesRes.status === "fulfilled" && servicesRes.value?.success && Array.isArray(servicesRes.value.data)) {
+        newServices = servicesRes.value.data.map((s) => ({
+          id: s.id,
+          name: s.name,
+          category: (s.category || "General").replace(/_/g, " "),
+          recurring: false,
+          frequency: "One Time",
+          price: s.startingClientPrice || 0,
+          gov: 0,
+          time: (s as any).processingTime || (s.estimatedTurnaroundDays ? `${s.estimatedTurnaroundDays} Days` : "3 - 7 Days"),
+          status: s.active ? "Active" : "Inactive",
+          description: s.subtitle || "",
+        }));
+      }
+
+      let newLicences = prev.licences;
+      if (licencesRes.status === "fulfilled" && licencesRes.value?.success && licencesRes.value.data?.rows) {
+        newLicences = licencesRes.value.data.rows.map((l) => ({
+          id: String(l.id),
+          task: l.taskId,
+          taskId: l.taskId,
+          partner: l.partnerName || "HQ",
+          partnerPhone: "",
+          client: l.clientName || "",
+          phone: "",
+          type: (l.serviceCategory || "Licence").replace(/_/g, " "),
+          category: (l.serviceCategory || "Compliance").replace(/_/g, " "),
+          service: (l.serviceCategory || "Government Licence").replace(/_/g, " "),
+          number: l.licenceNumber || "",
+          issue: l.issueDate || "",
+          expiry: l.expiryDate || "",
+          user: l.portalUserId || "",
+          password: l.portalPasswordMasked || "••••••••",
+          status: (l.status === "ACTIVE" ? "Active" : l.status === "EXPIRING_SOON" ? "Expiring Soon" : "Expired") as LicenceModel["status"],
+          url: Boolean(l.governmentPortalUrl),
+          files: 1,
+        }));
+      }
+
+      return {
+        ...prev,
+        tasks: newTasks,
+        partners: newPartners,
+        manualClients: newClients,
+        users: newUsers,
+        services: newServices,
+        licences: newLicences,
+      };
+    });
+  } catch (err) {
+    console.warn("[CRM Store] Live sync error:", err);
+  }
 }
 
 if (typeof window !== "undefined") {
@@ -365,10 +396,17 @@ if (typeof window !== "undefined") {
       listeners.forEach((listener) => listener());
     }
   });
+
+  // Background trigger initial live sync
+  setTimeout(fetchLiveDbData, 200);
 }
 
 export function useCrmStore() {
   const data = useSyncExternalStore(subscribe, getSnapshot, getServerSnapshot);
+
+  useEffect(() => {
+    fetchLiveDbData();
+  }, []);
 
   // Actions
   const addService = useCallback((service: Omit<ServiceModel, "id">) => {
@@ -379,6 +417,13 @@ export function useCrmStore() {
         services: [{ ...service, id: nextId }, ...prev.services],
       };
     });
+    apiClient.post("/services", {
+      name: service.name,
+      category: service.category.toUpperCase().replace(/\s+/g, "_"),
+      startingClientPrice: service.price,
+      partnerCommission: Math.round(service.price * 0.3),
+      subtitle: service.description || "",
+    }).catch(() => {});
   }, []);
 
   const updateService = useCallback((id: number, patch: Partial<ServiceModel>) => {
@@ -386,6 +431,10 @@ export function useCrmStore() {
       ...prev,
       services: prev.services.map((s) => (s.id === id ? { ...s, ...patch } : s)),
     }));
+    apiClient.put(`/services/${id}`, {
+      ...(patch.price !== undefined ? { startingClientPrice: patch.price } : {}),
+      ...(patch.name ? { name: patch.name } : {}),
+    }).catch(() => {});
   }, []);
 
   const toggleServiceStatus = useCallback((id: number) => {
@@ -397,6 +446,7 @@ export function useCrmStore() {
           : s
       ),
     }));
+    apiClient.patch(`/services/${id}/toggle-active`).catch(() => {});
   }, []);
 
   const deleteService = useCallback((id: number) => {
@@ -404,6 +454,7 @@ export function useCrmStore() {
       ...prev,
       services: prev.services.filter((s) => s.id !== id),
     }));
+    apiClient.delete(`/services/${id}`).catch(() => {});
   }, []);
 
   const setServiceStatus = useCallback((id: number, status: "Active" | "Inactive") => {
@@ -436,16 +487,37 @@ export function useCrmStore() {
       ...prev,
       tasks: prev.tasks.map((t) => (t.id === id ? { ...t, status: newStatus } : t)),
     }));
+    const numericId = parseInt(id.replace(/\D/g, ""), 10);
+    if (!isNaN(numericId)) {
+      const backendStatus =
+        newStatus === "In Progress"
+          ? "IN_PROGRESS"
+          : newStatus === "Completed"
+          ? "COMPLETED"
+          : newStatus === "Pending from Client"
+          ? "PENDING_FROM_CLIENT"
+          : "PENDING";
+      apiClient.put(`/tasks/${numericId}`, { status: backendStatus }).catch(() => {});
+    }
   }, []);
 
   const assignTask = useCallback((id: string, assignee: string, priority?: TaskModel["priority"], due?: string) => {
+    let resolvedSpecialistId: number | undefined;
+    const specialist = memoryStore.users.find(
+      (u) => u.name.toLowerCase() === assignee.toLowerCase() || String(u.id) === assignee
+    );
+    if (specialist) {
+      resolvedSpecialistId = specialist.id;
+    }
+
     updateStore((prev) => ({
       ...prev,
       tasks: prev.tasks.map((t) =>
         t.id === id
           ? { 
               ...t, 
-              assignee, 
+              assignee: specialist?.name || assignee, 
+              assigneeId: resolvedSpecialistId || t.assigneeId,
               priority: priority || t.priority || "Medium", 
               due: due || t.due, 
               status: "In Progress" as const 
@@ -453,6 +525,20 @@ export function useCrmStore() {
           : t
       ),
     }));
+
+    const matchedTask = memoryStore.tasks.find((t) => t.id === id);
+    const numericTaskId = matchedTask?.numericId || (id.startsWith("T-") ? parseInt(id.replace(/\D/g, ""), 10) : parseInt(id, 10));
+
+    if (numericTaskId && resolvedSpecialistId) {
+      apiClient.post("/tasks/assign", {
+        taskId: numericTaskId,
+        specialistId: resolvedSpecialistId,
+      }).then(() => {
+        fetchLiveDbData();
+      }).catch((err) => {
+        console.warn("[CRM Store] Task assign background sync error:", err);
+      });
+    }
   }, []);
 
   const addComment = useCallback((taskId: string, comment: string) => {
@@ -491,8 +577,8 @@ export function useCrmStore() {
   }) => {
     updateStore((prev) => {
       const task = prev.tasks.find((t) => t.id === taskId);
-      const partner = licenceInfo.partner || task?.partner || "Rahul Jha";
-      const partnerPhone = licenceInfo.partnerPhone || task?.partnerPhone || "9873207632";
+      const partner = licenceInfo.partner || task?.partner || "HQ";
+      const partnerPhone = licenceInfo.partnerPhone || task?.partnerPhone || "";
       const client = licenceInfo.client || task?.client || "Client";
       const phone = licenceInfo.phone || task?.phone || "";
       const category = licenceInfo.category || task?.category || "Compliance";
@@ -526,6 +612,19 @@ export function useCrmStore() {
         licences: [newLicence, ...prev.licences.filter((l) => l.number !== newLicence.number)],
       };
     });
+
+    apiClient.post("/reports/licences", {
+      taskId,
+      partnerName: licenceInfo.partner || "HQ",
+      clientName: licenceInfo.client || "Client",
+      serviceCategory: (licenceInfo.category || "FOOD_BEVERAGE").toUpperCase().replace(/\s+/g, "_"),
+      governmentPortalUrl: "https://foscos.fssai.gov.in",
+      portalUserId: licenceInfo.user || "PORTAL_USER",
+      portalPassword: licenceInfo.password || "Secure@2026",
+      licenceNumber: licenceInfo.number,
+      issueDate: licenceInfo.issue || "2026-10-31",
+      expiryDate: licenceInfo.expiry || "2027-10-30",
+    }).catch(() => {});
   }, []);
 
   const updateLicence = useCallback((licenceNumber: string, updated: Partial<LicenceModel>) => {
@@ -538,9 +637,6 @@ export function useCrmStore() {
         if (updated.expiryDate) merged.expiry = updated.expiryDate;
         if (updated.userId) merged.user = updated.userId;
         if (updated.taskId) merged.task = updated.taskId;
-        if (updated.issue) merged.issueDate = updated.issue;
-        if (updated.expiry) merged.expiryDate = updated.expiry;
-        if (updated.user) merged.userId = updated.user;
         return merged;
       }),
     }));
@@ -567,6 +663,15 @@ export function useCrmStore() {
         users: [...prev.users, newUser],
       };
     });
+    apiClient.post("/team/specialists", {
+      fullName: user.name,
+      email: user.email || `${user.name.toLowerCase().replace(/\s+/g, ".")}@finsocap.com`,
+      phone: user.phone,
+      department: user.dept.toUpperCase(),
+      designation: user.role,
+      maxCapacity: 15,
+      competencies: user.skills || [user.skill],
+    }).catch(() => {});
   }, []);
 
   const toggleUserStatus = useCallback((id: number | string) => {
@@ -583,6 +688,13 @@ export function useCrmStore() {
       ...prev,
       users: prev.users.map((u) => (String(u.id) === String(id) ? { ...u, ...updates } : u)),
     }));
+    const num = Number(id);
+    if (!isNaN(num)) {
+      apiClient.put(`/team/specialists/${num}`, {
+        ...(updates.role ? { designation: updates.role } : {}),
+        ...(updates.dept ? { department: updates.dept.toUpperCase() } : {}),
+      }).catch(() => {});
+    }
   }, []);
 
   const deleteUser = useCallback((id: number) => {
@@ -605,6 +717,13 @@ export function useCrmStore() {
         manualClients: [newClient, ...prev.manualClients],
       };
     });
+    apiClient.post("/clients", {
+      name: client.name,
+      phone: client.phone,
+      email: `${client.name.toLowerCase().replace(/\s+/g, "")}@client.com`,
+      businessName: client.business,
+      constitutionType: "PROPRIETORSHIP",
+    }).catch(() => {});
   }, []);
 
   const updateClient = useCallback((oldName: string, updates: Partial<ClientModel>) => {
@@ -637,7 +756,6 @@ export function useCrmStore() {
     });
   }, []);
 
-  // Computed Clients derived from tasks + manual clients
   const allClients = useMemo((): ClientModel[] => {
     const map = new Map<string, ClientModel>();
 
@@ -683,6 +801,22 @@ export function useCrmStore() {
         partners: [newPartner, ...prev.partners],
       };
     });
+
+    const payload = {
+      name: partner.name,
+      email: partner.email || `${partner.name.toLowerCase().replace(/\s+/g, ".")}@branch.com`,
+      phone: partner.phone,
+      password: partner.password || "Partner@123",
+      temporaryPassword: partner.password || "Partner@123",
+      address: partner.currentAddress || partner.completeShopAddress || "Office Address",
+      hubLocation: `${partner.city}, ${partner.state}`,
+      franchiseTier: (partner.tier || "GOLD_FRANCHISE").toUpperCase().replace(/\s+/g, "_"),
+      panNumber: partner.panNumber || "ABCDE1234F",
+      adhaarNumber: partner.adhaarNumber || "123456789012",
+    };
+    const fd = new FormData();
+    fd.append("data", JSON.stringify(payload));
+    apiClient.post("/partners/enroll", fd).catch(() => {});
   }, []);
 
   const updatePartner = useCallback((partnerId: string, updates: Partial<PartnerModel>) => {
@@ -697,14 +831,26 @@ export function useCrmStore() {
   }, []);
 
   const togglePartnerStatus = useCallback((partnerId: string) => {
+    let nextStatus = "APPROVED";
     updateStore((prev) => ({
       ...prev,
-      partners: prev.partners.map((p) =>
-        p.partnerId === partnerId || p.id === partnerId
-          ? { ...p, status: p.status === "Active" ? "Deactivated" : "Active" }
-          : p
-      ),
+      partners: prev.partners.map((p) => {
+        if (p.partnerId === partnerId || p.id === partnerId) {
+          const isAct = p.status === "Active";
+          nextStatus = isAct ? "SUSPENDED" : "APPROVED";
+          return { ...p, status: isAct ? "Deactivated" : "Active" };
+        }
+        return p;
+      }),
     }));
+
+    const num = parseInt(partnerId.replace(/\D/g, ""), 10);
+    if (!isNaN(num)) {
+      apiClient.put(`/partners/${num}/toggle-status`, null, {
+        status: nextStatus,
+        reason: "Admin status toggle",
+      }).catch(() => {});
+    }
   }, []);
 
   const deletePartner = useCallback((partnerId: string) => {
@@ -720,6 +866,7 @@ export function useCrmStore() {
     users: data.users,
     licences: data.licences,
     partners: data.partners,
+    manualClients: data.manualClients,
     allClients,
     addService,
     updateService,
@@ -744,5 +891,6 @@ export function useCrmStore() {
     updatePartner,
     togglePartnerStatus,
     deletePartner,
+    refetch: fetchLiveDbData,
   };
 }

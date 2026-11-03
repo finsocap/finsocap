@@ -6,7 +6,6 @@ import {
   User, ShieldCheck, KeyRound, Save, AlertCircle, 
   CheckCircle2, Eye, EyeOff, BadgeCheck, Camera, Trash2, Sparkles
 } from "lucide-react";
-import { mockCurrentUser } from "@/lib/mockData";
 import { defaultBrandConfig } from "@/lib/brandConfig";
 import { useToast } from "@/components/Global/ToastNotification";
 
@@ -19,9 +18,9 @@ export default function SettingsPage() {
   };
 
   // Profile & Security State
-  const [profileName, setProfileName] = useState(mockCurrentUser.name);
-  const [profileEmail, setProfileEmail] = useState(mockCurrentUser.email);
-  const [profileRole, setProfileRole] = useState(mockCurrentUser.role);
+  const [profileName, setProfileName] = useState("Universal Admin");
+  const [profileEmail, setProfileEmail] = useState("admin@gmail.com");
+  const [profileRole, setProfileRole] = useState("ADMIN");
   const [memberSince] = useState("1 January 2025");
   const [currentPassword, setCurrentPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
@@ -29,7 +28,7 @@ export default function SettingsPage() {
   const [showPassword, setShowPassword] = useState(false);
   const [isSavingProfile, setIsSavingProfile] = useState(false);
   const [profileError, setProfileError] = useState<string | null>(null);
-  const [userDp, setUserDp] = useState<string | null>(mockCurrentUser.image || null);
+  const [userDp, setUserDp] = useState<string | null>(null);
 
   // Load DP & Profile from localStorage or mock session on mount
   useEffect(() => {
@@ -93,7 +92,7 @@ export default function SettingsPage() {
           try {
             localStorage.setItem("finsocap_user_dp", dataUrl);
             const savedProfile = localStorage.getItem("finsocap_profile_data");
-            const p = savedProfile ? JSON.parse(savedProfile) : { ...mockCurrentUser };
+            const p = savedProfile ? JSON.parse(savedProfile) : { name: profileName, email: profileEmail, role: profileRole };
             p.image = dataUrl;
             localStorage.setItem("finsocap_profile_data", JSON.stringify(p));
             window.dispatchEvent(new Event("user-dp-updated"));
@@ -144,7 +143,6 @@ export default function SettingsPage() {
     setIsSavingProfile(true);
     try {
       const updatedProfile = {
-        ...mockCurrentUser,
         name: profileName,
         email: profileEmail,
         image: userDp,

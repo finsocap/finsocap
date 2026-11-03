@@ -4,16 +4,15 @@ import { initialServices } from "@/lib/servicesData";
 const STORAGE_KEY = "finsocap_services_catalog_v1";
 
 function getStoredServices(): ServiceItem[] {
-  if (typeof window === "undefined") return initialServices;
+  if (typeof window === "undefined") return [];
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (!raw) {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(initialServices));
-      return initialServices;
+      return [];
     }
     return JSON.parse(raw);
   } catch (e) {
-    return initialServices;
+    return [];
   }
 }
 

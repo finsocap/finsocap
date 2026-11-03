@@ -1,18 +1,24 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { 
   Users, UserPlus, Search, Phone, Building2, CheckCircle2, 
   Clock, ShieldCheck, X, FileText, ArrowRight, Sparkles, Filter, RotateCcw,
   Edit3, Save
 } from "lucide-react";
 import { useCrmStore, ClientModel, TaskModel } from "@/lib/crmStore";
+import { clientCrmService } from "@/lib/api/clientCrmService";
+import { ClientMetrics } from "@/types/api";
 import AnimatedCounter from "@/components/Global/AnimatedCounter";
 import ClientsInfographic from "@/components/Charts/ClientsInfographic";
 import PageBanner from "@/components/Dashboard/PageBanner";
 import { useToast } from "@/components/Global/ToastNotification";
 import ModalHeaderBanner from "@/components/Dashboard/ModalHeaderBanner";
+import { formatName, formatIndianPhoneNumber, normalizePhoneForBackend } from "@/lib/formatters";
+import { PhoneInput } from "@/components/Global/PhoneInput";
+import { NameInput } from "@/components/Global/NameInput";
 
 const statuses = [
   "Pending",
@@ -25,10 +31,40 @@ const statuses = [
 ];
 
 export default function ClientsPage() {
+  const router = useRouter();
   const toast = useToast();
   const { allClients, tasks, addClient, updateClient } = useCrmStore();
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("ALL");
+  const [clientMetrics, setClientMetrics] = useState<ClientMetrics | null>(null);
+
+  // Role Protection: Staff members cannot view full client database
+  useEffect(() => {
+    try {
+      const stored = localStorage.getItem("finsocap_user_session");
+      if (stored) {
+        const parsed = JSON.parse(stored);
+        if (parsed.role && parsed.role !== "ADMIN") {
+          toast.warning("Access Restricted", "Client Directory is reserved for administrators.");
+          router.replace("/dashboard/tasks");
+        }
+      }
+    } catch (e) {}
+  }, [router, toast]);
+
+  useEffect(() => {
+    async function loadClientMetrics() {
+      try {
+        const res = await clientCrmService.getMetrics();
+        if (res.success && res.data) {
+          setClientMetrics(res.data);
+        }
+      } catch (e) {
+        console.warn("Client metrics load fallback:", e);
+      }
+    }
+    loadClientMetrics();
+  }, []);
 
   // Modals state
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
@@ -85,11 +121,14 @@ export default function ClientsPage() {
     e.preventDefault();
     if (!formName.trim() || !formPhone.trim()) return;
 
+    const normalizedName = formatName(formName);
+    const normalizedPhone = formatIndianPhoneNumber(formPhone);
+
     addClient({
-      name: formName.trim(),
-      phone: formPhone.trim(),
-      business: formBusiness.trim() || "—",
-      partner: formPartner.trim() || "Direct",
+      name: normalizedName,
+      phone: normalizedPhone,
+      business: formatName(formBusiness) || "—",
+      partner: formatName(formPartner) || "Direct",
     });
 
     setFormName("");
@@ -97,13 +136,13 @@ export default function ClientsPage() {
     setFormBusiness("");
     setFormPartner("Direct");
     setIsAddModalOpen(false);
-    showToast(`Client "${formName}" added successfully.`);
+    showToast(`Client "${normalizedName}" added successfully.`);
   };
 
   const openEditClient = (client: ClientModel) => {
     setEditingClient(client);
-    setEditName(client.name);
-    setEditPhone(client.phone);
+    setEditName(formatName(client.name));
+    setEditPhone(formatIndianPhoneNumber(client.phone));
     setEditBusiness(client.business);
     setEditPartner(client.partner);
     setEditStatus(client.status);
@@ -113,15 +152,18 @@ export default function ClientsPage() {
     e.preventDefault();
     if (!editingClient || !editName.trim()) return;
 
+    const normalizedName = formatName(editName);
+    const normalizedPhone = formatIndianPhoneNumber(editPhone);
+
     updateClient(editingClient.name, {
-      name: editName.trim(),
-      phone: editPhone.trim(),
-      business: editBusiness.trim(),
-      partner: editPartner.trim(),
+      name: normalizedName,
+      phone: normalizedPhone,
+      business: formatName(editBusiness),
+      partner: formatName(editPartner),
       status: editStatus,
     });
 
-    showToast(`Client "${editName}" updated successfully.`);
+    showToast(`Client "${normalizedName}" updated successfully.`);
     setEditingClient(null);
   };
 
@@ -166,13 +208,13 @@ export default function ClientsPage() {
             className="btn-primary-vibrant text-xs py-2.5 px-4 cursor-pointer flex items-center gap-2 shadow-md shadow-blue-500/25"
           >
             <UserPlus className="w-4 h-4" />
-            <span>+ Add Client</span>
+            <span>Add Client</span>
           </button>
         }
       />
 
       {/* Client Enterprise Constitution & Retention Infographic */}
-      <ClientsInfographic clients={allClients} />
+      <ClientsInfographic metrics={clientMetrics} clients={allClients} />
 
       {/* 2. 4 Stat Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
@@ -355,32 +397,20 @@ export default function ClientsPage() {
 
             <form onSubmit={handleAddClientSubmit} className="space-y-4">
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
-                    Client Name *
-                  </label>
-                  <input
-                    type="text"
-                    required
-                    value={formName}
-                    onChange={(e) => setFormName(e.target.value)}
-                    placeholder="Enter full name"
-                    className="w-full px-3.5 py-2.5 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-blue-500/20"
-                  />
-                </div>
-                <div>
-                  <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
-                    Mobile Number *
-                  </label>
-                  <input
-                    type="tel"
-                    required
-                    value={formPhone}
-                    onChange={(e) => setFormPhone(e.target.value)}
-                    placeholder="10-digit number"
-                    className="w-full px-3.5 py-2.5 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-blue-500/20"
-                  />
-                </div>
+                <NameInput
+                  label="Client Name"
+                  required
+                  value={formName}
+                  onChange={setFormName}
+                  placeholder="e.g. Ramesh Kumar"
+                />
+                <PhoneInput
+                  label="Mobile Number"
+                  required
+                  value={formPhone}
+                  onChange={setFormPhone}
+                  placeholder="+91 99530 65623"
+                />
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -392,22 +422,18 @@ export default function ClientsPage() {
                     type="text"
                     value={formBusiness}
                     onChange={(e) => setFormBusiness(e.target.value)}
+                    onBlur={() => setFormBusiness(formatName(formBusiness))}
                     placeholder="e.g. Shri Foods"
                     className="w-full px-3.5 py-2.5 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-blue-500/20"
                   />
                 </div>
-                <div>
-                  <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
-                    Partner Name
-                  </label>
-                  <input
-                    type="text"
-                    value={formPartner}
-                    onChange={(e) => setFormPartner(e.target.value)}
-                    placeholder="e.g. Rahul Jha or Direct"
-                    className="w-full px-3.5 py-2.5 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-blue-500/20"
-                  />
-                </div>
+                <NameInput
+                  label="Partner Name"
+                  value={formPartner}
+                  onChange={setFormPartner}
+                  placeholder="e.g. Rahul Jha or Direct"
+                  isBusinessName={true}
+                />
               </div>
 
               <div className="flex justify-end gap-2.5 pt-4 border-t border-slate-100 dark:border-slate-800">
@@ -516,30 +542,19 @@ export default function ClientsPage() {
 
             <form onSubmit={handleEditClient} className="space-y-4">
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
-                    Client Name *
-                  </label>
-                  <input
-                    type="text"
-                    required
-                    value={editName}
-                    onChange={(e) => setEditName(e.target.value)}
-                    className="w-full px-3.5 py-2.5 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-blue-500/20"
-                  />
-                </div>
-                <div>
-                  <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
-                    Mobile Number *
-                  </label>
-                  <input
-                    type="tel"
-                    required
-                    value={editPhone}
-                    onChange={(e) => setEditPhone(e.target.value)}
-                    className="w-full px-3.5 py-2.5 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-blue-500/20"
-                  />
-                </div>
+                <NameInput
+                  label="Client Name"
+                  required
+                  value={editName}
+                  onChange={setEditName}
+                />
+                <PhoneInput
+                  label="Mobile Number"
+                  required
+                  value={editPhone}
+                  onChange={setEditPhone}
+                  placeholder="+91 99530 65623"
+                />
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -551,20 +566,16 @@ export default function ClientsPage() {
                     type="text"
                     value={editBusiness}
                     onChange={(e) => setEditBusiness(e.target.value)}
+                    onBlur={() => setEditBusiness(formatName(editBusiness))}
                     className="w-full px-3.5 py-2.5 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-blue-500/20"
                   />
                 </div>
-                <div>
-                  <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
-                    Partner Name
-                  </label>
-                  <input
-                    type="text"
-                    value={editPartner}
-                    onChange={(e) => setEditPartner(e.target.value)}
-                    className="w-full px-3.5 py-2.5 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-blue-500/20"
-                  />
-                </div>
+                <NameInput
+                  label="Partner Name"
+                  value={editPartner}
+                  onChange={setEditPartner}
+                  isBusinessName={true}
+                />
               </div>
 
               <div>

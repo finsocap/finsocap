@@ -4,40 +4,12 @@
  * Pre-seeded with local mock store for pure frontend execution without backend.
  */
 
-import { mockStore, initMockApi } from "./mockApi";
-
 interface CacheEntry<T> {
   data: T;
   timestamp: number;
 }
 
 const cacheStore = new Map<string, CacheEntry<any>>();
-
-// Pre-seed cache with initial datasets so all getCachedData calls return immediately
-function preseedCache() {
-  try {
-    const blogs = mockStore.getBlogs();
-    const notifs = mockStore.getNotifications();
-    const cats = mockStore.getCategories();
-
-    const now = Date.now();
-    cacheStore.set("/api/blogs", { data: blogs, timestamp: now });
-    cacheStore.set("/api/blogs?admin=true", { data: blogs, timestamp: now });
-    cacheStore.set("/api/categories", { data: cats, timestamp: now });
-    cacheStore.set("/api/notifications", {
-      data: { notifications: notifs, todayBlogPublished: true },
-      timestamp: now,
-    });
-  } catch (e) {
-    // Ignore during SSR
-  }
-}
-
-// Initialize on module load
-if (typeof window !== "undefined") {
-  initMockApi();
-  preseedCache();
-}
 
 export function getCachedData<T>(key: string, maxAgeMs = 120000): T | null {
   const entry = cacheStore.get(key);
