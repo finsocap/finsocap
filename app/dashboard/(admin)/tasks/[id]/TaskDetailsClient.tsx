@@ -466,16 +466,16 @@ export default function TaskDetailsClient({ id }: { id: string }) {
     const submittedPassword = completePassword.trim() || "Abc@1234";
     const submittedLicenceNumber = completeLicenceNumber.trim();
     
-    // Save plain password in local registry cache so Admin can always view and copy it
+    // Save portal credentials in in-memory / session store instead of exposing in permanent local storage
     if (typeof window !== "undefined") {
       try {
-        const rawMap = localStorage.getItem("finsocap_licence_passwords") || "{}";
+        const rawMap = sessionStorage.getItem("finsocap_licence_passwords") || "{}";
         const map = JSON.parse(rawMap);
         map[submittedLicenceNumber] = submittedPassword;
         if (task.id) map[task.id] = submittedPassword;
-        localStorage.setItem("finsocap_licence_passwords", JSON.stringify(map));
+        sessionStorage.setItem("finsocap_licence_passwords", JSON.stringify(map));
       } catch (e) {
-        console.warn("Save password to local storage failed:", e);
+        console.warn("Save password to session storage failed:", e);
       }
     }
 

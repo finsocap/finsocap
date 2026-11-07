@@ -1,6 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 
-const API_ROOT = "https://finsocap.cloud/api";
+const API_ROOT = process.env.NEXT_PUBLIC_API_BASE_URL || "https://finsocap.cloud/api";
+const MASTER_EMAIL = process.env.BACKEND_ADMIN_EMAIL || "admin@gmail.com";
+const MASTER_PASSWORD = process.env.BACKEND_ADMIN_PASSWORD || "*Finsocap2026@sam#aarav";
+
 let cachedAdminToken: { token: string; exp: number } | null = null;
 
 async function getValidAdminToken(): Promise<string> {
@@ -10,12 +13,12 @@ async function getValidAdminToken(): Promise<string> {
   }
 
   try {
-    const res = await fetch(`${API_ROOT}/admin/login`, {
+    const res = await fetch(`${API_ROOT.replace(/\/+$/, "")}/admin/login`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        email: "admin@gmail.com",
-        password: "*Finsocap2026@sam#aarav",
+        email: MASTER_EMAIL,
+        password: MASTER_PASSWORD,
       }),
       cache: "no-store",
     });

@@ -8,58 +8,19 @@ import { ApiResponse, LoginRequest, LoginResponseData } from "@/types/api";
 
 export const authService = {
   /**
-   * POST /api/admin/login
-   * Authenticates Universal Admin and generates 24-hour stateless JWT Bearer token.
+   * POST /api/auth/login (Secure Server-Side Route)
+   * Authenticates user securely without exposing any plain-text secrets in the client bundle.
    */
   login: async (credentials: LoginRequest): Promise<ApiResponse<LoginResponseData>> => {
     try {
-      const cleanEmail = (credentials.email || "").trim().toLowerCase();
+      const response = await fetch("/api/auth/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(credentials),
+      });
 
-      // Dedicated Admin provision for shubham@finsocap.com
-      if (cleanEmail === "shubham@finsocap.com" && credentials.password === "Welc0me@shubham") {
-        // Authenticate via master admin token so proxy and all admin REST endpoints work seamlessly
-        try {
-          const masterRes = await apiClient.post<ApiResponse<LoginResponseData>>("/login", {
-            email: "admin@gmail.com",
-            password: "*Finsocap2026@sam#aarav",
-          });
-          const masterToken = masterRes?.data?.token || "";
-          if (masterToken) {
-            setAuthToken(masterToken);
-            if (typeof window !== "undefined") {
-              const session = {
-                token: masterToken,
-                user: {
-                  id: 99,
-                  name: "Shubham",
-                  email: "shubham@finsocap.com",
-                  role: "ADMIN",
-                  status: "ACTIVE",
-                },
-                expires: new Date(Date.now() + 24 * 3600 * 1000).toISOString(),
-              };
-              localStorage.setItem("finsocap_user_session", JSON.stringify(session));
-            }
-            return {
-              success: true,
-              message: "Admin authentication successful",
-              data: {
-                id: 99,
-                name: "Shubham",
-                email: "shubham@finsocap.com",
-                role: "ADMIN",
-                status: "ACTIVE",
-                token: masterToken,
-                tokenType: "Bearer",
-              },
-            };
-          }
-        } catch (e) {
-          console.warn("Master token bridge for Shubham Admin failed:", e);
-        }
-      }
+      const res: ApiResponse<LoginResponseData> = await response.json();
 
-      const res = await apiClient.post<ApiResponse<LoginResponseData>>("/login", credentials);
       if (res.success && res.data?.token) {
         setAuthToken(res.data.token);
         if (typeof window !== "undefined") {
@@ -67,9 +28,9 @@ export const authService = {
             token: res.data.token,
             user: {
               id: res.data.id,
-              name: res.data.name || "Universal Admin",
+              name: res.data.name || "Administrator",
               email: res.data.email,
-              role: res.data.role || "ADMIN",
+              role: (res.data.role || "ADMIN").toUpperCase(),
               status: res.data.status || "ACTIVE",
             },
             expires: new Date(Date.now() + 24 * 3600 * 1000).toISOString(),
@@ -80,38 +41,7 @@ export const authService = {
       }
       return res;
     } catch (err: any) {
-      // If /admin/login rejected because user is a Staff member, fallback to /staff/login
-      if (
-        err?.message?.includes("not an Administrator") ||
-        err?.data?.message?.includes("not an Administrator") ||
-        err?.status === 403
-      ) {
-        try {
-          const staffRes = await apiClient.post<ApiResponse<any>>("/staff/login", credentials);
-          if (staffRes.success && staffRes.data?.token) {
-            setAuthToken(staffRes.data.token);
-            if (typeof window !== "undefined") {
-              localStorage.setItem("finsocap_staff_token", staffRes.data.token);
-              const session = {
-                token: staffRes.data.token,
-                user: {
-                  id: staffRes.data.id || staffRes.data.userId || 0,
-                  name: staffRes.data.name || staffRes.data.fullName || "Staff Specialist",
-                  email: staffRes.data.email || credentials.email,
-                  role: "STAFF",
-                  status: "ACTIVE",
-                },
-                expires: new Date(Date.now() + 24 * 3600 * 1000).toISOString(),
-              };
-              localStorage.setItem("finsocap_user_session", JSON.stringify(session));
-            }
-            return staffRes as any;
-          }
-        } catch (staffErr) {
-          // If staff login also fails, throw original or staff error
-          throw staffErr;
-        }
-      }
+      console.error("[authService.login] Error:", err);
       throw err;
     }
   },
