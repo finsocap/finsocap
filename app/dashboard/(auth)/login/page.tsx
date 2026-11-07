@@ -12,8 +12,8 @@ import { authService } from "@/lib/api/authService";
 import { formatEmail } from "@/lib/formatters";
 
 export default function LoginPage() {
-  const [email, setEmail] = useState("admin@gmail.com");
-  const [password, setPassword] = useState("*Finsocap2026@sam#aarav");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
@@ -277,13 +277,15 @@ export default function LoginPage() {
             </div>
 
             {/* Alternative Button (Return to Website) */}
-            <Link
-              href="/"
+            <a
+              href="https://www.finsocap.com"
+              target="_blank"
+              rel="noopener noreferrer"
               className="w-full py-3 px-4 rounded-2xl border border-slate-200 hover:border-slate-300 hover:bg-slate-50 text-slate-700 text-xs font-bold transition-all flex items-center justify-center gap-2 shadow-2xs group"
             >
               <Globe className="w-4 h-4 text-slate-400 group-hover:text-[#0da687] transition-colors" />
               <span>Return to Public Website</span>
-            </Link>
+            </a>
 
             {/* Legal / Policy Line (Matching Reference Bottom Text) */}
             <p className="text-[10px] text-slate-400 leading-relaxed pt-2">
