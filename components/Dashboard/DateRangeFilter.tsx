@@ -24,50 +24,80 @@ export interface DateRangeValue {
   isCustom?: boolean;
 }
 
-export const DATE_PRESETS: DateRangeValue[] = [
-  {
-    id: "today",
-    label: "Today",
-    startDate: "2026-09-30",
-    endDate: "2026-09-30",
-  },
-  {
-    id: "yesterday",
-    label: "Yesterday",
-    startDate: "2026-09-29",
-    endDate: "2026-09-29",
-  },
-  {
-    id: "last7days",
-    label: "Last 7 Days",
-    startDate: "2026-09-24",
-    endDate: "2026-09-30",
-  },
-  {
-    id: "thisMonth",
-    label: "01 Sep 2026 - 30 Sep 2026",
-    startDate: "2026-09-01",
-    endDate: "2026-09-30",
-  },
-  {
-    id: "lastMonth",
-    label: "01 Aug 2026 - 31 Aug 2026",
-    startDate: "2026-08-01",
-    endDate: "2026-08-31",
-  },
-  {
-    id: "thisQuarter",
-    label: "This Quarter (Q3 2026)",
-    startDate: "2026-07-01",
-    endDate: "2026-09-30",
-  },
-  {
-    id: "fy2026",
-    label: "Financial Year (FY 2026-27)",
-    startDate: "2026-04-01",
-    endDate: "2026-09-30",
-  },
-];
+export function buildDynamicDatePresets(): DateRangeValue[] {
+  const now = new Date();
+  const pad = (n: number) => String(n).padStart(2, "0");
+  const toISO = (d: Date) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+  const toLabel = (d: Date) => d.toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" });
+
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const yesterday = new Date(today);
+  yesterday.setDate(yesterday.getDate() - 1);
+
+  const last7 = new Date(today);
+  last7.setDate(last7.getDate() - 6);
+
+  const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+  const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+
+  const startOfLastMonth = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+  const endOfLastMonth = new Date(now.getFullYear(), now.getMonth(), 0);
+
+  const curQ = Math.floor(now.getMonth() / 3);
+  const startOfQuarter = new Date(now.getFullYear(), curQ * 3, 1);
+  const endOfQuarter = new Date(now.getFullYear(), curQ * 3 + 3, 0);
+
+  const fyStartYear = now.getMonth() >= 3 ? now.getFullYear() : now.getFullYear() - 1;
+  const startOfFy = new Date(fyStartYear, 3, 1);
+  const endOfFy = new Date(fyStartYear + 1, 2, 31);
+
+  return [
+    {
+      id: "today",
+      label: "Today",
+      startDate: toISO(today),
+      endDate: toISO(today),
+    },
+    {
+      id: "yesterday",
+      label: "Yesterday",
+      startDate: toISO(yesterday),
+      endDate: toISO(yesterday),
+    },
+    {
+      id: "last7days",
+      label: "Last 7 Days",
+      startDate: toISO(last7),
+      endDate: toISO(today),
+    },
+    {
+      id: "thisMonth",
+      label: `${toLabel(startOfMonth)} - ${toLabel(endOfMonth)}`,
+      startDate: toISO(startOfMonth),
+      endDate: toISO(endOfMonth),
+    },
+    {
+      id: "lastMonth",
+      label: `${toLabel(startOfLastMonth)} - ${toLabel(endOfLastMonth)}`,
+      startDate: toISO(startOfLastMonth),
+      endDate: toISO(endOfLastMonth),
+    },
+    {
+      id: "thisQuarter",
+      label: `This Quarter (Q${curQ + 1} ${now.getFullYear()})`,
+      startDate: toISO(startOfQuarter),
+      endDate: toISO(endOfQuarter),
+    },
+    {
+      id: "fy2026",
+      label: `Financial Year (FY ${fyStartYear}-${String(fyStartYear + 1).slice(2)})`,
+      startDate: toISO(startOfFy),
+      endDate: toISO(endOfFy),
+    },
+  ];
+}
+
+export const DATE_PRESETS: DateRangeValue[] = buildDynamicDatePresets();
 
 const MONTHS_SHORT = [
   "Jan", "Feb", "Mar", "Apr", "May", "Jun",
@@ -122,17 +152,32 @@ export default function DateRangeFilter({
   const [activeTab, setActiveTab] = useState<"presets" | "dates" | "months">("presets");
 
   // State for "Date to Date" manual selector
-  const [customStart, setCustomStart] = useState("2026-09-01");
-  const [customEnd, setCustomEnd] = useState("2026-09-30");
-  const [calMonth, setCalMonth] = useState(8); // September (0-indexed)
-  const [calYear, setCalYear] = useState(2026);
+  const [customStart, setCustomStart] = useState(() => {
+    const now = new Date();
+    const pad = (n: number) => String(n).padStart(2, "0");
+    return `${now.getFullYear()}-${pad(now.getMonth() + 1)}-01`;
+  });
+  const [customEnd, setCustomEnd] = useState(() => {
+    const now = new Date();
+    const pad = (n: number) => String(n).padStart(2, "0");
+    const end = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
+    return `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(end)}`;
+  });
+  const [calMonth, setCalMonth] = useState(() => new Date().getMonth());
+  const [calYear, setCalYear] = useState(() => new Date().getFullYear());
   const [selectingStep, setSelectingStep] = useState<"start" | "end">("start");
 
   // State for "Month to Month" selector
-  const [fromMonth, setFromMonth] = useState(7); // August (0-indexed)
-  const [fromYear, setFromYear] = useState(2026);
-  const [toMonth, setToMonth] = useState(8); // September (0-indexed)
-  const [toYear, setToYear] = useState(2026);
+  const [fromMonth, setFromMonth] = useState(() => {
+    const m = new Date().getMonth();
+    return m === 0 ? 11 : m - 1;
+  });
+  const [fromYear, setFromYear] = useState(() => {
+    const now = new Date();
+    return now.getMonth() === 0 ? now.getFullYear() - 1 : now.getFullYear();
+  });
+  const [toMonth, setToMonth] = useState(() => new Date().getMonth());
+  const [toYear, setToYear] = useState(() => new Date().getFullYear());
 
   const [errorMessage, setErrorMessage] = useState("");
   const [popoverAlign, setPopoverAlign] = useState<"right" | "left">("right");
@@ -296,7 +341,8 @@ export default function DateRangeFilter({
     return days;
   }, [calYear, calMonth]);
 
-  const isDefault = value === "01 Sep 2026 - 30 Sep 2026";
+  const thisMonthPreset = useMemo(() => DATE_PRESETS.find((p) => p.id === "thisMonth") || DATE_PRESETS[3], []);
+  const isDefault = value === thisMonthPreset.label;
 
   return (
     <>

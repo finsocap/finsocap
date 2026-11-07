@@ -35,6 +35,8 @@ import AllocationInfographic from "@/components/Charts/AllocationInfographic";
 import { useCrmStore } from "@/lib/crmStore";
 import { useToast } from "@/components/Global/ToastNotification";
 import { workloadService } from "@/lib/api/workloadService";
+import { adminWorkflowService } from "@/lib/api/adminWorkflowService";
+import { downloadFile } from "@/lib/fileViewer";
 import { WorkloadMetrics, BalancingRecommendation } from "@/types/api";
 
 export default function AllocationPage() {
@@ -42,13 +44,14 @@ export default function AllocationPage() {
   const { tasks, users, assignTask } = useCrmStore();
   const toast = useToast();
 
-  // Role Protection: Staff members cannot allocate tasks
+  // Role Protection: Staff, Specialist, Executive cannot allocate tasks
   useEffect(() => {
     try {
       const stored = localStorage.getItem("finsocap_user_session");
       if (stored) {
         const parsed = JSON.parse(stored);
-        if (parsed.role && parsed.role !== "ADMIN") {
+        const userRole = (parsed?.user?.role || parsed?.role || "ADMIN").toUpperCase();
+        if (userRole !== "ADMIN") {
           toast.warning("Access Restricted", "Task allocation is reserved for administrators.");
           router.replace("/dashboard/tasks");
         }
@@ -63,9 +66,15 @@ export default function AllocationPage() {
   const [selectedTaskId, setSelectedTaskId] = useState<string>("");
   const [selectedAssignee, setSelectedAssignee] = useState<string>("");
   const [priority, setPriority] = useState<"High" | "Normal" | "Low">("Normal");
-  const [dueDate, setDueDate] = useState<string>("2026-10-05");
+  // Default to today + 7 days
+  const [dueDate, setDueDate] = useState<string>(() => {
+    const d = new Date();
+    d.setDate(d.getDate() + 7);
+    return d.toISOString().slice(0, 10);
+  });
   const [note, setNote] = useState<string>("");
   const [previewDoc, setPreviewDoc] = useState<string | null>(null);
+  const [kpiFilter, setKpiFilter] = useState<"ALL" | "UNASSIGNED" | "ASSIGNED" | "IN_PROGRESS" | "COMPLETED">("ALL");
 
   const fetchWorkloadData = useCallback(async () => {
     try {
@@ -104,15 +113,26 @@ export default function AllocationPage() {
   };
 
   const unassignedTasks = useMemo(() => {
+    if (kpiFilter === "ASSIGNED" || kpiFilter === "IN_PROGRESS" || kpiFilter === "COMPLETED") {
+      return [];
+    }
     return tasks.filter((t) => !t.assignee && t.status !== "Completed");
-  }, [tasks]);
+  }, [tasks, kpiFilter]);
 
   // Auto-select first unassigned task if available and none selected
   const activeSelectedTaskId = selectedTaskId || (unassignedTasks.length > 0 ? unassignedTasks[0].id : "");
 
   const assignedTasks = useMemo(() => {
-    return tasks.filter((t) => Boolean(t.assignee));
-  }, [tasks]);
+    if (kpiFilter === "UNASSIGNED") {
+      return [];
+    }
+    return tasks.filter((t) => {
+      if (!t.assignee) return false;
+      if (kpiFilter === "IN_PROGRESS" && t.status !== "In Progress") return false;
+      if (kpiFilter === "COMPLETED" && t.status !== "Completed") return false;
+      return true;
+    });
+  }, [tasks, kpiFilter]);
 
   const inProgressCount = useMemo(() => {
     return tasks.filter((t) => t.status === "In Progress" || Boolean(t.assignee)).length;
@@ -156,6 +176,12 @@ export default function AllocationPage() {
 
   const handleAssign = async (e: React.FormEvent) => {
     e.preventDefault();
+    const todayStr = new Date().toISOString().slice(0, 10);
+    if (dueDate && dueDate < todayStr) {
+      toast.error("Due date cannot be a past date. Please select today or a future date.");
+      return;
+    }
+
     const targetTaskId = selectedTaskId || activeSelectedTaskId;
     if (!targetTaskId || !selectedAssignee) {
       toast.error("Please select both a task and an assignee.");
@@ -174,11 +200,35 @@ export default function AllocationPage() {
     assignTask(targetTaskId, specialist?.name || selectedAssignee, priority, dueDate);
 
     try {
-      await workloadService.assignTask({
-        taskId: isNaN(numId) ? 1 : numId,
-        specialistId: specId,
-        notes: note,
-      });
+      // 1. Live Service Request Assignment (API Guide Section 9)
+      if (!isNaN(numId) && numId > 0) {
+        try {
+          // Fetch latest version from service-requests detail to avoid 409 conflict
+          let expectedVersion = 0;
+          try {
+            const detailRes = await adminWorkflowService.getServiceRequestById(numId);
+            if (detailRes?.success && typeof detailRes.data?.version === "number") {
+              expectedVersion = detailRes.data.version;
+            }
+          } catch {}
+
+          await adminWorkflowService.assignServiceRequest(numId, {
+            specialistId: specId,
+            expectedVersion,
+            notes: note || `Assigned to ${specialist?.name || selectedAssignee}`,
+            overrideCompetency: true,
+          });
+        } catch (apiErr: any) {
+          console.warn("adminWorkflowService assignment sync fallback:", apiErr);
+          // Fallback to legacy workload endpoint if service request endpoint fails
+          await workloadService.assignTask({
+            taskId: numId,
+            specialistId: specId,
+            notes: note,
+          });
+        }
+      }
+
       fetchWorkloadData();
     } catch (err: any) {
       console.warn("Assign workload background sync:", err);
@@ -228,9 +278,21 @@ export default function AllocationPage() {
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         
         {/* Unassigned Requests */}
-        <div className="bg-white dark:bg-[#0c1427] rounded-2xl border border-slate-200/90 dark:border-slate-800 p-4 shadow-xs flex items-center justify-between">
+        <button
+          type="button"
+          onClick={() => setKpiFilter(kpiFilter === "UNASSIGNED" ? "ALL" : "UNASSIGNED")}
+          className={`rounded-2xl border p-4 shadow-xs flex items-center justify-between text-left transition-all cursor-pointer ${
+            kpiFilter === "UNASSIGNED"
+              ? "!bg-amber-50/95 dark:!bg-amber-950/70 !border-amber-500 !border-2 shadow-md shadow-amber-500/20 scale-[1.01]"
+              : "bg-white dark:bg-[#0c1427] border-slate-200/90 dark:border-slate-800 hover:border-amber-300 dark:hover:border-amber-700/60"
+          }`}
+        >
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-2xl bg-amber-50 dark:bg-amber-950/60 text-amber-600 dark:text-amber-400 flex items-center justify-center shrink-0">
+            <div className={`w-10 h-10 rounded-2xl flex items-center justify-center shrink-0 transition-colors ${
+              kpiFilter === "UNASSIGNED"
+                ? "bg-amber-500 text-white shadow-xs"
+                : "bg-amber-50 dark:bg-amber-950/60 text-amber-600 dark:text-amber-400"
+            }`}>
               <FileText className="w-5 h-5" />
             </div>
             <div>
@@ -246,14 +308,28 @@ export default function AllocationPage() {
             <span className="text-xl font-black text-slate-900 dark:text-white">
               {workload?.unassignedRequestsCount ?? unassignedTasks.length}
             </span>
-            <ChevronRight className="w-4 h-4 text-slate-400" />
+            <ChevronRight className={`w-4 h-4 transition-transform ${
+              kpiFilter === "UNASSIGNED" ? "rotate-90 text-amber-600 dark:text-amber-400" : "text-slate-400"
+            }`} />
           </div>
-        </div>
+        </button>
 
         {/* Assigned Tasks */}
-        <div className="bg-white dark:bg-[#0c1427] rounded-2xl border border-slate-200/90 dark:border-slate-800 p-4 shadow-xs flex items-center justify-between">
+        <button
+          type="button"
+          onClick={() => setKpiFilter(kpiFilter === "ASSIGNED" ? "ALL" : "ASSIGNED")}
+          className={`rounded-2xl border p-4 shadow-xs flex items-center justify-between text-left transition-all cursor-pointer ${
+            kpiFilter === "ASSIGNED"
+              ? "!bg-emerald-50/95 dark:!bg-emerald-950/70 !border-emerald-500 !border-2 shadow-md shadow-emerald-500/20 scale-[1.01]"
+              : "bg-white dark:bg-[#0c1427] border-slate-200/90 dark:border-slate-800 hover:border-emerald-300 dark:hover:border-emerald-700/60"
+          }`}
+        >
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-2xl bg-emerald-50 dark:bg-emerald-950/60 text-emerald-600 dark:text-emerald-400 flex items-center justify-center shrink-0">
+            <div className={`w-10 h-10 rounded-2xl flex items-center justify-center shrink-0 transition-colors ${
+              kpiFilter === "ASSIGNED"
+                ? "bg-emerald-500 text-white shadow-xs"
+                : "bg-emerald-50 dark:bg-emerald-950/60 text-emerald-600 dark:text-emerald-400"
+            }`}>
               <CheckCircle className="w-5 h-5" />
             </div>
             <div>
@@ -269,14 +345,28 @@ export default function AllocationPage() {
             <span className="text-xl font-black text-slate-900 dark:text-white">
               {workload?.assignedTasksCount ?? assignedTasks.length}
             </span>
-            <ChevronRight className="w-4 h-4 text-slate-400" />
+            <ChevronRight className={`w-4 h-4 transition-transform ${
+              kpiFilter === "ASSIGNED" ? "rotate-90 text-emerald-600 dark:text-emerald-400" : "text-slate-400"
+            }`} />
           </div>
-        </div>
+        </button>
 
         {/* In Progress WIP */}
-        <div className="bg-white dark:bg-[#0c1427] rounded-2xl border border-slate-200/90 dark:border-slate-800 p-4 shadow-xs flex items-center justify-between">
+        <button
+          type="button"
+          onClick={() => setKpiFilter(kpiFilter === "IN_PROGRESS" ? "ALL" : "IN_PROGRESS")}
+          className={`rounded-2xl border p-4 shadow-xs flex items-center justify-between text-left transition-all cursor-pointer ${
+            kpiFilter === "IN_PROGRESS"
+              ? "!bg-purple-50/95 dark:!bg-purple-950/70 !border-purple-500 !border-2 shadow-md shadow-purple-500/20 scale-[1.01]"
+              : "bg-white dark:bg-[#0c1427] border-slate-200/90 dark:border-slate-800 hover:border-purple-300 dark:hover:border-purple-700/60"
+          }`}
+        >
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-2xl bg-purple-50 dark:bg-purple-950/60 text-purple-600 dark:text-purple-400 flex items-center justify-center shrink-0">
+            <div className={`w-10 h-10 rounded-2xl flex items-center justify-center shrink-0 transition-colors ${
+              kpiFilter === "IN_PROGRESS"
+                ? "bg-purple-600 text-white shadow-xs"
+                : "bg-purple-50 dark:bg-purple-950/60 text-purple-600 dark:text-purple-400"
+            }`}>
               <User className="w-5 h-5" />
             </div>
             <div>
@@ -292,14 +382,28 @@ export default function AllocationPage() {
             <span className="text-xl font-black text-slate-900 dark:text-white">
               {workload?.inProgressWipCount ?? inProgressCount}
             </span>
-            <ChevronRight className="w-4 h-4 text-slate-400" />
+            <ChevronRight className={`w-4 h-4 transition-transform ${
+              kpiFilter === "IN_PROGRESS" ? "rotate-90 text-purple-600 dark:text-purple-400" : "text-slate-400"
+            }`} />
           </div>
-        </div>
+        </button>
 
         {/* Completed DONE */}
-        <div className="bg-white dark:bg-[#0c1427] rounded-2xl border border-slate-200/90 dark:border-slate-800 p-4 shadow-xs flex items-center justify-between">
+        <button
+          type="button"
+          onClick={() => setKpiFilter(kpiFilter === "COMPLETED" ? "ALL" : "COMPLETED")}
+          className={`rounded-2xl border p-4 shadow-xs flex items-center justify-between text-left transition-all cursor-pointer ${
+            kpiFilter === "COMPLETED"
+              ? "!bg-blue-50/95 dark:!bg-blue-950/70 !border-blue-500 !border-2 shadow-md shadow-blue-500/20 scale-[1.01]"
+              : "bg-white dark:bg-[#0c1427] border-slate-200/90 dark:border-slate-800 hover:border-blue-300 dark:hover:border-blue-700/60"
+          }`}
+        >
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-2xl bg-blue-50 dark:bg-blue-950/60 text-blue-600 dark:text-sky-400 flex items-center justify-center shrink-0">
+            <div className={`w-10 h-10 rounded-2xl flex items-center justify-center shrink-0 transition-colors ${
+              kpiFilter === "COMPLETED"
+                ? "bg-blue-600 text-white shadow-xs"
+                : "bg-blue-50 dark:bg-blue-950/60 text-blue-600 dark:text-sky-400"
+            }`}>
               <CheckSquare className="w-5 h-5" />
             </div>
             <div>
@@ -315,9 +419,11 @@ export default function AllocationPage() {
             <span className="text-xl font-black text-slate-900 dark:text-white">
               {workload?.completedDoneCount ?? completedCount}
             </span>
-            <ChevronRight className="w-4 h-4 text-slate-400" />
+            <ChevronRight className={`w-4 h-4 transition-transform ${
+              kpiFilter === "COMPLETED" ? "rotate-90 text-blue-600 dark:text-blue-400" : "text-slate-400"
+            }`} />
           </div>
-        </div>
+        </button>
 
       </div>
 
@@ -445,7 +551,7 @@ export default function AllocationPage() {
                             </button>
                             <button
                               type="button"
-                              onClick={() => toast.success(`Downloading ${file}...`, "Download Started")}
+                              onClick={() => downloadFile(undefined, file, `ALLOCATION ATTACHMENT\nTask: ${selectedTask.id}\nFile: ${file}`)}
                               title="Download Document"
                               className="w-6 h-6 rounded-lg bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300 hover:bg-blue-600 hover:text-white flex items-center justify-center transition-colors cursor-pointer"
                             >
@@ -507,6 +613,7 @@ export default function AllocationPage() {
                 <div className="relative">
                   <input
                     type="date"
+                    min={new Date().toISOString().slice(0, 10)}
                     value={dueDate}
                     onChange={(e) => setDueDate(e.target.value)}
                     className="w-full px-3.5 py-2 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-semibold focus:outline-none cursor-pointer text-slate-900 dark:text-white"
@@ -667,6 +774,7 @@ export default function AllocationPage() {
                     <th className="py-2.5 px-3">SERVICE</th>
                     <th className="py-2.5 px-3">DOCUMENTS</th>
                     <th className="py-2.5 px-3">ASSIGNED TO</th>
+                    <th className="py-2.5 px-3">DUE DATE</th>
                     <th className="py-2.5 px-3">STATUS</th>
                     <th className="py-2.5 px-3 text-right">ACTION</th>
                   </tr>
@@ -674,7 +782,7 @@ export default function AllocationPage() {
                 <tbody className="divide-y divide-slate-100 dark:divide-slate-800/60 font-medium">
                   {assignedTasks.length === 0 ? (
                     <tr>
-                      <td colSpan={7} className="py-6 text-center text-slate-400">
+                      <td colSpan={8} className="py-6 text-center text-slate-400">
                         <div className="w-9 h-9 rounded-xl bg-slate-50 dark:bg-slate-900 mx-auto flex items-center justify-center text-slate-400 mb-1.5 border border-slate-100 dark:border-slate-800">
                           <Inbox className="w-4 h-4" />
                         </div>
@@ -724,6 +832,9 @@ export default function AllocationPage() {
                             <span>{task.assignee}</span>
                           </span>
                         </td>
+                        <td className="py-3 px-3 text-slate-500 font-mono text-[11px] whitespace-nowrap">
+                          {task.due || "—"}
+                        </td>
                         <td className="py-3 px-3 whitespace-nowrap">
                           <span className={`inline-block px-2.5 py-0.5 rounded-md text-[10px] font-bold tracking-wide whitespace-nowrap ${getStatusBadge(task.status)}`}>
                             {task.status}
@@ -752,7 +863,7 @@ export default function AllocationPage() {
 
       {/* Document Quick Preview Modal */}
       {previewDoc && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-in fade-in">
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-in fade-in">
           <div className="bg-white dark:bg-[#0c1427] border border-slate-200 dark:border-slate-800 rounded-3xl p-6 w-full max-w-lg shadow-2xl relative space-y-4">
             <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-800">
               <div className="flex items-center gap-2.5">
@@ -807,7 +918,9 @@ export default function AllocationPage() {
               <button
                 type="button"
                 onClick={() => {
-                  toast.success(`Downloading ${previewDoc}...`, "Downloaded");
+                  if (previewDoc) {
+                    downloadFile(undefined, previewDoc, `ALLOCATION ATTACHMENT\nDocument: ${previewDoc}\nVerified File`);
+                  }
                   setPreviewDoc(null);
                 }}
                 className="btn-primary-vibrant text-xs py-2 px-4 cursor-pointer inline-flex items-center gap-1.5"

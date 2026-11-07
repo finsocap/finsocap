@@ -50,6 +50,12 @@ async function handleProxy(
 
   let targetUrlString = "";
   if (
+    subpath.startsWith("partners/network") ||
+    subpath.startsWith("partners/enroll") ||
+    subpath.startsWith("partners/metrics")
+  ) {
+    targetUrlString = `${API_ROOT}/admin/${subpath}`;
+  } else if (
     subpath.startsWith("partners/") ||
     subpath.startsWith("staff/") ||
     subpath.startsWith("admin/") ||

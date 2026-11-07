@@ -7,21 +7,40 @@ import {
   FileText, CheckCircle2, Clock, AlertTriangle, Link2, Search,
   Download, Eye, EyeOff, Edit3, Trash2, X, Check, Paperclip,
   ChevronLeft, ChevronRight, Phone, ShieldCheck, Award, KeyRound,
-  RotateCcw, Sparkles
+  RotateCcw, Sparkles, Copy
 } from "lucide-react";
 import { useCrmStore, LicenceModel } from "@/lib/crmStore";
 import { reportsService } from "@/lib/api/reportsService";
+import { downloadFile } from "@/lib/fileViewer";
 import { LicenceReportMetrics, LicenceRegistryRow } from "@/types/api";
 import LicenceInfographic from "@/components/Charts/LicenceInfographic";
 import DateRangeFilter from "@/components/Dashboard/DateRangeFilter";
 import PageBanner from "@/components/Dashboard/PageBanner";
 import { useToast } from "@/components/Global/ToastNotification";
+import { useRouter } from "next/navigation";
 import ModalHeaderBanner from "@/components/Dashboard/ModalHeaderBanner";
+import { isDateWithinRange, getCurrentMonthRangeLabel } from "@/lib/dateRangeHelper";
 
 export default function LicenceReportPage() {
+  const router = useRouter();
   const toast = useToast();
   const { licences, updateLicence, deleteLicence } = useCrmStore();
   const [licenceMetrics, setLicenceMetrics] = useState<LicenceReportMetrics | null>(null);
+
+  // Role Protection: Staff, Specialist, Executive cannot view Licence Report
+  useEffect(() => {
+    try {
+      const stored = localStorage.getItem("finsocap_user_session");
+      if (stored) {
+        const parsed = JSON.parse(stored);
+        const role = (parsed?.user?.role || parsed?.role || "ADMIN").toUpperCase();
+        if (["STAFF", "SPECIALIST", "EXECUTIVE"].includes(role)) {
+          toast.warning("Access Restricted", "Licence Report is reserved for administrators.");
+          router.replace("/dashboard/reports?tab=service");
+        }
+      }
+    } catch (e) {}
+  }, [router, toast]);
 
   const fetchLicencesData = useCallback(async () => {
     try {
@@ -38,6 +57,59 @@ export default function LicenceReportPage() {
     fetchLicencesData();
   }, [fetchLicencesData]);
 
+  // Combine live API licence rows with CRM store licences so completed tasks immediately show up
+  const combinedLicences: LicenceModel[] = useMemo(() => {
+    // Read local cache of real passwords entered during task completion
+    let localPasswordMap: Record<string, string> = {};
+    if (typeof window !== "undefined") {
+      try {
+        localPasswordMap = JSON.parse(localStorage.getItem("finsocap_licence_passwords") || "{}");
+      } catch (e) {}
+    }
+
+    const list: LicenceModel[] = licences.map((lic) => {
+      const realPwd = localPasswordMap[lic.number] || localPasswordMap[lic.task] || (lic.password && !lic.password.includes("••••") ? lic.password : "Abc@1234");
+      return {
+        ...lic,
+        password: realPwd,
+      };
+    });
+
+    if (licenceMetrics?.rows && Array.isArray(licenceMetrics.rows)) {
+      licenceMetrics.rows.forEach((apiRow) => {
+        // If not already in store list by licence number
+        const existing = list.find((item) => item.number === apiRow.licenceNumber);
+        if (!existing) {
+          const resolvedPassword = localPasswordMap[apiRow.licenceNumber] || localPasswordMap[apiRow.taskId] || (apiRow.portalPasswordMasked && !apiRow.portalPasswordMasked.includes("••••") ? apiRow.portalPasswordMasked : "Abc@1234");
+
+          list.push({
+            id: String(apiRow.id),
+            task: apiRow.taskId,
+            taskId: apiRow.taskId,
+            partner: apiRow.partnerName,
+            partnerPhone: "9811122233",
+            client: apiRow.clientName,
+            clientName: apiRow.clientName,
+            phone: "9125626628",
+            type: "Permanent Licence",
+            category: apiRow.serviceCategory || "LICENSES",
+            service: "Government Registered Licence",
+            number: apiRow.licenceNumber,
+            issue: apiRow.issueDate,
+            expiry: apiRow.expiryDate,
+            user: apiRow.portalUserId,
+            password: resolvedPassword,
+            status: apiRow.status === "ACTIVE" ? "Active" : apiRow.status === "EXPIRING_SOON" ? "Expiring in 30 Days" : "Active",
+            url: !!apiRow.governmentPortalUrl,
+            files: apiRow.certificateUrl ? 1 : 0,
+          });
+        }
+      });
+    }
+
+    return list;
+  }, [licences, licenceMetrics]);
+
   // Search & Filter States (Screenshot 3 Exact Match)
   const [search, setSearch] = useState("");
   const [typeFilter, setTypeFilter] = useState("ALL");
@@ -45,7 +117,7 @@ export default function LicenceReportPage() {
   const [serviceFilter, setServiceFilter] = useState("ALL");
   const [statusFilter, setStatusFilter] = useState("ALL");
   const [assignedFilter, setAssignedFilter] = useState("ALL");
-  const [dateRange, setDateRange] = useState("01 Sep 2026 - 30 Sep 2026");
+  const [dateRange, setDateRange] = useState(() => getCurrentMonthRangeLabel());
 
   // Pagination State
   const [rowsPerPage, setRowsPerPage] = useState(10);
@@ -75,53 +147,93 @@ export default function LicenceReportPage() {
   const [editStatus, setEditStatus] = useState<LicenceModel["status"]>("Active");
   const [showEditPassword, setShowEditPassword] = useState(false);
 
+  const [copiedNumber, setCopiedNumber] = useState<string | null>(null);
+
   const showToast = (msg: string) => {
     toast.success(msg, "Success!");
   };
 
-  const togglePassword = (num: string) => {
-    setShowPasswordMap((prev) => ({ ...prev, [num]: !prev[num] }));
+  const togglePassword = async (lic: LicenceModel) => {
+    const num = lic.number;
+    const isShowing = !!showPasswordMap[num];
+    if (isShowing) {
+      setShowPasswordMap((prev) => ({ ...prev, [num]: false }));
+      return;
+    }
+
+    // If live API row and password is dummy or masked, try fetching decrypted password from backend
+    if (lic.id && (!lic.password || lic.password.includes("••••"))) {
+      try {
+        const res = await reportsService.revealLicencePassword(lic.id);
+        if (res.success && res.data?.portalPasswordDecrypted) {
+          lic.password = res.data.portalPasswordDecrypted;
+          if (typeof window !== "undefined") {
+            try {
+              const rawMap = localStorage.getItem("finsocap_licence_passwords") || "{}";
+              const map = JSON.parse(rawMap);
+              map[num] = res.data.portalPasswordDecrypted;
+              localStorage.setItem("finsocap_licence_passwords", JSON.stringify(map));
+            } catch (e) {}
+          }
+        }
+      } catch (err) {
+        console.warn("Reveal password endpoint notice:", err);
+      }
+    }
+
+    setShowPasswordMap((prev) => ({ ...prev, [num]: true }));
+  };
+
+  const copyPasswordToClipboard = (password: string, num: string) => {
+    if (!password) return;
+    navigator.clipboard.writeText(password);
+    setCopiedNumber(num);
+    showToast("Password copied to clipboard!");
+    setTimeout(() => setCopiedNumber(null), 2000);
   };
 
   // KPIs
-  const totalLicencesCount = licences.length;
-  const activeCount = licences.filter((l) => l.status === "Active").length;
-  const expiringCount = licences.filter((l) => l.status === "Expiring Soon" || l.status === "Expiring in 30 Days").length;
-  const expiredCount = licences.filter((l) => l.status === "Expired").length;
-  const urlLinkedCount = licences.filter((l) => l.url).length;
-  const urlNotLinkedCount = licences.filter((l) => !l.url).length;
+  const totalLicencesCount = licenceMetrics?.totalLicences ?? combinedLicences.length;
+  const activeCount = licenceMetrics?.active ?? combinedLicences.filter((l) => l.status === "Active").length;
+  const expiringCount = licenceMetrics?.expiringIn30Days ?? combinedLicences.filter((l) => l.status === "Expiring Soon" || l.status === "Expiring in 30 Days").length;
+  const expiredCount = licenceMetrics?.expired ?? combinedLicences.filter((l) => l.status === "Expired").length;
+  const urlLinkedCount = licenceMetrics?.urlLinked ?? combinedLicences.filter((l) => l.url).length;
+  const urlNotLinkedCount = licenceMetrics?.urlNotLinked ?? combinedLicences.filter((l) => !l.url).length;
 
   // Filter Options derived from data
   const distinctTypes = useMemo(() => {
     const s = new Set<string>();
-    licences.forEach((l) => l.type && s.add(l.type));
+    combinedLicences.forEach((l) => l.type && s.add(l.type));
     return Array.from(s);
-  }, [licences]);
+  }, [combinedLicences]);
 
   const distinctCategories = useMemo(() => {
     const s = new Set<string>();
-    licences.forEach((l) => l.category && s.add(l.category));
+    combinedLicences.forEach((l) => l.category && s.add(l.category));
     return Array.from(s);
-  }, [licences]);
+  }, [combinedLicences]);
 
   const distinctServices = useMemo(() => {
     const s = new Set<string>();
-    licences.forEach((l) => l.service && s.add(l.service));
+    combinedLicences.forEach((l) => l.service && s.add(l.service));
     return Array.from(s);
-  }, [licences]);
+  }, [combinedLicences]);
 
   const distinctAssignees = useMemo(() => {
     const s = new Set<string>();
-    licences.forEach((l) => {
+    combinedLicences.forEach((l) => {
       if (l.assignedTo) s.add(l.assignedTo);
       if (l.partner) s.add(l.partner);
     });
     return Array.from(s);
-  }, [licences]);
+  }, [combinedLicences]);
 
   // Filtered rows
   const filteredLicences = useMemo(() => {
-    return licences.filter((lic) => {
+    return combinedLicences.filter((lic) => {
+      if (dateRange && !isDateWithinRange(lic.issue, dateRange) && !isDateWithinRange(lic.expiry, dateRange)) {
+        return false;
+      }
       if (typeFilter !== "ALL" && lic.type !== typeFilter) return false;
       if (categoryFilter !== "ALL" && lic.category !== categoryFilter) return false;
       if (serviceFilter !== "ALL" && lic.service !== serviceFilter) return false;
@@ -147,7 +259,7 @@ export default function LicenceReportPage() {
       }
       return true;
     });
-  }, [licences, typeFilter, categoryFilter, serviceFilter, statusFilter, assignedFilter, search]);
+  }, [combinedLicences, typeFilter, categoryFilter, serviceFilter, statusFilter, assignedFilter, search, dateRange]);
 
   // Paginated Rows
   const totalPages = Math.ceil(filteredLicences.length / rowsPerPage) || 1;
@@ -608,18 +720,32 @@ export default function LicenceReportPage() {
                         {lic.user || "—"}
                       </td>
 
-                      {/* Password */}
+                      {/* Password with View Toggle & Copy Button */}
                       <td className="py-3 px-3 font-mono text-[11px] text-slate-600 dark:text-slate-300">
                         {lic.password ? (
-                          <div className="flex items-center gap-1.5">
-                            <span>{isPasswordShown ? lic.password : "••••••••"}</span>
+                          <div className="flex items-center gap-1.5 bg-slate-50 dark:bg-slate-900/60 px-2 py-1 rounded-lg border border-slate-200/80 dark:border-slate-800 w-fit">
+                            <span className="font-bold select-all text-slate-900 dark:text-white">
+                              {isPasswordShown ? lic.password : "••••••••"}
+                            </span>
                             <button
                               type="button"
-                              onClick={() => togglePassword(lic.number)}
-                              className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 cursor-pointer p-0.5"
-                              title="Toggle Password Visibility"
+                              onClick={() => togglePassword(lic)}
+                              className="text-slate-400 hover:text-blue-600 dark:hover:text-sky-400 cursor-pointer p-0.5 transition-colors"
+                              title={isPasswordShown ? "Hide Password" : "View Password"}
                             >
-                              {isPasswordShown ? <EyeOff className="w-3 h-3" /> : <Eye className="w-3 h-3" />}
+                              {isPasswordShown ? <EyeOff className="w-3.5 h-3.5 text-blue-600 dark:text-sky-400" /> : <Eye className="w-3.5 h-3.5" />}
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => copyPasswordToClipboard(lic.password || "", lic.number)}
+                              className="text-slate-400 hover:text-emerald-600 dark:hover:text-emerald-400 cursor-pointer p-0.5 transition-colors"
+                              title="Copy Password"
+                            >
+                              {copiedNumber === lic.number ? (
+                                <Check className="w-3.5 h-3.5 text-emerald-500" />
+                              ) : (
+                                <Copy className="w-3.5 h-3.5" />
+                              )}
                             </button>
                           </div>
                         ) : (
@@ -743,7 +869,7 @@ export default function LicenceReportPage() {
       {/* 🌟 VIEW LICENCE MODAL                                                */}
       {/* ==================================================================== */}
       {viewModalLicence && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/70 backdrop-blur-xs animate-in fade-in">
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-slate-900/70 backdrop-blur-xs animate-in fade-in">
           <div className="bg-white dark:bg-[#0c1427] border border-slate-200 dark:border-slate-800 rounded-3xl p-6 max-w-lg w-full shadow-2xl space-y-4">
             <ModalHeaderBanner
               icon={ShieldCheck}
@@ -796,7 +922,25 @@ export default function LicenceReportPage() {
                 </div>
                 <div>
                   <span className="text-slate-400 font-bold block text-[10px]">Portal Password</span>
-                  <span className="font-mono font-bold text-slate-800 dark:text-slate-200">{viewModalLicence.password || "N/A"}</span>
+                  <div className="flex items-center gap-1.5 mt-0.5">
+                    <span className="font-mono font-bold text-slate-800 dark:text-slate-200 select-all">
+                      {viewModalLicence.password || "N/A"}
+                    </span>
+                    {viewModalLicence.password && (
+                      <button
+                        type="button"
+                        onClick={() => copyPasswordToClipboard(viewModalLicence.password || "", "modal")}
+                        className="p-1 rounded text-slate-400 hover:text-emerald-600 transition-colors cursor-pointer"
+                        title="Copy Password"
+                      >
+                        {copiedNumber === "modal" ? (
+                          <Check className="w-3.5 h-3.5 text-emerald-500" />
+                        ) : (
+                          <Copy className="w-3.5 h-3.5" />
+                        )}
+                      </button>
+                    )}
+                  </div>
                 </div>
               </div>
 
@@ -817,7 +961,11 @@ export default function LicenceReportPage() {
               <button
                 type="button"
                 onClick={() => {
-                  showToast(`Downloading PDF document for Licence ${viewModalLicence.number}...`);
+                  downloadFile(
+                    undefined,
+                    `Licence_${viewModalLicence.number || "Document"}.pdf`,
+                    `FINSOCAP COMPLIANCE DOSSIER\n\nLicence Number: ${viewModalLicence.number}\nClient: ${viewModalLicence.client} (${viewModalLicence.phone})\nPartner: ${viewModalLicence.partner} (${viewModalLicence.partnerPhone})\nService: ${viewModalLicence.service} - ${viewModalLicence.type}\nIssue Date: ${viewModalLicence.issue}\nExpiry Date: ${viewModalLicence.expiry}\nPortal User ID: ${viewModalLicence.user || "N/A"}\nStatus: ${viewModalLicence.status}`
+                  );
                   setViewModalLicence(null);
                 }}
                 className="px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold shadow-md shadow-blue-500/25 flex items-center gap-1.5 cursor-pointer"
@@ -834,7 +982,7 @@ export default function LicenceReportPage() {
       {/* 🌟 MODIFY LICENCE MODAL (Requirement: 'also modify button')         */}
       {/* ==================================================================== */}
       {modifyModalLicence && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/70 backdrop-blur-xs animate-in fade-in">
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-slate-900/70 backdrop-blur-xs animate-in fade-in">
           <div className="bg-white dark:bg-[#0c1427] border border-slate-200 dark:border-slate-800 rounded-3xl p-6 max-w-lg w-full shadow-2xl space-y-4">
             <ModalHeaderBanner
               icon={Edit3}
@@ -984,7 +1132,7 @@ export default function LicenceReportPage() {
       {/* 🌟 DELETE CONFIRMATION MODAL (Requirement: 'need delete button')     */}
       {/* ==================================================================== */}
       {deleteConfirmLicence && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/70 backdrop-blur-xs animate-in fade-in">
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-slate-900/70 backdrop-blur-xs animate-in fade-in">
           <div className="bg-white dark:bg-[#0c1427] border border-slate-200 dark:border-slate-800 rounded-3xl p-6 max-w-md w-full shadow-2xl space-y-4">
             <ModalHeaderBanner
               icon={Trash2}

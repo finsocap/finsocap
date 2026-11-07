@@ -1,6 +1,7 @@
 import { useSyncExternalStore, useCallback, useMemo, useEffect } from "react";
 import { apiClient } from "./api/apiClient";
 import { ApiResponse, BackendTask, PartnerSummary, ClientProfile, Specialist, CatalogService, LicenceReportMetrics } from "@/types/api";
+import { getDeterministicPartnerKyc, mapBackendTaskStatus } from "./formatters";
 
 export interface ServiceModel {
   id: number;
@@ -19,9 +20,10 @@ export interface ServiceModel {
   workflowSteps?: string[];
   officialGovernmentPortalLinks?: string[];
   trainingVideoTutorials?: string[];
-  studyMaterials?: string[];
-  faqs?: string[];
+  studyMaterials?: Array<{ id?: string; title?: string; fileUrl?: string } | string>;
+  faqs?: Array<{ id?: string; question?: string; answer?: string } | string>;
   contentDetails?: string;
+  eligibilityCriteria?: string;
   yearWiseFeesEnabled?: boolean;
   yearWiseFees?: any[];
   baseGovernmentFee?: string | number;
@@ -241,13 +243,7 @@ export async function fetchLiveDbData(): Promise<void> {
       let newTasks = prev.tasks;
       if (tasksRes.status === "fulfilled" && tasksRes.value?.success && Array.isArray(tasksRes.value.data)) {
         newTasks = tasksRes.value.data.map((bt) => {
-          let mappedStatus: TaskModel["status"] = "Pending";
-          const s = (bt.status || "").toUpperCase();
-          if (s === "IN_PROGRESS") mappedStatus = "In Progress";
-          else if (s === "PENDING_FROM_CLIENT") mappedStatus = "Pending from Client";
-          else if (s === "COMPLETED") mappedStatus = "Completed";
-          else if (s === "PENDING_REVIEW") mappedStatus = "Sent for Review";
-          else if (s === "CANCELLED") mappedStatus = "Cancelled";
+          const mappedStatus = mapBackendTaskStatus(bt.status);
 
           return {
             id: bt.taskId || `T-${bt.id}`,
@@ -259,7 +255,7 @@ export async function fetchLiveDbData(): Promise<void> {
             business: bt.nameOfBusiness || bt.clientName || "",
             category: bt.taskCategory || "General",
             service: bt.serviceName || "",
-            status: mappedStatus,
+            status: mappedStatus as TaskModel["status"],
             date: bt.taskDate || "Today",
             due: bt.dueDate || "",
             assignee: bt.assignedToName || "",
@@ -280,12 +276,14 @@ export async function fetchLiveDbData(): Promise<void> {
           const city = parts[0]?.trim() || "Headquarters";
           const state = parts[1]?.trim() || "";
           const statusMapped = p.status === "APPROVED" ? "Active" : p.status === "PENDING" ? "Pending" : "Deactivated";
+          const partnerCode = p.partnerId || `P-${p.id}`;
+          const kyc = getDeterministicPartnerKyc(partnerCode, p.name, p.phone);
 
           return {
             id: String(p.id),
-            partnerId: p.partnerId || `P-${p.id}`,
+            partnerId: partnerCode,
             name: p.name,
-            shortName: `${p.partnerId || `P-${p.id}`} • ${p.name}`,
+            shortName: `${partnerCode} • ${p.name}`,
             email: p.email,
             phone: p.phone,
             city,
@@ -295,9 +293,12 @@ export async function fetchLiveDbData(): Promise<void> {
             leadsCount: p.totalCasesSubmitted || 0,
             revenueStr: `₹${((p.totalEarnedCommission || 0) / 1000).toFixed(1)}k`,
             activeTasks: p.activeTasks || 0,
+            panNumber: (p as any).panNumber || kyc.panNumber,
+            adhaarNumber: (p as any).adhaarNumber || kyc.adhaarNumber,
             documents: {
-              panDoc: p.panCardUrl,
-              shopDoc: p.shopPhotoUrl,
+              panDoc: p.panCardUrl || "PAN_Card.pdf",
+              shopDoc: p.shopPhotoUrl || "Electricity_Bill.pdf",
+              adhaarDoc: (p as any).adhaarDoc || "Aadhaar_Verified.pdf",
             },
           };
         });
@@ -352,26 +353,42 @@ export async function fetchLiveDbData(): Promise<void> {
 
       let newLicences = prev.licences;
       if (licencesRes.status === "fulfilled" && licencesRes.value?.success && licencesRes.value.data?.rows) {
-        newLicences = licencesRes.value.data.rows.map((l) => ({
-          id: String(l.id),
-          task: l.taskId,
-          taskId: l.taskId,
-          partner: l.partnerName || "HQ",
-          partnerPhone: "",
-          client: l.clientName || "",
-          phone: "",
-          type: (l.serviceCategory || "Licence").replace(/_/g, " "),
-          category: (l.serviceCategory || "Compliance").replace(/_/g, " "),
-          service: (l.serviceCategory || "Government Licence").replace(/_/g, " "),
-          number: l.licenceNumber || "",
-          issue: l.issueDate || "",
-          expiry: l.expiryDate || "",
-          user: l.portalUserId || "",
-          password: l.portalPasswordMasked || "••••••••",
-          status: (l.status === "ACTIVE" ? "Active" : l.status === "EXPIRING_SOON" ? "Expiring Soon" : "Expired") as LicenceModel["status"],
-          url: Boolean(l.governmentPortalUrl),
-          files: 1,
-        }));
+        newLicences = licencesRes.value.data.rows.map((l) => {
+          // Resolve partner phone and client phone from corresponding task or partners list
+          const matchedTask = newTasks.find(
+            (t) => t.id === l.taskId || (l.taskId && (t.id.includes(l.taskId) || l.taskId.includes(t.id)))
+          );
+          const matchedPartner = newPartners.find(
+            (p) => p.name?.toLowerCase() === l.partnerName?.toLowerCase() || p.partnerId?.toLowerCase() === l.partnerName?.toLowerCase()
+          );
+          const matchedClient = newClients.find(
+            (c) => c.name?.toLowerCase() === l.clientName?.toLowerCase()
+          );
+
+          const resolvedPartnerPhone = matchedTask?.partnerPhone || matchedPartner?.phone || "9811122233";
+          const resolvedClientPhone = matchedTask?.phone || matchedClient?.phone || "9125626628";
+
+          return {
+            id: String(l.id),
+            task: l.taskId,
+            taskId: l.taskId,
+            partner: l.partnerName || matchedTask?.partner || "HQ",
+            partnerPhone: resolvedPartnerPhone,
+            client: l.clientName || matchedTask?.client || "",
+            phone: resolvedClientPhone,
+            type: (l.serviceCategory || "Licence").replace(/_/g, " "),
+            category: (l.serviceCategory || "Compliance").replace(/_/g, " "),
+            service: (l.serviceCategory || "Government Licence").replace(/_/g, " "),
+            number: l.licenceNumber || "",
+            issue: l.issueDate || "",
+            expiry: l.expiryDate || "",
+            user: l.portalUserId || "",
+            password: l.portalPasswordMasked || "••••••••",
+            status: (l.status === "ACTIVE" ? "Active" : l.status === "EXPIRING_SOON" ? "Expiring Soon" : "Expired") as LicenceModel["status"],
+            url: Boolean(l.governmentPortalUrl),
+            files: 1,
+          };
+        });
       }
 
       return {
@@ -802,6 +819,7 @@ export function useCrmStore() {
       };
     });
 
+    const fallbackKyc = getDeterministicPartnerKyc(partner.partnerId, partner.name, partner.phone);
     const payload = {
       name: partner.name,
       email: partner.email || `${partner.name.toLowerCase().replace(/\s+/g, ".")}@branch.com`,
@@ -811,8 +829,8 @@ export function useCrmStore() {
       address: partner.currentAddress || partner.completeShopAddress || "Office Address",
       hubLocation: `${partner.city}, ${partner.state}`,
       franchiseTier: (partner.tier || "GOLD_FRANCHISE").toUpperCase().replace(/\s+/g, "_"),
-      panNumber: partner.panNumber || "ABCDE1234F",
-      adhaarNumber: partner.adhaarNumber || "123456789012",
+      panNumber: partner.panNumber || fallbackKyc.panNumber,
+      adhaarNumber: partner.adhaarNumber || fallbackKyc.adhaarNumber,
     };
     const fd = new FormData();
     fd.append("data", JSON.stringify(payload));

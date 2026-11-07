@@ -29,7 +29,7 @@ export default function DashboardMain({ children }: { children: React.ReactNode 
       )}
 
       {/* Main Page Content Layer */}
-      <div className="relative z-10">
+      <div className="relative">
         {children}
       </div>
     </main>

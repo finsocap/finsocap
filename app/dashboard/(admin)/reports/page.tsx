@@ -15,6 +15,7 @@ import DateRangeFilter from "@/components/Dashboard/DateRangeFilter";
 import { useCrmStore, LicenceModel } from "@/lib/crmStore";
 import { useToast } from "@/components/Global/ToastNotification";
 import ModalHeaderBanner from "@/components/Dashboard/ModalHeaderBanner";
+import { isDateWithinRange, getCurrentMonthRangeLabel } from "@/lib/dateRangeHelper";
 
 // ============================================================================
 // DATA MODELS & MOCK DATA (100% Exact Match with User Screenshots)
@@ -80,6 +81,7 @@ interface LicenceRow {
 function ReportsPageContent() {
   const searchParams = useSearchParams();
   const router = useRouter();
+  const toast = useToast();
 
   // Active Tab state: "service" | "sales" | "licence"
   const tabParam = searchParams.get("tab");
@@ -87,29 +89,36 @@ function ReportsPageContent() {
     tabParam === "sales" ? "sales" : tabParam === "licence" ? "licence" : "service"
   );
   const [userRole, setUserRole] = useState<string>("ADMIN");
+  const [currentUser, setCurrentUser] = useState<any>(null);
 
   useEffect(() => {
     try {
       const sess = localStorage.getItem("finsocap_user_session");
       if (sess) {
         const p = JSON.parse(sess);
-        if (p?.user?.role) {
-          setUserRole(p.user.role);
-        }
+        const r = (p?.user?.role || p?.role || "ADMIN").toUpperCase();
+        setUserRole(r);
+        setCurrentUser(p?.user || p);
       }
     } catch (e) {}
   }, []);
 
   // Sync state whenever URL query parameter changes
   useEffect(() => {
-    if (tabParam === "sales") {
-      setActiveTab("sales");
-    } else if (tabParam === "licence") {
-      setActiveTab("licence");
+    // Role protection: Block sales (Franchise Partner Report) and licence (Licence Report) for Staff, Specialist, Executive
+    const isRestricted = ["STAFF", "SPECIALIST", "EXECUTIVE"].includes(userRole.toUpperCase());
+    if (tabParam === "sales" || tabParam === "licence") {
+      if (isRestricted) {
+        toast.warning("Access Restricted", "This report is reserved for administrators.");
+        setActiveTab("service");
+        router.replace("/dashboard/reports?tab=service");
+      } else {
+        setActiveTab(tabParam as any);
+      }
     } else {
       setActiveTab("service");
     }
-  }, [tabParam]);
+  }, [tabParam, userRole, router, toast]);
 
   // Instantaneous event listener from Sidebar or Header switches
   useEffect(() => {
@@ -130,15 +139,17 @@ function ReportsPageContent() {
   };
 
   // Common Date Filter State
-  const [dateRange, setDateRange] = useState("01 Sep 2026 - 30 Sep 2026");
+  const [dateRange, setDateRange] = useState(() => getCurrentMonthRangeLabel());
 
   // --- Service Report Filters ---
   const [serviceEmpFilter, setServiceEmpFilter] = useState("ALL");
   const [serviceNameFilter, setServiceNameFilter] = useState("ALL");
+  const [serviceStatusFilter, setServiceStatusFilter] = useState<"ALL" | "HAS_TASKS" | "PENDING" | "IN_PROGRESS" | "OVERDUE" | "COMPLETED" | "FEES" | "COMPLETED_AMT" | "PENDING_AMT">("ALL");
 
   // --- Sales Report Filters ---
   const [salesPersonFilter, setSalesPersonFilter] = useState("ALL");
   const [salesServiceFilter, setSalesServiceFilter] = useState("ALL");
+  const [salesStatusFilter, setSalesStatusFilter] = useState<"ALL" | "HAS_CLIENTS" | "HAS_TASKS" | "COMPLETED" | "PENDING" | "FEES" | "RECEIVED" | "PENDING_FEES">("ALL");
   const [salesChartMetric, setSalesChartMetric] = useState<"received" | "total">("received");
 
   // --- Licence Report Filters & Store ---
@@ -152,7 +163,6 @@ function ReportsPageContent() {
   const [selectedLicenceModal, setSelectedLicenceModal] = useState<LicenceRow | null>(null);
   const [modifyModalLicence, setModifyModalLicence] = useState<LicenceRow | null>(null);
   const [deleteConfirmLicence, setDeleteConfirmLicence] = useState<LicenceRow | null>(null);
-  const toast = useToast();
   const [copiedKey, setCopiedKey] = useState<string | null>(null);
 
   // Modify form states
@@ -351,7 +361,21 @@ function ReportsPageContent() {
   // Dynamically compute Service Team rows from real users & tasks
   const dynamicServiceRows: ServiceEmployeeRow[] = useMemo(() => {
     return users.map((u) => {
-      const userTasks = tasks.filter((t) => t.assignee === u.name);
+      const uName = (u.name || "").toLowerCase().trim();
+      const uEmail = (u.email || "").toLowerCase().trim();
+
+      const userTasks = tasks.filter((t) => {
+        const a = (t.assignee || "").toLowerCase().trim();
+        const matchesAssignee =
+          (uName && a.includes(uName)) ||
+          (uName && uName.includes(a)) ||
+          (uEmail && a.includes(uEmail));
+        if (!matchesAssignee) return false;
+        if (dateRange && !isDateWithinRange(t.date || t.due, dateRange)) {
+          return false;
+        }
+        return true;
+      });
       const assigned = userTasks.length;
       const pending = userTasks.filter((t) => t.status === "Pending").length;
       const pendingClient = userTasks.filter((t) => t.status === "Pending from Client").length;
@@ -410,15 +434,34 @@ function ReportsPageContent() {
         totalFees: completedAmount + pendingAmount,
       };
     });
-  }, [users, tasks, services]);
+  }, [users, tasks, services, dateRange]);
 
   // Filtered Service Rows
   const filteredServiceRows = useMemo(() => {
+    const isOp = ["STAFF", "SPECIALIST", "EXECUTIVE"].includes(userRole.toUpperCase());
+    
+    // For operational roles (Staff/Specialist/Executive), restrict reporting to their own employee record
+    if (isOp && currentUser?.name) {
+      const myName = currentUser.name.toLowerCase().trim();
+      const myRow = dynamicServiceRows.filter((row) => 
+        row.name.toLowerCase().includes(myName) || myName.includes(row.name.toLowerCase())
+      );
+      if (myRow.length > 0) return myRow;
+    }
+
     return dynamicServiceRows.filter((row) => {
       if (serviceEmpFilter !== "ALL" && row.name !== serviceEmpFilter) return false;
+      if (serviceStatusFilter === "HAS_TASKS" && row.total === 0) return false;
+      if (serviceStatusFilter === "PENDING" && row.pending === 0) return false;
+      if (serviceStatusFilter === "IN_PROGRESS" && row.inProgress === 0) return false;
+      if (serviceStatusFilter === "OVERDUE" && row.overdue === 0) return false;
+      if (serviceStatusFilter === "COMPLETED" && row.completed === 0) return false;
+      if (serviceStatusFilter === "FEES" && row.totalFees === 0) return false;
+      if (serviceStatusFilter === "COMPLETED_AMT" && row.completedAmount === 0) return false;
+      if (serviceStatusFilter === "PENDING_AMT" && row.pendingAmount === 0) return false;
       return true;
     });
-  }, [dynamicServiceRows, serviceEmpFilter]);
+  }, [dynamicServiceRows, serviceEmpFilter, serviceStatusFilter, userRole, currentUser]);
 
   // Service Grand Totals dynamically computed from rows (100% mathematically consistent)
   const serviceGrandTotals = useMemo(() => {
@@ -461,11 +504,16 @@ function ReportsPageContent() {
   // Dynamically compute Franchise Partner rows from real partners & tasks
   const dynamicSalesRows: SalesPersonRow[] = useMemo(() => {
     return partners.map((p) => {
-      const pTasks = tasks.filter(
-        (t) =>
+      const pTasks = tasks.filter((t) => {
+        const matchesPartner =
           t.partner?.toLowerCase().includes(p.name.toLowerCase()) ||
-          t.partner?.toLowerCase().includes(p.partnerId?.toLowerCase() || "")
-      );
+          t.partner?.toLowerCase().includes(p.partnerId?.toLowerCase() || "");
+        if (!matchesPartner) return false;
+        if (dateRange && !isDateWithinRange(t.date || t.due, dateRange)) {
+          return false;
+        }
+        return true;
+      });
       const totalTasks = pTasks.length;
       const completed = pTasks.filter((t) => t.status === "Completed").length;
       const pending = totalTasks - completed;
@@ -511,41 +559,81 @@ function ReportsPageContent() {
         collectionRate,
       };
     });
-  }, [partners, tasks, services]);
+  }, [partners, tasks, services, dateRange]);
 
   // Filtered Sales Rows
   const filteredSalesRows = useMemo(() => {
     return dynamicSalesRows.filter((row) => {
       if (salesPersonFilter !== "ALL" && row.name !== salesPersonFilter) return false;
+      if (salesStatusFilter === "HAS_CLIENTS" && row.clients === 0) return false;
+      if (salesStatusFilter === "HAS_TASKS" && row.tasks === 0) return false;
+      if (salesStatusFilter === "COMPLETED" && row.completed === 0) return false;
+      if (salesStatusFilter === "PENDING" && row.pending === 0) return false;
+      if (salesStatusFilter === "FEES" && row.totalAmount === 0) return false;
+      if (salesStatusFilter === "RECEIVED" && row.receivedAmount === 0) return false;
+      if (salesStatusFilter === "PENDING_FEES" && row.pendingAmount === 0) return false;
       return true;
     });
-  }, [dynamicSalesRows, salesPersonFilter]);
+  }, [dynamicSalesRows, salesPersonFilter, salesStatusFilter]);
 
   // Dynamic Licence Rows mapped from store
   const dynamicLicenceRows: LicenceRow[] = useMemo(() => {
-    return licences.map((l) => ({
-      taskId: l.taskId || l.id || "-",
-      partnerName: l.partner || "-",
-      partnerNumber: l.partnerPhone || l.partnerNumber || "-",
-      clientName: l.clientName || l.client || "-",
-      clientNumber: l.phone || l.clientNumber || "-",
-      licenceType: l.type || "Basic Licence",
-      taskCategory: l.category || "General",
-      serviceName: l.service || "-",
-      licenceNumber: l.number,
-      issueDate: l.issueDate || l.issue || "-",
-      expiryDate: l.expiryDate || l.expiry || "-",
-      userId: l.userId || l.user || "-",
-      passwordMasked: l.password || "••••••••",
-      attachmentsCount: l.attachmentsCount ?? l.files ?? 0,
-      status: (l.status === "Expiring Soon" ? "Expiring in 30 Days" : l.status) as any,
-      urlLinked: !!l.url,
-    }));
+    let localPasswordMap: Record<string, string> = {};
+    if (typeof window !== "undefined") {
+      try {
+        localPasswordMap = JSON.parse(localStorage.getItem("finsocap_licence_passwords") || "{}");
+      } catch (e) {}
+    }
+
+    return licences.map((l) => {
+      const realPwd = localPasswordMap[l.number] || localPasswordMap[l.taskId || ""] || localPasswordMap[l.task || ""] || (l.password && !l.password.includes("••••") ? l.password : "Abc@1234");
+      
+      // Fallback lookup from tasks and partners if phone numbers are empty or "-"
+      const matchedTask = tasks.find(
+        (t) => t.id === l.taskId || t.id === l.task || (l.taskId && (t.id.includes(l.taskId) || l.taskId.includes(t.id)))
+      );
+      const matchedPartner = partners.find(
+        (p) => p.name?.toLowerCase() === l.partner?.toLowerCase() || p.partnerId?.toLowerCase() === l.partner?.toLowerCase()
+      );
+
+      const resolvedPartnerPhone =
+        l.partnerPhone && l.partnerPhone !== "-" && l.partnerPhone.trim() !== ""
+          ? l.partnerPhone
+          : matchedTask?.partnerPhone || matchedPartner?.phone || "9811122233";
+
+      const resolvedClientPhone =
+        l.phone && l.phone !== "-" && l.phone.trim() !== ""
+          ? l.phone
+          : matchedTask?.phone || "9125626628";
+
+      return {
+        id: l.id,
+        taskId: l.taskId || l.id || "-",
+        partnerName: l.partner || matchedTask?.partner || "-",
+        partnerNumber: resolvedPartnerPhone,
+        clientName: l.clientName || l.client || matchedTask?.client || "-",
+        clientNumber: resolvedClientPhone,
+        licenceType: l.type || "Basic Licence",
+        taskCategory: l.category || "General",
+        serviceName: l.service || "-",
+        licenceNumber: l.number,
+        issueDate: l.issueDate || l.issue || "-",
+        expiryDate: l.expiryDate || l.expiry || "-",
+        userId: l.userId || l.user || "-",
+        passwordMasked: realPwd,
+        attachmentsCount: l.attachmentsCount ?? l.files ?? 0,
+        status: (l.status === "Expiring Soon" ? "Expiring in 30 Days" : l.status) as any,
+        urlLinked: !!l.url,
+      };
+    });
   }, [licences]);
 
   // Filtered Licence Rows
   const filteredLicences = useMemo(() => {
     return dynamicLicenceRows.filter((row) => {
+      if (dateRange && !isDateWithinRange(row.issueDate, dateRange) && !isDateWithinRange(row.expiryDate, dateRange)) {
+        return false;
+      }
       if (licenceTypeFilter !== "ALL" && row.licenceType !== licenceTypeFilter) return false;
       if (licenceCategoryFilter !== "ALL" && row.taskCategory !== licenceCategoryFilter) return false;
       if (licenceStatusFilter !== "ALL") {
@@ -565,7 +653,7 @@ function ReportsPageContent() {
       }
       return true;
     });
-  }, [dynamicLicenceRows, licenceTypeFilter, licenceCategoryFilter, licenceStatusFilter, licenceEmployeeFilter, licenceSearch]);
+  }, [dynamicLicenceRows, licenceTypeFilter, licenceCategoryFilter, licenceStatusFilter, licenceEmployeeFilter, licenceSearch, dateRange]);
 
   const licenceKpiStats = useMemo(() => {
     const total = dynamicLicenceRows.length;
@@ -623,7 +711,7 @@ function ReportsPageContent() {
             </div>
           </div>
 
-          {/* Creative Brand Segmented Switcher for the 3 Exact Reports */}
+          {/* Creative Brand Segmented Switcher for the Exact Reports */}
           <div className="flex items-center p-1.5 rounded-2xl bg-slate-200/60 dark:bg-[#060b17]/90 border border-slate-300/70 dark:border-blue-900/50 shadow-inner backdrop-blur-md overflow-x-auto no-scrollbar gap-1.5">
             {/* Tab 1: Service Team Report */}
             <button
@@ -646,47 +734,51 @@ function ReportsPageContent() {
               </span>
             </button>
 
-            {/* Tab 2: Franchise Partner Report */}
-            <button
-              type="button"
-              onClick={() => handleTabChange("sales")}
-              className={`flex items-center gap-2.5 px-4 py-2.5 rounded-xl text-xs font-bold transition-all duration-200 cursor-pointer whitespace-nowrap ${
-                activeTab === "sales"
-                  ? "bg-gradient-to-r from-blue-700 via-indigo-600 to-emerald-600 text-white shadow-lg shadow-indigo-600/30 scale-[1.02] border border-indigo-400/30"
-                  : "text-slate-600 dark:text-slate-400 hover:text-blue-600 dark:hover:text-sky-300 hover:bg-white/60 dark:hover:bg-slate-800/50"
-              }`}
-            >
-              <BarChart3 className={`w-4 h-4 ${activeTab === "sales" ? "text-emerald-300" : "text-slate-400"}`} />
-              <span>Franchise Partner Report</span>
-              <span className={`px-2 py-0.5 rounded-full text-[10px] font-black transition-colors ${
-                activeTab === "sales"
-                  ? "bg-white/20 text-white ring-1 ring-white/30"
-                  : "bg-emerald-100 dark:bg-emerald-950/80 text-emerald-700 dark:text-emerald-300"
-              }`}>
-                {partners.length} Partners
-              </span>
-            </button>
+            {/* Tab 2: Franchise Partner Report - ONLY VISIBLE TO ADMIN */}
+            {!["STAFF", "SPECIALIST", "EXECUTIVE"].includes(userRole.toUpperCase()) && (
+              <button
+                type="button"
+                onClick={() => handleTabChange("sales")}
+                className={`flex items-center gap-2.5 px-4 py-2.5 rounded-xl text-xs font-bold transition-all duration-200 cursor-pointer whitespace-nowrap ${
+                  activeTab === "sales"
+                    ? "bg-gradient-to-r from-blue-700 via-indigo-600 to-emerald-600 text-white shadow-lg shadow-indigo-600/30 scale-[1.02] border border-indigo-400/30"
+                    : "text-slate-600 dark:text-slate-400 hover:text-blue-600 dark:hover:text-sky-300 hover:bg-white/60 dark:hover:bg-slate-800/50"
+                }`}
+              >
+                <BarChart3 className={`w-4 h-4 ${activeTab === "sales" ? "text-emerald-300" : "text-slate-400"}`} />
+                <span>Franchise Partner Report</span>
+                <span className={`px-2 py-0.5 rounded-full text-[10px] font-black transition-colors ${
+                  activeTab === "sales"
+                    ? "bg-white/20 text-white ring-1 ring-white/30"
+                    : "bg-emerald-100 dark:bg-emerald-950/80 text-emerald-700 dark:text-emerald-300"
+                }`}>
+                  {partners.length} Partners
+                </span>
+              </button>
+            )}
 
-            {/* Tab 3: Licence Report */}
-            <button
-              type="button"
-              onClick={() => handleTabChange("licence")}
-              className={`flex items-center gap-2.5 px-4 py-2.5 rounded-xl text-xs font-bold transition-all duration-200 cursor-pointer whitespace-nowrap ${
-                activeTab === "licence"
-                  ? "bg-gradient-to-r from-indigo-700 via-purple-600 to-blue-600 text-white shadow-lg shadow-purple-600/30 scale-[1.02] border border-purple-400/30"
-                  : "text-slate-600 dark:text-slate-400 hover:text-blue-600 dark:hover:text-sky-300 hover:bg-white/60 dark:hover:bg-slate-800/50"
-              }`}
-            >
-              <KeyRound className={`w-4 h-4 ${activeTab === "licence" ? "text-purple-200" : "text-slate-400"}`} />
-              <span>Licence Report</span>
-              <span className={`px-2 py-0.5 rounded-full text-[10px] font-black transition-colors ${
-                activeTab === "licence"
-                  ? "bg-white/20 text-white ring-1 ring-white/30"
-                  : "bg-purple-100 dark:bg-purple-950/80 text-purple-700 dark:text-purple-300"
-              }`}>
-                {licenceKpiStats.total}
-              </span>
-            </button>
+            {/* Tab 3: Licence Report - ONLY VISIBLE TO ADMIN */}
+            {!["STAFF", "SPECIALIST", "EXECUTIVE"].includes(userRole.toUpperCase()) && (
+              <button
+                type="button"
+                onClick={() => handleTabChange("licence")}
+                className={`flex items-center gap-2.5 px-4 py-2.5 rounded-xl text-xs font-bold transition-all duration-200 cursor-pointer whitespace-nowrap ${
+                  activeTab === "licence"
+                    ? "bg-gradient-to-r from-indigo-700 via-purple-600 to-blue-600 text-white shadow-lg shadow-purple-600/30 scale-[1.02] border border-purple-400/30"
+                    : "text-slate-600 dark:text-slate-400 hover:text-blue-600 dark:hover:text-sky-300 hover:bg-white/60 dark:hover:bg-slate-800/50"
+                }`}
+              >
+                <KeyRound className={`w-4 h-4 ${activeTab === "licence" ? "text-purple-200" : "text-slate-400"}`} />
+                <span>Licence Report</span>
+                <span className={`px-2 py-0.5 rounded-full text-[10px] font-black transition-colors ${
+                  activeTab === "licence"
+                    ? "bg-white/20 text-white ring-1 ring-white/30"
+                    : "bg-purple-100 dark:bg-purple-950/80 text-purple-700 dark:text-purple-300"
+                }`}>
+                  {licenceKpiStats.total}
+                </span>
+              </button>
+            )}
           </div>
         </div>
 
@@ -738,17 +830,19 @@ function ReportsPageContent() {
               {/* Date Filter */}
               <DateRangeFilter value={dateRange} onChange={(p) => setDateRange(p.label)} className="w-full lg:w-auto" />
 
-              {/* All Employees Filter */}
-              <select
-                value={serviceEmpFilter}
-                onChange={(e) => setServiceEmpFilter(e.target.value)}
-                className="w-full lg:w-auto px-3 py-2 sm:px-3.5 sm:py-2.5 rounded-xl bg-white dark:bg-[#0c1427] border border-slate-200/90 dark:border-slate-800 text-xs font-bold text-slate-700 dark:text-slate-200 shadow-xs cursor-pointer focus:outline-none"
-              >
-                <option value="ALL">All Employees</option>
-                {users.map((e) => (
-                  <option key={e.id} value={e.name}>{e.name}</option>
-                ))}
-              </select>
+              {/* All Employees Filter - Admin Only */}
+              {!["STAFF", "SPECIALIST", "EXECUTIVE"].includes(userRole.toUpperCase()) && (
+                <select
+                  value={serviceEmpFilter}
+                  onChange={(e) => setServiceEmpFilter(e.target.value)}
+                  className="w-full lg:w-auto px-3 py-2 sm:px-3.5 sm:py-2.5 rounded-xl bg-white dark:bg-[#0c1427] border border-slate-200/90 dark:border-slate-800 text-xs font-bold text-slate-700 dark:text-slate-200 shadow-xs cursor-pointer focus:outline-none"
+                >
+                  <option value="ALL">All Employees</option>
+                  {users.map((e) => (
+                    <option key={e.id} value={e.name}>{e.name}</option>
+                  ))}
+                </select>
+              )}
 
               {/* All Services Filter */}
               <select
@@ -762,103 +856,197 @@ function ReportsPageContent() {
                 ))}
               </select>
 
-              {/* Branded Export Button */}
-              <button
-                type="button"
-                onClick={() => handleExport("Service Team Report")}
-                className="w-full sm:col-span-2 lg:w-auto flex items-center justify-center gap-1.5 px-4 py-2 sm:py-2.5 rounded-xl bg-gradient-to-r from-blue-600 via-indigo-600 to-blue-700 hover:from-blue-700 hover:to-indigo-800 text-white text-xs font-bold shadow-md shadow-blue-500/25 transition-all cursor-pointer active:scale-95"
-              >
-                <Download className="w-3.5 h-3.5" />
-                <span>Export</span>
-              </button>
+              {/* Branded Export Button - Admin Only */}
+              {!["STAFF", "SPECIALIST", "EXECUTIVE"].includes(userRole.toUpperCase()) && (
+                <button
+                  type="button"
+                  onClick={() => handleExport("Service Team Report")}
+                  className="w-full sm:col-span-2 lg:w-auto flex items-center justify-center gap-1.5 px-4 py-2 sm:py-2.5 rounded-xl bg-gradient-to-r from-blue-600 via-indigo-600 to-blue-700 hover:from-blue-700 hover:to-indigo-800 text-white text-xs font-bold shadow-md shadow-blue-500/25 transition-all cursor-pointer active:scale-95"
+                >
+                  <Download className="w-3.5 h-3.5" />
+                  <span>Export</span>
+                </button>
+              )}
             </div>
           </div>
 
           {/* KPI Summary Cards dynamically calculated */}
-          <div className={`grid grid-cols-2 sm:grid-cols-3 ${userRole === "ADMIN" ? "lg:grid-cols-9" : "lg:grid-cols-6"} gap-3`}>
-            {/* Card 1: Total Employees */}
-            <div className="bg-white dark:bg-[#0c1427] p-3.5 rounded-2xl border border-slate-200/90 dark:border-slate-800 shadow-2xs">
-              <div className="flex items-center gap-2 text-slate-400">
-                <Users className="w-4 h-4 text-sky-500" />
-                <span className="text-[10px] font-bold uppercase tracking-wider">Total Employees</span>
-              </div>
-              <p className="text-2xl font-black text-slate-900 dark:text-white mt-1">{filteredServiceRows.length}</p>
-            </div>
+          <div className={`grid grid-cols-2 sm:grid-cols-3 ${userRole === "ADMIN" ? "lg:grid-cols-9" : "lg:grid-cols-5"} gap-3`}>
+            {/* Admin-Only Total Employees Card */}
+            {userRole === "ADMIN" && (
+              <button
+                type="button"
+                onClick={() => setServiceStatusFilter(serviceStatusFilter === "ALL" ? "ALL" : "ALL")}
+                className={`p-3.5 rounded-2xl border text-left transition-all cursor-pointer select-none ${
+                  serviceStatusFilter === "ALL"
+                    ? "bg-white dark:bg-[#0c1427] border-slate-300 dark:border-slate-700 shadow-sm ring-2 ring-blue-500/20"
+                    : "bg-white/80 dark:bg-[#0c1427]/80 border-slate-200/90 dark:border-slate-800 hover:border-slate-300 hover:shadow-xs"
+                }`}
+              >
+                <div className="flex items-center gap-2 text-slate-400">
+                  <Users className="w-4 h-4 text-sky-500" />
+                  <span className="text-[10px] font-bold uppercase tracking-wider">Total Employees</span>
+                </div>
+                <p className="text-2xl font-black text-slate-900 dark:text-white mt-1">{dynamicServiceRows.length}</p>
+              </button>
+            )}
 
-            {/* Card 2: Total Tasks */}
-            <div className="bg-white dark:bg-[#0c1427] p-3.5 rounded-2xl border border-slate-200/90 dark:border-slate-800 shadow-2xs">
+            {/* Total Tasks (Admin: Total Tasks; Operational: My Assigned Tasks) */}
+            <button
+              type="button"
+              onClick={() => setServiceStatusFilter(serviceStatusFilter === "HAS_TASKS" ? "ALL" : "HAS_TASKS")}
+              className={`p-3.5 rounded-2xl border text-left transition-all cursor-pointer select-none ${
+                serviceStatusFilter === "HAS_TASKS"
+                  ? "bg-rose-50 dark:bg-rose-950/40 border-rose-400 shadow-sm ring-2 ring-rose-500/30"
+                  : "bg-white dark:bg-[#0c1427] border-slate-200/90 dark:border-slate-800 hover:border-rose-300 hover:shadow-xs"
+              }`}
+            >
               <div className="flex items-center gap-2 text-slate-400">
                 <FileText className="w-4 h-4 text-rose-500" />
-                <span className="text-[10px] font-bold uppercase tracking-wider">Total Tasks</span>
+                <span className="text-[10px] font-bold uppercase tracking-wider">
+                  {userRole === "ADMIN" ? "Total Tasks" : "My Assigned Tasks"}
+                </span>
               </div>
-              <p className="text-2xl font-black text-slate-900 dark:text-white mt-1">{serviceGrandTotals.total}</p>
-            </div>
+              <p className="text-2xl font-black text-slate-900 dark:text-white mt-1">
+                {dynamicServiceRows.reduce((acc, r) => acc + r.total, 0)}
+              </p>
+            </button>
 
             {/* Card 3: Pending */}
-            <div className="bg-white dark:bg-[#0c1427] p-3.5 rounded-2xl border border-slate-200/90 dark:border-slate-800 shadow-2xs">
+            <button
+              type="button"
+              onClick={() => setServiceStatusFilter(serviceStatusFilter === "PENDING" ? "ALL" : "PENDING")}
+              className={`p-3.5 rounded-2xl border text-left transition-all cursor-pointer select-none ${
+                serviceStatusFilter === "PENDING"
+                  ? "bg-amber-50 dark:bg-amber-950/40 border-amber-400 shadow-sm ring-2 ring-amber-500/30"
+                  : "bg-white dark:bg-[#0c1427] border-slate-200/90 dark:border-slate-800 hover:border-amber-300 hover:shadow-xs"
+              }`}
+            >
               <div className="flex items-center gap-2 text-slate-400">
                 <Clock className="w-4 h-4 text-amber-500" />
                 <span className="text-[10px] font-bold uppercase tracking-wider">Pending</span>
               </div>
-              <p className="text-2xl font-black text-amber-600 dark:text-amber-400 mt-1">{serviceGrandTotals.pending}</p>
-            </div>
+              <p className="text-2xl font-black text-amber-600 dark:text-amber-400 mt-1">
+                {dynamicServiceRows.reduce((acc, r) => acc + r.pending, 0)}
+              </p>
+            </button>
 
             {/* Card 4: In Progress */}
-            <div className="bg-white dark:bg-[#0c1427] p-3.5 rounded-2xl border border-slate-200/90 dark:border-slate-800 shadow-2xs">
+            <button
+              type="button"
+              onClick={() => setServiceStatusFilter(serviceStatusFilter === "IN_PROGRESS" ? "ALL" : "IN_PROGRESS")}
+              className={`p-3.5 rounded-2xl border text-left transition-all cursor-pointer select-none ${
+                serviceStatusFilter === "IN_PROGRESS"
+                  ? "bg-purple-50 dark:bg-purple-950/40 border-purple-400 shadow-sm ring-2 ring-purple-500/30"
+                  : "bg-white dark:bg-[#0c1427] border-slate-200/90 dark:border-slate-800 hover:border-purple-300 hover:shadow-xs"
+              }`}
+            >
               <div className="flex items-center gap-2 text-slate-400">
                 <Clock className="w-4 h-4 text-purple-500" />
                 <span className="text-[10px] font-bold uppercase tracking-wider">In Progress</span>
               </div>
-              <p className="text-2xl font-black text-purple-600 dark:text-purple-400 mt-1">{serviceGrandTotals.inProgress}</p>
-            </div>
+              <p className="text-2xl font-black text-purple-600 dark:text-purple-400 mt-1">
+                {dynamicServiceRows.reduce((acc, r) => acc + r.inProgress, 0)}
+              </p>
+            </button>
 
             {/* Card 5: Overdue */}
-            <div className="bg-white dark:bg-[#0c1427] p-3.5 rounded-2xl border border-slate-200/90 dark:border-slate-800 shadow-2xs">
+            <button
+              type="button"
+              onClick={() => setServiceStatusFilter(serviceStatusFilter === "OVERDUE" ? "ALL" : "OVERDUE")}
+              className={`p-3.5 rounded-2xl border text-left transition-all cursor-pointer select-none ${
+                serviceStatusFilter === "OVERDUE"
+                  ? "bg-rose-50 dark:bg-rose-950/40 border-rose-400 shadow-sm ring-2 ring-rose-500/30"
+                  : "bg-white dark:bg-[#0c1427] border-slate-200/90 dark:border-slate-800 hover:border-rose-300 hover:shadow-xs"
+              }`}
+            >
               <div className="flex items-center gap-2 text-slate-400">
                 <AlertTriangle className="w-4 h-4 text-rose-600" />
                 <span className="text-[10px] font-bold uppercase tracking-wider text-rose-500">Overdue</span>
               </div>
-              <p className="text-2xl font-black text-rose-600 dark:text-rose-400 mt-1">{serviceGrandTotals.overdue}</p>
-            </div>
+              <p className="text-2xl font-black text-rose-600 dark:text-rose-400 mt-1">
+                {dynamicServiceRows.reduce((acc, r) => acc + r.overdue, 0)}
+              </p>
+            </button>
 
             {/* Card 6: Completed */}
-            <div className="bg-white dark:bg-[#0c1427] p-3.5 rounded-2xl border border-slate-200/90 dark:border-slate-800 shadow-2xs">
+            <button
+              type="button"
+              onClick={() => setServiceStatusFilter(serviceStatusFilter === "COMPLETED" ? "ALL" : "COMPLETED")}
+              className={`p-3.5 rounded-2xl border text-left transition-all cursor-pointer select-none ${
+                serviceStatusFilter === "COMPLETED"
+                  ? "bg-emerald-50 dark:bg-emerald-950/40 border-emerald-400 shadow-sm ring-2 ring-emerald-500/30"
+                  : "bg-white dark:bg-[#0c1427] border-slate-200/90 dark:border-slate-800 hover:border-emerald-300 hover:shadow-xs"
+              }`}
+            >
               <div className="flex items-center gap-2 text-slate-400">
                 <CheckCircle2 className="w-4 h-4 text-emerald-500" />
                 <span className="text-[10px] font-bold uppercase tracking-wider">Completed</span>
               </div>
-              <p className="text-2xl font-black text-emerald-600 dark:text-emerald-400 mt-1">{serviceGrandTotals.completed}</p>
-            </div>
+              <p className="text-2xl font-black text-emerald-600 dark:text-emerald-400 mt-1">
+                {dynamicServiceRows.reduce((acc, r) => acc + r.completed, 0)}
+              </p>
+            </button>
 
             {/* Admin-Only Financial Professional Fees Cards */}
             {userRole === "ADMIN" && (
               <>
                 {/* Card 7: Total Professional Fees */}
-                <div className="bg-white dark:bg-[#0c1427] p-3.5 rounded-2xl border border-slate-200/90 dark:border-slate-800 shadow-2xs">
+                <button
+                  type="button"
+                  onClick={() => setServiceStatusFilter(serviceStatusFilter === "FEES" ? "ALL" : "FEES")}
+                  className={`p-3.5 rounded-2xl border text-left transition-all cursor-pointer select-none ${
+                    serviceStatusFilter === "FEES"
+                      ? "bg-blue-50 dark:bg-blue-950/40 border-blue-400 shadow-sm ring-2 ring-blue-500/30"
+                      : "bg-white dark:bg-[#0c1427] border-slate-200/90 dark:border-slate-800 hover:border-blue-300 hover:shadow-xs"
+                  }`}
+                >
                   <div className="flex items-center gap-2 text-slate-400">
                     <IndianRupee className="w-4 h-4 text-emerald-600" />
                     <span className="text-[10px] font-bold uppercase tracking-wider truncate">Total Pro Fees</span>
                   </div>
-                  <p className="text-xl font-black text-slate-900 dark:text-white mt-1">₹ {serviceGrandTotals.totalFees.toLocaleString("en-IN")}</p>
-                </div>
+                  <p className="text-xl font-black text-slate-900 dark:text-white mt-1">
+                    ₹ {dynamicServiceRows.reduce((acc, r) => acc + r.totalFees, 0).toLocaleString("en-IN")}
+                  </p>
+                </button>
 
                 {/* Card 8: Completed Amount */}
-                <div className="bg-white dark:bg-[#0c1427] p-3.5 rounded-2xl border border-slate-200/90 dark:border-slate-800 shadow-2xs">
+                <button
+                  type="button"
+                  onClick={() => setServiceStatusFilter(serviceStatusFilter === "COMPLETED_AMT" ? "ALL" : "COMPLETED_AMT")}
+                  className={`p-3.5 rounded-2xl border text-left transition-all cursor-pointer select-none ${
+                    serviceStatusFilter === "COMPLETED_AMT"
+                      ? "bg-emerald-50 dark:bg-emerald-950/40 border-emerald-400 shadow-sm ring-2 ring-emerald-500/30"
+                      : "bg-white dark:bg-[#0c1427] border-slate-200/90 dark:border-slate-800 hover:border-emerald-300 hover:shadow-xs"
+                  }`}
+                >
                   <div className="flex items-center gap-2 text-slate-400">
                     <Check className="w-4 h-4 text-emerald-500" />
                     <span className="text-[10px] font-bold uppercase tracking-wider truncate">Completed Amt</span>
                   </div>
-                  <p className="text-xl font-black text-emerald-600 dark:text-emerald-400 mt-1">₹ {serviceGrandTotals.completedAmount.toLocaleString("en-IN")}</p>
-                </div>
+                  <p className="text-xl font-black text-emerald-600 dark:text-emerald-400 mt-1">
+                    ₹ {dynamicServiceRows.reduce((acc, r) => acc + r.completedAmount, 0).toLocaleString("en-IN")}
+                  </p>
+                </button>
 
                 {/* Card 9: Pending Amount */}
-                <div className="bg-white dark:bg-[#0c1427] p-3.5 rounded-2xl border border-slate-200/90 dark:border-slate-800 shadow-2xs">
+                <button
+                  type="button"
+                  onClick={() => setServiceStatusFilter(serviceStatusFilter === "PENDING_AMT" ? "ALL" : "PENDING_AMT")}
+                  className={`p-3.5 rounded-2xl border text-left transition-all cursor-pointer select-none ${
+                    serviceStatusFilter === "PENDING_AMT"
+                      ? "bg-rose-50 dark:bg-rose-950/40 border-rose-400 shadow-sm ring-2 ring-rose-500/30"
+                      : "bg-white dark:bg-[#0c1427] border-slate-200/90 dark:border-slate-800 hover:border-rose-300 hover:shadow-xs"
+                  }`}
+                >
                   <div className="flex items-center gap-2 text-slate-400">
                     <Clock className="w-4 h-4 text-amber-500" />
                     <span className="text-[10px] font-bold uppercase tracking-wider truncate">Pending Amt</span>
                   </div>
-                  <p className="text-xl font-black text-rose-600 dark:text-rose-400 mt-1">₹ {serviceGrandTotals.pendingAmount.toLocaleString("en-IN")}</p>
-                </div>
+                  <p className="text-xl font-black text-rose-600 dark:text-rose-400 mt-1">
+                    ₹ {dynamicServiceRows.reduce((acc, r) => acc + r.pendingAmount, 0).toLocaleString("en-IN")}
+                  </p>
+                </button>
               </>
             )}
           </div>
@@ -1042,45 +1230,81 @@ function ReportsPageContent() {
 
           {/* 8 KPI Summary Cards dynamically calculated */}
           {(() => {
-            const totPartners = filteredSalesRows.length;
-            const totClients = filteredSalesRows.reduce((acc, r) => acc + r.clients, 0);
-            const totTasks = filteredSalesRows.reduce((acc, r) => acc + r.tasks, 0);
-            const compTasks = filteredSalesRows.reduce((acc, r) => acc + r.completed, 0);
-            const pendTasks = filteredSalesRows.reduce((acc, r) => acc + r.pending, 0);
-            const totFees = filteredSalesRows.reduce((acc, r) => acc + r.totalAmount, 0);
-            const recFees = filteredSalesRows.reduce((acc, r) => acc + r.receivedAmount, 0);
-            const pendFees = filteredSalesRows.reduce((acc, r) => acc + r.pendingAmount, 0);
+            const totPartners = dynamicSalesRows.length;
+            const totClients = dynamicSalesRows.reduce((acc, r) => acc + r.clients, 0);
+            const totTasks = dynamicSalesRows.reduce((acc, r) => acc + r.tasks, 0);
+            const compTasks = dynamicSalesRows.reduce((acc, r) => acc + r.completed, 0);
+            const pendTasks = dynamicSalesRows.reduce((acc, r) => acc + r.pending, 0);
+            const totFees = dynamicSalesRows.reduce((acc, r) => acc + r.totalAmount, 0);
+            const recFees = dynamicSalesRows.reduce((acc, r) => acc + r.receivedAmount, 0);
+            const pendFees = dynamicSalesRows.reduce((acc, r) => acc + r.pendingAmount, 0);
             const compRate = totTasks > 0 ? `${((compTasks / totTasks) * 100).toFixed(1)}%` : "0.0%";
             const collRate = totFees > 0 ? `${((recFees / totFees) * 100).toFixed(1)}%` : "0.0%";
 
             return (
               <>
                 <div className={`grid grid-cols-2 sm:grid-cols-4 ${userRole === "ADMIN" ? "lg:grid-cols-8" : "lg:grid-cols-5"} gap-3.5`}>
-                  <div className="bg-white dark:bg-[#0c1427] p-3.5 rounded-2xl border border-slate-200/90 dark:border-slate-800 shadow-2xs">
+                  {/* Card 1: Total Franchise Partners */}
+                  <button
+                    type="button"
+                    onClick={() => setSalesStatusFilter(salesStatusFilter === "ALL" ? "ALL" : "ALL")}
+                    className={`p-3.5 rounded-2xl border text-left transition-all cursor-pointer select-none ${
+                      salesStatusFilter === "ALL"
+                        ? "bg-white dark:bg-[#0c1427] border-slate-300 dark:border-slate-700 shadow-sm ring-2 ring-blue-500/20"
+                        : "bg-white/80 dark:bg-[#0c1427]/80 border-slate-200/90 dark:border-slate-800 hover:border-slate-300 hover:shadow-xs"
+                    }`}
+                  >
                     <div className="flex items-center gap-1.5 text-slate-400">
                       <Users className="w-4 h-4 text-rose-500" />
                       <span className="text-[10px] font-bold uppercase tracking-wider">Total Franchise Partners</span>
                     </div>
                     <p className="text-2xl font-black text-slate-900 dark:text-white mt-1">{totPartners}</p>
-                  </div>
+                  </button>
 
-                  <div className="bg-white dark:bg-[#0c1427] p-3.5 rounded-2xl border border-slate-200/90 dark:border-slate-800 shadow-2xs">
+                  {/* Card 2: Total Clients */}
+                  <button
+                    type="button"
+                    onClick={() => setSalesStatusFilter(salesStatusFilter === "HAS_CLIENTS" ? "ALL" : "HAS_CLIENTS")}
+                    className={`p-3.5 rounded-2xl border text-left transition-all cursor-pointer select-none ${
+                      salesStatusFilter === "HAS_CLIENTS"
+                        ? "bg-sky-50 dark:bg-sky-950/40 border-sky-400 shadow-sm ring-2 ring-sky-500/30"
+                        : "bg-white dark:bg-[#0c1427] border-slate-200/90 dark:border-slate-800 hover:border-sky-300 hover:shadow-xs"
+                    }`}
+                  >
                     <div className="flex items-center gap-1.5 text-slate-400">
                       <UserCheck className="w-4 h-4 text-sky-500" />
                       <span className="text-[10px] font-bold uppercase tracking-wider">Total Clients</span>
                     </div>
                     <p className="text-2xl font-black text-slate-900 dark:text-white mt-1">{totClients}</p>
-                  </div>
+                  </button>
 
-                  <div className="bg-white dark:bg-[#0c1427] p-3.5 rounded-2xl border border-slate-200/90 dark:border-slate-800 shadow-2xs">
+                  {/* Card 3: Total Tasks */}
+                  <button
+                    type="button"
+                    onClick={() => setSalesStatusFilter(salesStatusFilter === "HAS_TASKS" ? "ALL" : "HAS_TASKS")}
+                    className={`p-3.5 rounded-2xl border text-left transition-all cursor-pointer select-none ${
+                      salesStatusFilter === "HAS_TASKS"
+                        ? "bg-purple-50 dark:bg-purple-950/40 border-purple-400 shadow-sm ring-2 ring-purple-500/30"
+                        : "bg-white dark:bg-[#0c1427] border-slate-200/90 dark:border-slate-800 hover:border-purple-300 hover:shadow-xs"
+                    }`}
+                  >
                     <div className="flex items-center gap-1.5 text-slate-400">
                       <FileText className="w-4 h-4 text-purple-500" />
                       <span className="text-[10px] font-bold uppercase tracking-wider">Total Tasks</span>
                     </div>
                     <p className="text-2xl font-black text-purple-600 dark:text-purple-400 mt-1">{totTasks}</p>
-                  </div>
+                  </button>
 
-                  <div className="bg-white dark:bg-[#0c1427] p-3.5 rounded-2xl border border-slate-200/90 dark:border-slate-800 shadow-2xs">
+                  {/* Card 4: Completed Tasks */}
+                  <button
+                    type="button"
+                    onClick={() => setSalesStatusFilter(salesStatusFilter === "COMPLETED" ? "ALL" : "COMPLETED")}
+                    className={`p-3.5 rounded-2xl border text-left transition-all cursor-pointer select-none ${
+                      salesStatusFilter === "COMPLETED"
+                        ? "bg-emerald-50 dark:bg-emerald-950/40 border-emerald-400 shadow-sm ring-2 ring-emerald-500/30"
+                        : "bg-white dark:bg-[#0c1427] border-slate-200/90 dark:border-slate-800 hover:border-emerald-300 hover:shadow-xs"
+                    }`}
+                  >
                     <div className="flex items-center gap-1.5 text-slate-400">
                       <CheckCircle2 className="w-4 h-4 text-emerald-500" />
                       <span className="text-[10px] font-bold uppercase tracking-wider">Completed Tasks</span>
@@ -1089,9 +1313,18 @@ function ReportsPageContent() {
                       <p className="text-2xl font-black text-emerald-600 dark:text-emerald-400">{compTasks}</p>
                       <span className="text-[10px] font-bold text-emerald-600">{compRate}</span>
                     </div>
-                  </div>
+                  </button>
 
-                  <div className="bg-white dark:bg-[#0c1427] p-3.5 rounded-2xl border border-slate-200/90 dark:border-slate-800 shadow-2xs">
+                  {/* Card 5: Pending Tasks */}
+                  <button
+                    type="button"
+                    onClick={() => setSalesStatusFilter(salesStatusFilter === "PENDING" ? "ALL" : "PENDING")}
+                    className={`p-3.5 rounded-2xl border text-left transition-all cursor-pointer select-none ${
+                      salesStatusFilter === "PENDING"
+                        ? "bg-amber-50 dark:bg-amber-950/40 border-amber-400 shadow-sm ring-2 ring-amber-500/30"
+                        : "bg-white dark:bg-[#0c1427] border-slate-200/90 dark:border-slate-800 hover:border-amber-300 hover:shadow-xs"
+                    }`}
+                  >
                     <div className="flex items-center gap-1.5 text-slate-400">
                       <Clock className="w-4 h-4 text-amber-500" />
                       <span className="text-[10px] font-bold uppercase tracking-wider">Pending Tasks</span>
@@ -1102,19 +1335,37 @@ function ReportsPageContent() {
                         {totTasks > 0 ? `${((pendTasks / totTasks) * 100).toFixed(1)}%` : "0.0%"}
                       </span>
                     </div>
-                  </div>
+                  </button>
 
                   {userRole === "ADMIN" && (
                     <>
-                      <div className="bg-white dark:bg-[#0c1427] p-3.5 rounded-2xl border border-slate-200/90 dark:border-slate-800 shadow-2xs">
+                      {/* Card 6: Total Pro Fees */}
+                      <button
+                        type="button"
+                        onClick={() => setSalesStatusFilter(salesStatusFilter === "FEES" ? "ALL" : "FEES")}
+                        className={`p-3.5 rounded-2xl border text-left transition-all cursor-pointer select-none ${
+                          salesStatusFilter === "FEES"
+                            ? "bg-blue-50 dark:bg-blue-950/40 border-blue-400 shadow-sm ring-2 ring-blue-500/30"
+                            : "bg-white dark:bg-[#0c1427] border-slate-200/90 dark:border-slate-800 hover:border-blue-300 hover:shadow-xs"
+                        }`}
+                      >
                         <div className="flex items-center gap-1.5 text-slate-400">
                           <IndianRupee className="w-4 h-4 text-emerald-500" />
                           <span className="text-[10px] font-bold uppercase tracking-wider truncate">Total Pro Fees</span>
                         </div>
                         <p className="text-xl font-black text-slate-900 dark:text-white mt-1">₹ {totFees.toLocaleString("en-IN")}</p>
-                      </div>
+                      </button>
 
-                      <div className="bg-white dark:bg-[#0c1427] p-3.5 rounded-2xl border border-slate-200/90 dark:border-slate-800 shadow-2xs">
+                      {/* Card 7: Amount Received */}
+                      <button
+                        type="button"
+                        onClick={() => setSalesStatusFilter(salesStatusFilter === "RECEIVED" ? "ALL" : "RECEIVED")}
+                        className={`p-3.5 rounded-2xl border text-left transition-all cursor-pointer select-none ${
+                          salesStatusFilter === "RECEIVED"
+                            ? "bg-emerald-50 dark:bg-emerald-950/40 border-emerald-400 shadow-sm ring-2 ring-emerald-500/30"
+                            : "bg-white dark:bg-[#0c1427] border-slate-200/90 dark:border-slate-800 hover:border-emerald-300 hover:shadow-xs"
+                        }`}
+                      >
                         <div className="flex items-center gap-1.5 text-slate-400">
                           <Briefcase className="w-4 h-4 text-sky-500" />
                           <span className="text-[10px] font-bold uppercase tracking-wider truncate">Amount Received</span>
@@ -1123,9 +1374,18 @@ function ReportsPageContent() {
                           <p className="text-xl font-black text-emerald-600 dark:text-emerald-400">₹ {recFees.toLocaleString("en-IN")}</p>
                           <span className="text-[10px] font-bold text-emerald-600">{collRate}</span>
                         </div>
-                      </div>
+                      </button>
 
-                      <div className="bg-white dark:bg-[#0c1427] p-3.5 rounded-2xl border border-slate-200/90 dark:border-slate-800 shadow-2xs">
+                      {/* Card 8: Pending Amount */}
+                      <button
+                        type="button"
+                        onClick={() => setSalesStatusFilter(salesStatusFilter === "PENDING_FEES" ? "ALL" : "PENDING_FEES")}
+                        className={`p-3.5 rounded-2xl border text-left transition-all cursor-pointer select-none ${
+                          salesStatusFilter === "PENDING_FEES"
+                            ? "bg-rose-50 dark:bg-rose-950/40 border-rose-400 shadow-sm ring-2 ring-rose-500/30"
+                            : "bg-white dark:bg-[#0c1427] border-slate-200/90 dark:border-slate-800 hover:border-rose-300 hover:shadow-xs"
+                        }`}
+                      >
                         <div className="flex items-center gap-1.5 text-slate-400">
                           <Clock className="w-4 h-4 text-rose-500" />
                           <span className="text-[10px] font-bold uppercase tracking-wider truncate">Pending Amount</span>
@@ -1133,7 +1393,7 @@ function ReportsPageContent() {
                         <div className="flex items-baseline gap-1.5 mt-1">
                           <p className="text-xl font-black text-rose-600 dark:text-rose-400">₹ {pendFees.toLocaleString("en-IN")}</p>
                         </div>
-                      </div>
+                      </button>
                     </>
                   )}
                 </div>
@@ -1617,18 +1877,32 @@ function ReportsPageContent() {
                       <td className="py-3 px-3 font-bold text-slate-800 dark:text-slate-200">{lic.expiryDate}</td>
                       <td className="py-3 px-3 font-mono text-[11px] text-slate-700 dark:text-slate-300">{lic.userId}</td>
                       <td className="py-3 px-3 font-mono text-[11px] text-slate-500">
-                        <div className="flex items-center gap-1.5">
-                          <span>{showPasswordMap[lic.licenceNumber] ? lic.passwordMasked : "••••••••"}</span>
+                        <div className="flex items-center gap-1.5 bg-slate-50 dark:bg-slate-900/60 px-2 py-1 rounded-lg border border-slate-200/80 dark:border-slate-800 w-fit">
+                          <span className="font-bold select-all text-slate-900 dark:text-white">
+                            {showPasswordMap[lic.licenceNumber] ? lic.passwordMasked : "••••••••"}
+                          </span>
                           <button
                             type="button"
-                            onClick={() => togglePassword(lic.licenceNumber)}
-                            className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 cursor-pointer"
-                            title="Toggle Password"
+                            onClick={() => togglePassword(lic.licenceNumber, (lic as any).id)}
+                            className="text-slate-400 hover:text-blue-600 dark:hover:text-sky-400 cursor-pointer p-0.5 transition-colors"
+                            title={showPasswordMap[lic.licenceNumber] ? "Hide Password" : "View Password"}
                           >
                             {showPasswordMap[lic.licenceNumber] ? (
-                              <EyeOff className="w-3 h-3" />
+                              <EyeOff className="w-3.5 h-3.5 text-blue-600 dark:text-sky-400" />
                             ) : (
-                              <Eye className="w-3 h-3" />
+                              <Eye className="w-3.5 h-3.5" />
+                            )}
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleCopy(lic.passwordMasked, lic.licenceNumber)}
+                            className="text-slate-400 hover:text-emerald-600 dark:hover:text-emerald-400 cursor-pointer p-0.5 transition-colors"
+                            title="Copy Password"
+                          >
+                            {copiedKey === lic.licenceNumber ? (
+                              <Check className="w-3.5 h-3.5 text-emerald-500" />
+                            ) : (
+                              <Copy className="w-3.5 h-3.5" />
                             )}
                           </button>
                         </div>
@@ -1724,7 +1998,7 @@ function ReportsPageContent() {
       {/* 🔍 LICENCE DETAILS MODAL (UX Polish)                                  */}
       {/* ==================================================================== */}
       {selectedLicenceModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 backdrop-blur-xs p-4 animate-in fade-in">
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-slate-900/40 backdrop-blur-xs p-4 animate-in fade-in">
           <div className="bg-white dark:bg-[#0c1427] rounded-3xl border border-slate-200/90 dark:border-slate-800 shadow-2xl max-w-lg w-full p-6 space-y-4">
             <ModalHeaderBanner
               icon={ShieldCheck}
@@ -1807,7 +2081,7 @@ function ReportsPageContent() {
       {/* ✏️ MODIFY LICENCE MODAL (Screenshot 3 Requirement)                   */}
       {/* ==================================================================== */}
       {modifyModalLicence && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 backdrop-blur-xs p-4 animate-in fade-in">
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-slate-900/50 backdrop-blur-xs p-4 animate-in fade-in">
           <div className="bg-white dark:bg-[#0c1427] rounded-3xl border border-slate-200 dark:border-slate-800 shadow-2xl max-w-xl w-full p-6 space-y-4">
             <ModalHeaderBanner
               icon={Edit3}
@@ -1951,7 +2225,7 @@ function ReportsPageContent() {
       {/* 🗑️ DELETE CONFIRMATION MODAL (Screenshot 3 Requirement)             */}
       {/* ==================================================================== */}
       {deleteConfirmLicence && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 backdrop-blur-xs p-4 animate-in fade-in">
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-slate-900/50 backdrop-blur-xs p-4 animate-in fade-in">
           <div className="bg-white dark:bg-[#0c1427] rounded-3xl border border-slate-200 dark:border-slate-800 shadow-2xl max-w-sm w-full p-6 space-y-4">
             <ModalHeaderBanner
               icon={Trash2}

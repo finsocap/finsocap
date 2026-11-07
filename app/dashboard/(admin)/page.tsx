@@ -16,36 +16,64 @@ import BotrixSparklineCard from "@/components/Charts/BotrixSparklineCard";
 import DateRangeFilter from "@/components/Dashboard/DateRangeFilter";
 import PartnerFilter from "@/components/Dashboard/PartnerFilter";
 import PageBanner from "@/components/Dashboard/PageBanner";
+import RoleDashboardView from "@/components/Dashboard/RoleDashboardView";
+import WeatherWidgetCard from "@/components/Dashboard/WeatherWidgetCard";
 import { useCrmStore, fetchLiveDbData } from "@/lib/crmStore";
+import { isDateWithinRange, getCurrentMonthRangeLabel } from "@/lib/dateRangeHelper";
 
 export default function DashboardHome() {
-  const [dateRange, setDateRange] = useState("01 Sep 2026 - 30 Sep 2026");
+  const [dateRange, setDateRange] = useState(() => getCurrentMonthRangeLabel());
   const [selectedPartner, setSelectedPartner] = useState("All Partners");
   const [taskSummaryFilter, setTaskSummaryFilter] = useState<"Today" | "This Week" | "This Month">("Today");
   const [isTaskFilterOpen, setIsTaskFilterOpen] = useState(false);
+  const [activeRole, setActiveRole] = useState("ADMIN");
+  const [currentUser, setCurrentUser] = useState<any>(null);
 
   const { tasks, manualClients, users, services, partners } = useCrmStore();
 
   useEffect(() => {
     fetchLiveDbData();
+    try {
+      const saved = localStorage.getItem("finsocap_user_session");
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        const role = (parsed?.user?.role || parsed?.role || "ADMIN").toUpperCase();
+        setActiveRole(role);
+        setCurrentUser(parsed?.user || parsed);
+      }
+    } catch (e) {}
   }, []);
 
   // Dynamically compute stats according to selectedPartner, dateRange, and crmStore
   const activeStats = useMemo(() => {
-    // Filter tasks by partner if selected
-    const filteredTasks = selectedPartner === "All Partners"
-      ? tasks
-      : tasks.filter(t => t.partner?.toLowerCase().includes(selectedPartner.toLowerCase()) || (t.id && selectedPartner.includes(t.partner)));
+    // Filter tasks by partner if selected, and date range
+    const filteredTasks = tasks.filter((t) => {
+      const matchPartner =
+        selectedPartner === "All Partners" ||
+        t.partner?.toLowerCase().includes(selectedPartner.toLowerCase()) ||
+        (t.id && selectedPartner.includes(t.partner));
+      if (!matchPartner) return false;
+
+      // Filter by date range (matches t.date or t.due)
+      if (dateRange && !isDateWithinRange(t.date || t.due, dateRange)) {
+        return false;
+      }
+      return true;
+    });
 
     const activeTasksCount = filteredTasks.filter(t => !["Completed", "Cancelled"].includes(t.status)).length;
 
     // Filter clients
-    const filteredClients = selectedPartner === "All Partners"
-      ? manualClients
-      : manualClients.filter(c => c.partner?.toLowerCase().includes(selectedPartner.toLowerCase()));
+    const filteredClients = manualClients.filter((c) => {
+      const matchPartner =
+        selectedPartner === "All Partners" ||
+        c.partner?.toLowerCase().includes(selectedPartner.toLowerCase());
+      if (!matchPartner) return false;
+      return true;
+    });
 
-    // Leads count from clients or tasks
-    const leadsCount = filteredClients.length + filteredTasks.length;
+    // Leads count = Partner Service Requests / Tasks
+    const leadsCount = filteredTasks.length;
     const clientsCount = filteredClients.length;
 
     // Calculate revenue from completed tasks or services
@@ -95,7 +123,7 @@ export default function DashboardHome() {
       barHeightsRevenue: totalRev > 0 ? [25, 35, 45, 60, 50, 70, 65, 85, 75, 90, 70, 85, 80, 95, 85, 90, 80, 95, 90, 95] : zeroBars,
       taskSummary: { pending, inProgress, review, completed, overdue },
     };
-  }, [tasks, manualClients, services, selectedPartner]);
+  }, [tasks, manualClients, services, selectedPartner, dateRange]);
 
   // Compute Task Summary according to taskSummaryFilter
   const activeTaskCounts = useMemo(() => {
@@ -112,27 +140,39 @@ export default function DashboardHome() {
 
   // Filtered Activities
   const filteredActivities = useMemo(() => {
-    return tasks.slice(0, 8).map(t => ({
-      id: t.id,
-      initials: (t.assignee || "TM").slice(0, 2).toUpperCase(),
-      name: t.assignee || "Unassigned",
-      role: "Member",
-      text: `${t.service} - ${t.status}`,
-      time: t.date || "Today",
-      color: "bg-blue-600 text-white",
-      branch: t.partner || "HQ",
-      partner: t.partner,
-    }));
-  }, [tasks]);
+    return tasks
+      .filter((t) => {
+        const matchPartner =
+          selectedPartner === "All Partners" ||
+          t.partner?.toLowerCase().includes(selectedPartner.toLowerCase());
+        if (!matchPartner) return false;
+        if (dateRange && !isDateWithinRange(t.date || t.due, dateRange)) {
+          return false;
+        }
+        return true;
+      })
+      .slice(0, 8)
+      .map((t) => ({
+        id: t.id,
+        initials: (t.assignee || "TM").slice(0, 2).toUpperCase(),
+        name: t.assignee || "Unassigned",
+        role: "Member",
+        text: `${t.service} - ${t.status}`,
+        time: t.date || "Today",
+        color: "bg-blue-600 text-white",
+        branch: t.partner || "HQ",
+        partner: t.partner,
+      }));
+  }, [tasks, selectedPartner, dateRange]);
 
   const handleResetFilters = () => {
-    setDateRange("01 Sep 2026 - 30 Sep 2026");
+    setDateRange(getCurrentMonthRangeLabel());
     setSelectedPartner("All Partners");
   };
 
   const isFilteringActive =
     selectedPartner !== "All Partners" ||
-    dateRange !== "01 Sep 2026 - 30 Sep 2026";
+    dateRange !== getCurrentMonthRangeLabel();
 
   const getStatusBadge = (status: string) => {
     switch (status) {
@@ -148,6 +188,11 @@ export default function DashboardHome() {
         return "bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300";
     }
   };
+
+  // For operational roles (STAFF, SPECIALIST, EXECUTIVE): Render completely isolated role view
+  if (["STAFF", "SPECIALIST", "EXECUTIVE"].includes(activeRole)) {
+    return <RoleDashboardView userRole={activeRole as any} currentUser={currentUser} />;
+  }
 
   return (
     <div className="space-y-6 pb-16 animate-in fade-in duration-300">

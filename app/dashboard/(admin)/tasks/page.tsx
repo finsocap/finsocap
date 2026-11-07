@@ -12,6 +12,7 @@ import {
 import { TaskItem, TaskStatus, ALLOWED_STATUS_TRANSITIONS, canTransitionStatus } from "@/types";
 import { taskService } from "@/lib/services/taskService";
 import { taskApiService } from "@/lib/api/taskService";
+import { taskCollaborationService } from "@/lib/api/taskCollaborationService";
 import { staffWorkflowService } from "@/lib/api/staffWorkflowService";
 import { TaskMetrics } from "@/types/api";
 import { useCrmStore } from "@/lib/crmStore";
@@ -22,9 +23,10 @@ import TasksInfographic from "@/components/Charts/TasksInfographic";
 import DateRangeFilter, { DateRangeValue } from "@/components/Dashboard/DateRangeFilter";
 import { useToast } from "@/components/Global/ToastNotification";
 import ModalHeaderBanner from "@/components/Dashboard/ModalHeaderBanner";
-import { formatName, formatIndianPhoneNumber, normalizePhoneForBackend } from "@/lib/formatters";
+import { formatName, formatIndianPhoneNumber, normalizePhoneForBackend, mapBackendTaskStatus } from "@/lib/formatters";
 import { PhoneInput } from "@/components/Global/PhoneInput";
 import { NameInput } from "@/components/Global/NameInput";
+import { isDateWithinRange, getCurrentMonthRangeLabel, calculateOverdueDays } from "@/lib/dateRangeHelper";
 
 const allStatuses: { status: TaskStatus; label: string; count: number; color: string; bg: string; icon: any }[] = [
   { status: "Pending", label: "Pending", count: 47, color: "text-blue-500", bg: "bg-blue-500/10 border-blue-500/20", icon: Clock },
@@ -43,15 +45,16 @@ export default function TasksPage() {
   const [tasks, setTasks] = useState<TaskItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [userRole, setUserRole] = useState<string>("ADMIN");
+  const [currentUser, setCurrentUser] = useState<any>(null);
 
   useEffect(() => {
     try {
       const sess = localStorage.getItem("finsocap_user_session");
       if (sess) {
         const p = JSON.parse(sess);
-        if (p?.user?.role) {
-          setUserRole(p.user.role);
-        }
+        const r = (p?.user?.role || p?.role || "ADMIN").toUpperCase();
+        setUserRole(r);
+        setCurrentUser(p?.user || p);
       }
     } catch (e) { }
   }, []);
@@ -61,7 +64,7 @@ export default function TasksPage() {
   const [selectedCategory, setSelectedCategory] = useState<string>("ALL");
   const [selectedService, setSelectedService] = useState<string>("ALL");
   const [searchQuery, setSearchQuery] = useState<string>("");
-  const [dateRange, setDateRange] = useState<string>("01 Sep 2026 - 30 Sep 2026");
+  const [dateRange, setDateRange] = useState<string>(() => getCurrentMonthRangeLabel());
 
   // Modals & Feedback
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
@@ -87,7 +90,11 @@ export default function TasksPage() {
   const [newPartnerPhone, setNewPartnerPhone] = useState(partners[0]?.phone || "9873207632");
   const [newCategory, setNewCategory] = useState("Compliance");
   const [newServiceName, setNewServiceName] = useState("");
-  const [newDue, setNewDue] = useState("2026-10-15");
+  const [newDue, setNewDue] = useState(() => {
+    const d = new Date();
+    d.setDate(d.getDate() + 7);
+    return d.toISOString().slice(0, 10);
+  });
 
   // Keep newServiceName synchronized with first service if not set
   useEffect(() => {
@@ -128,19 +135,24 @@ export default function TasksPage() {
   useEffect(() => {
     async function loadTasks() {
       try {
-        let isStaffUser = false;
+        let isOpUser = false;
+        let currentUser: any = null;
         try {
           const sess = localStorage.getItem("finsocap_user_session");
           if (sess) {
             const p = JSON.parse(sess);
-            if (p?.user?.role === "STAFF") isStaffUser = true;
+            const role = (p?.user?.role || p?.role || "ADMIN").toUpperCase();
+            currentUser = p?.user || p;
+            if (["STAFF", "SPECIALIST", "EXECUTIVE"].includes(role)) {
+              isOpUser = true;
+            }
           }
         } catch (e) { }
 
-        if (isStaffUser) {
-          // Dedicated staff assigned tasks from live API: GET /api/staff/tasks
+        if (isOpUser) {
+          // Dedicated staff/specialist/executive assigned tasks from live API: GET /api/staff/tasks
           const staffTasksRes = await staffWorkflowService.getAssignedTasks();
-          if (staffTasksRes?.success && staffTasksRes.data?.items) {
+          if (staffTasksRes?.success && staffTasksRes.data?.items && staffTasksRes.data.items.length > 0) {
             const mappedStaffTasks: TaskItem[] = staffTasksRes.data.items.map((it: any) => ({
               id: it.requestCode || `T-${it.id}`,
               partnerId: it.partnerId ? `P-${it.partnerId}` : "P-101",
@@ -151,15 +163,12 @@ export default function TasksPage() {
               nameOfBusiness: it.nameOfBusiness || it.customerName || "—",
               taskCategory: it.taskCategory || "Compliance",
               serviceName: it.serviceName || "Service",
-              status: (it.status === "IN_PROGRESS"
-                ? "In Progress"
-                : it.status === "PENDING_FROM_CLIENT"
-                  ? "Pending from Client"
-                  : it.status === "COMPLETED"
-                    ? "Completed"
-                    : "Pending") as TaskStatus,
+              status: mapBackendTaskStatus(it.status) as TaskStatus,
               taskDate: it.createdAt ? new Date(it.createdAt).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" }) : "Today",
               dueDate: it.dueDate || "",
+              overdueDays: typeof it.overdueDays === "number" && it.overdueDays > 0
+                ? it.overdueDays
+                : calculateOverdueDays(it.dueDate, it.status),
               assignedTo: it.assignedTo?.name ? { id: String(it.assignedTo.id), name: it.assignedTo.name, role: "Specialist" } : undefined,
               comments: it.instructions ? [{ id: "c1", userName: "Admin", userRole: "ADMIN", timestamp: "Recent", text: it.instructions }] : [],
             }));
@@ -189,15 +198,12 @@ export default function TasksPage() {
             nameOfBusiness: bt.nameOfBusiness || bt.clientName,
             taskCategory: bt.taskCategory || "General",
             serviceName: bt.serviceName,
-            status: (bt.status === "IN_PROGRESS"
-              ? "In Progress"
-              : bt.status === "PENDING_FROM_CLIENT"
-                ? "Pending from Client"
-                : bt.status === "COMPLETED"
-                  ? "Completed"
-                  : "Pending") as TaskStatus,
+            status: mapBackendTaskStatus(bt.status) as TaskStatus,
             taskDate: bt.taskDate || "Today",
             dueDate: bt.dueDate || "",
+            overdueDays: typeof (bt as any).overdueDays === "number" && (bt as any).overdueDays > 0
+              ? (bt as any).overdueDays
+              : calculateOverdueDays(bt.dueDate, bt.status),
             assignedTo: bt.assignedToName ? { id: "spec", name: bt.assignedToName, role: "Specialist" } : undefined,
             comments: bt.adminRemarks ? [{ id: "c1", userName: "Admin", userRole: "ADMIN", timestamp: "Recent", text: bt.adminRemarks }] : [],
           }));
@@ -229,9 +235,29 @@ export default function TasksPage() {
     return Array.from(s);
   }, [services, tasks]);
 
-  // Filtered rows
-  const filteredTasks = useMemo(() => {
+  // Scoped tasks for operational roles (Staff, Specialist, Executive)
+  const scopedUserTasks = useMemo(() => {
+    const isOp = ["STAFF", "SPECIALIST", "EXECUTIVE"].includes(userRole);
+    if (!isOp) return tasks;
+
+    const myName = (currentUser?.name || "").toLowerCase().trim();
+    const myEmail = (currentUser?.email || "").toLowerCase().trim();
+
     return tasks.filter((t) => {
+      // If t.assignedTo is missing, it's not assigned to the staff user
+      if (!t.assignedTo?.name) return false;
+      const assignedName = (t.assignedTo.name || "").toLowerCase().trim();
+      return (
+        (myName && assignedName.includes(myName)) ||
+        (myName && myName.includes(assignedName)) ||
+        (myEmail && assignedName.includes(myEmail))
+      );
+    });
+  }, [tasks, userRole, currentUser]);
+
+  // Filtered rows - strictly scoped to logged-in user if non-admin role
+  const filteredTasks = useMemo(() => {
+    return scopedUserTasks.filter((t) => {
       // Status filter
       if (selectedStatusFilter !== "ALL") {
         if (selectedStatusFilter === "Overdue") {
@@ -249,6 +275,11 @@ export default function TasksPage() {
 
       // Service filter
       if (selectedService !== "ALL" && t.serviceName !== selectedService) {
+        return false;
+      }
+
+      // Date Range filter
+      if (dateRange && !isDateWithinRange(t.taskDate || t.dueDate, dateRange)) {
         return false;
       }
 
@@ -271,11 +302,17 @@ export default function TasksPage() {
 
       return true;
     });
-  }, [tasks, selectedStatusFilter, selectedCategory, selectedService, searchQuery]);
+  }, [scopedUserTasks, selectedStatusFilter, selectedCategory, selectedService, searchQuery, dateRange]);
 
   const handleCreateTask = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newClient.trim() || !newPhone.trim()) return;
+
+    const todayStr = new Date().toISOString().slice(0, 10);
+    if (newDue && newDue < todayStr) {
+      toast.error("Due date cannot be a past date. Please select today or a future date.");
+      return;
+    }
 
     const created = await taskService.createTask({
       partnerId: newPartnerId,
@@ -326,12 +363,109 @@ export default function TasksPage() {
     e.preventDefault();
     if (!editingTask) return;
 
+    const todayStr = new Date().toISOString().slice(0, 10);
+    if (editDue && editDue < todayStr) {
+      toast.error("Due date cannot be a past date. Please select today or a future date.");
+      return;
+    }
+
     if (editStatus !== editingTask.status && !canTransitionStatus(editingTask.status, editStatus)) {
       toast.error(
         `Invalid step transition: "${editingTask.status}" cannot jump directly to "${editStatus}". Work must proceed stepwise.`,
         "Workflow Rule"
       );
       return;
+    }
+
+    const statusChanged = editStatus !== editingTask.status;
+    const statusMap: Record<string, string> = {
+      "Pending": "PENDING",
+      "In Progress": "IN_PROGRESS",
+      "Pending from Client": "PENDING_FROM_CLIENT",
+      "Pending from Department": "PENDING_FROM_DEPARTMENT",
+      "Sent for Review": "SENT_FOR_REVIEW",
+      "Overdue": "PENDING_FROM_CLIENT",
+      "Completed": "COMPLETED",
+      "Cancelled": "CANCELLED",
+    };
+    const backendStatus = statusMap[editStatus];
+
+    // Backend sync for dueDate & status update
+    try {
+      const numericTaskId = editingTask.numericId || (Number(editingTask.id.replace(/\D/g, "")) || 0);
+      if (numericTaskId > 0) {
+        // Direct fast Core Task entity update with both dueDate and status
+        fetch(`/api/proxy/tasks/${numericTaskId}`, {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            status: backendStatus || editingTask.status,
+            dueDate: editDue || null,
+            version: typeof editingTask.version === "number" ? editingTask.version + 1 : 1,
+          }),
+        }).catch((err) => console.warn("Direct PUT task entity warning:", err));
+      }
+    } catch (e) {}
+
+    // Backend sync for status update if status changed
+    if (statusChanged) {
+      try {
+        const numericTaskId = editingTask.numericId || (Number(editingTask.id.replace(/\D/g, "")) || 0);
+        if (numericTaskId > 0) {
+          if (backendStatus) {
+            const isStaff = ["STAFF", "SPECIALIST", "EXECUTIVE"].includes(userRole.toUpperCase());
+
+            // 1. Direct fast Core Task entity status update
+            fetch(`/api/proxy/tasks/${numericTaskId}`, {
+              method: "PUT",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                status: backendStatus,
+                version: typeof editingTask.version === "number" ? editingTask.version + 1 : 1,
+              }),
+            }).catch((err) => console.warn("Direct PUT task entity warning:", err));
+
+            // 2. Status transition workflow endpoint
+            if (isStaff) {
+              taskCollaborationService.updateTaskStatus(
+                numericTaskId,
+                {
+                  status: backendStatus,
+                  note: `Status updated to ${editStatus} from Task Editor`,
+                },
+                "STAFF"
+              ).catch((err) => console.warn("Staff status transition warning:", err));
+            } else {
+              (async () => {
+                try {
+                  let currentLiveVersion = typeof editingTask.version === "number" ? editingTask.version : 0;
+                  try {
+                    const verRes = await fetch(`/api/proxy/tasks/${numericTaskId}`, { cache: "no-store" });
+                    if (verRes.ok) {
+                      const verJson = await verRes.json();
+                      if (typeof verJson?.data?.version === "number") currentLiveVersion = verJson.data.version;
+                    }
+                  } catch (e) {}
+
+                  await taskCollaborationService.updateTaskStatus(
+                    numericTaskId,
+                    {
+                      status: backendStatus,
+                      note: `Status updated to ${editStatus} from Task Editor`,
+                      expectedVersion: currentLiveVersion,
+                    },
+                    "ADMIN"
+                  );
+                } catch (patchErr) {
+                  console.warn("Admin status transition warning:", patchErr);
+                }
+              })();
+            }
+          }
+        }
+      } catch (syncErr) {
+        console.warn("Backend status sync warning:", syncErr);
+      }
     }
 
     const updated = await taskService.updateTask(editingTask.id, {
@@ -344,6 +478,7 @@ export default function TasksPage() {
       dueDate: editDue,
       partnerName: editPartnerName,
       partnerContact: editPartnerContact,
+      assignedTo: editingTask.assignedTo, // Explicitly preserve assignedTo so it NEVER unassigns
     });
 
     if (updated) {
@@ -383,11 +518,11 @@ export default function TasksPage() {
         icon={ClipboardList}
         badge="Finsocap Workflow Operations"
         badgeMeta="Live Statutory Filings & Client Delivery"
-        title="Tasks"
-        description="Comprehensive operations monitor across customer filings, cyber cafe partner requests, statutory approvals, and department clearance."
-        bottomMeta={`${tasks.length} Active Operational Tasks • SLA Tracking Synchronized`}
+        title={["STAFF", "SPECIALIST", "EXECUTIVE"].includes(userRole.toUpperCase()) ? "My Assigned Tasks" : "Tasks"}
+        description={["STAFF", "SPECIALIST", "EXECUTIVE"].includes(userRole.toUpperCase()) ? "View, progress, and fulfill statutory cases assigned directly to you." : "Comprehensive operations monitor across customer filings, cyber cafe partner requests, statutory approvals, and department clearance."}
+        bottomMeta={`${scopedUserTasks.length} Active Operational Tasks • SLA Tracking Synchronized`}
         actions={
-          userRole !== "STAFF" ? (
+          !["STAFF", "SPECIALIST", "EXECUTIVE"].includes(userRole.toUpperCase()) ? (
             <button
               onClick={() => setIsAddModalOpen(true)}
               className="btn-primary-vibrant text-xs py-2.5 px-4 cursor-pointer flex items-center gap-2 shadow-md shadow-blue-500/25"
@@ -400,7 +535,10 @@ export default function TasksPage() {
       />
 
       {/* Task Execution Pipeline Velocity Infographic */}
-      <TasksInfographic metrics={taskMetrics} tasks={tasks} />
+      <TasksInfographic
+        metrics={["STAFF", "SPECIALIST", "EXECUTIVE"].includes(userRole.toUpperCase()) ? null : taskMetrics}
+        tasks={scopedUserTasks}
+      />
 
       {/* 2. Top 8 Status KPI Cards (Exact match to Screenshot 4) */}
       <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 gap-3">
@@ -424,7 +562,7 @@ export default function TasksPage() {
                   <Icon className="w-4 h-4" />
                 </div>
                 <span className={`text-xl font-black ${isSelected ? "text-white" : "text-slate-900 dark:text-white"}`}>
-                  <AnimatedCounter value={tasks.filter((t) => item.status === "Overdue" ? (t.overdueDays ? t.overdueDays > 0 : false) : t.status === item.status).length} />
+                  <AnimatedCounter value={scopedUserTasks.filter((t) => item.status === "Overdue" ? (t.overdueDays ? t.overdueDays > 0 : false) : t.status === item.status).length} />
                 </span>
               </div>
               <p
@@ -699,17 +837,19 @@ export default function TasksPage() {
                       )}
                     </td>
 
-                    {/* Actions -> Edit + Open */}
+                    {/* Actions -> Edit (Admin Only) + Open */}
                     <td className="py-3 px-3.5 text-right">
                       <div className="inline-flex items-center gap-1.5">
-                        <button
-                          type="button"
-                          onClick={() => openEditTask(t)}
-                          className="btn-glass-modern text-xs py-1 px-2.5 cursor-pointer inline-flex items-center gap-1 hover:text-blue-600 transition-all"
-                        >
-                          <Edit3 className="w-3 h-3" />
-                          <span>Edit</span>
-                        </button>
+                        {!["STAFF", "SPECIALIST", "EXECUTIVE"].includes(userRole) && (
+                          <button
+                            type="button"
+                            onClick={() => openEditTask(t)}
+                            className="btn-glass-modern text-xs py-1 px-2.5 cursor-pointer inline-flex items-center gap-1 hover:text-blue-600 transition-all"
+                          >
+                            <Edit3 className="w-3 h-3" />
+                            <span>Edit</span>
+                          </button>
+                        )}
                         <Link
                           href={`/dashboard/tasks/${t.id}`}
                           className="btn-glass-modern text-xs py-1 px-3.5 cursor-pointer inline-flex items-center gap-1.5 hover:bg-blue-600 hover:text-white transition-all shadow-xs"
@@ -729,18 +869,20 @@ export default function TasksPage() {
 
       {/* CREATE TASK MODAL */}
       {isAddModalOpen && (
-        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-in fade-in">
-          <div className="bg-white dark:bg-[#0c1427] rounded-3xl border border-slate-200 dark:border-slate-800 shadow-2xl max-w-lg w-full p-6 space-y-4 animate-in fade-in zoom-in-95">
-            <ModalHeaderBanner
-              icon={ClipboardList}
-              badge="TASK DELEGATION"
-              title="Assign a Task"
-              description="Delegate incoming client cases to certified team personnel with priority SLA & automated tracking."
-              badgeTag="Smart Dispatch"
-              onClose={() => setIsAddModalOpen(false)}
-            />
+        <div className="fixed inset-0 z-[9999] bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4 animate-in fade-in">
+          <div className="bg-white dark:bg-[#0c1427] rounded-3xl border border-slate-200 dark:border-slate-800 shadow-2xl max-w-2xl w-full p-6 max-h-[85vh] flex flex-col space-y-4 animate-in fade-in zoom-in-95">
+            <div className="shrink-0">
+              <ModalHeaderBanner
+                icon={ClipboardList}
+                badge="TASK DELEGATION"
+                title="Assign a Task"
+                description="Delegate incoming client cases to certified team personnel with priority SLA & automated tracking."
+                badgeTag="Smart Dispatch"
+                onClose={() => setIsAddModalOpen(false)}
+              />
+            </div>
 
-            <form onSubmit={handleCreateTask} className="space-y-3.5 text-xs">
+            <form onSubmit={handleCreateTask} className="flex-1 min-h-0 overflow-y-auto pr-1 space-y-3.5 text-xs">
               <div className="grid grid-cols-2 gap-3">
                 <NameInput
                   label="Client Name"
@@ -844,6 +986,7 @@ export default function TasksPage() {
                 <label className="font-bold text-slate-700 dark:text-slate-300">Due Date</label>
                 <input
                   type="date"
+                  min={new Date().toISOString().slice(0, 10)}
                   value={newDue}
                   onChange={(e) => setNewDue(e.target.value)}
                   className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl"
@@ -872,18 +1015,20 @@ export default function TasksPage() {
 
       {/* EDIT TASK MODAL */}
       {editingTask && (
-        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-in fade-in">
-          <div className="bg-white dark:bg-[#0c1427] rounded-3xl border border-slate-200 dark:border-slate-800 shadow-2xl max-w-lg w-full p-6 space-y-4 animate-in fade-in zoom-in-95">
-            <ModalHeaderBanner
-              icon={Edit3}
-              badge="WORKFLOW EDITOR"
-              title={`Edit Task · ${editingTask.id}`}
-              description="Modify client, partner, service, or statutory schedule."
-              badgeTag="Task Sync"
-              onClose={() => setEditingTask(null)}
-            />
+        <div className="fixed inset-0 z-[9999] bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4 animate-in fade-in">
+          <div className="bg-white dark:bg-[#0c1427] rounded-3xl border border-slate-200 dark:border-slate-800 shadow-2xl max-w-2xl w-full p-6 max-h-[85vh] flex flex-col space-y-4 animate-in fade-in zoom-in-95">
+            <div className="shrink-0">
+              <ModalHeaderBanner
+                icon={Edit3}
+                badge="WORKFLOW EDITOR"
+                title={`Edit Task · ${editingTask.id}`}
+                description="Modify client, partner, service, or statutory schedule."
+                badgeTag="Task Sync"
+                onClose={() => setEditingTask(null)}
+              />
+            </div>
 
-            <form onSubmit={handleEditTask} className="space-y-3.5 text-xs">
+            <form onSubmit={handleEditTask} className="flex-1 min-h-0 overflow-y-auto pr-1 space-y-3.5 text-xs">
               <div className="grid grid-cols-2 gap-3">
                 <NameInput
                   label="Client Name"
@@ -992,6 +1137,7 @@ export default function TasksPage() {
                 <label className="font-bold text-slate-700 dark:text-slate-300">Due Date</label>
                 <input
                   type="date"
+                  min={new Date().toISOString().slice(0, 10)}
                   value={editDue}
                   onChange={(e) => setEditDue(e.target.value)}
                   className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-semibold text-slate-900 dark:text-white cursor-pointer focus:outline-none focus:ring-2 focus:ring-blue-500/20"

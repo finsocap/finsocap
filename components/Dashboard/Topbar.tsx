@@ -9,10 +9,12 @@ import {
   Receipt, AlertCircle, Building, CreditCard, 
   Clock, Calendar, Users, IndianRupee, Sparkles,
   MessageSquare, Radio, CheckSquare, Command, Menu,
-  Sun, Moon
+  Sun, Moon, Calculator as CalcIcon
 } from "lucide-react";
 import { soundEffects } from "@/lib/soundEffects";
 import { useTheme } from "@/components/Providers/ThemeProvider";
+import { useCrmStore } from "@/lib/crmStore";
+import BusinessCalculatorModal from "@/components/Dashboard/BusinessCalculatorModal";
 
 type NotificationItem = {
   id: string;
@@ -22,15 +24,21 @@ type NotificationItem = {
   time: string;
   isRead: boolean;
   actionUrl: string;
+  assignedToName?: string;
+  assignedToId?: number | null;
+  partnerName?: string;
+  clientName?: string;
 };
 
 export default function Topbar({ user }: { user?: any }) {
   const router = useRouter();
   const { resolvedMode, toggleTheme } = useTheme();
+  const { tasks } = useCrmStore();
 
   // Dropdown states
   const [isNotifOpen, setIsNotifOpen] = useState(false);
   const [isProfileOpen, setIsProfileOpen] = useState(false);
+  const [isCalculatorOpen, setIsCalculatorOpen] = useState(false);
   const [notifFilter, setNotifFilter] = useState<"all" | "unread">("all");
 
   // Notifications state
@@ -95,7 +103,45 @@ export default function Topbar({ user }: { user?: any }) {
     }
   };
 
-  // Load notifications from API on mount
+  // Read live session from localStorage so logged-in Staff name and role are reflected
+  const [currentUser, setCurrentUser] = useState<any>(user || null);
+
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem("finsocap_user_session");
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (parsed?.user) {
+          setCurrentUser(parsed.user);
+        } else if (parsed?.role) {
+          setCurrentUser(parsed);
+        }
+      }
+    } catch (e) {}
+  }, []);
+
+  const userName = currentUser?.name || user?.name || "Admin";
+  const userRole = (currentUser?.role || (user as any)?.role || "ADMIN").toUpperCase().trim();
+  const userEmail = currentUser?.email || user?.email || "admin@finsocap.com";
+
+  // Helpers to get and set dismissed/read notification IDs per user
+  const getReadNotificationIds = (): Set<string> => {
+    try {
+      const stored = localStorage.getItem(`finsocap_notif_read_${userEmail}`);
+      if (stored) return new Set(JSON.parse(stored));
+    } catch (e) {}
+    return new Set<string>();
+  };
+
+  const getDismissedNotificationIds = (): Set<string> => {
+    try {
+      const stored = localStorage.getItem(`finsocap_notif_dismissed_${userEmail}`);
+      if (stored) return new Set(JSON.parse(stored));
+    } catch (e) {}
+    return new Set<string>();
+  };
+
+  // Load notifications from API on mount and sync with user dismissals
   useEffect(() => {
     const fetchRealNotifications = async () => {
       try {
@@ -112,31 +158,67 @@ export default function Topbar({ user }: { user?: any }) {
           );
 
           // Role-based notification filtering:
-          // If the logged in user is not ADMIN (e.g. Staff/Specialist), do not show admin-only events
-          // such as "New Task Awaiting Assignment", "Verified Franchise Partner", or "Client Registered"
+          // ADMIN sees global compliance & operations notifications
+          // Non-admin roles (STAFF, SPECIALIST, EXECUTIVE, PARTNER, CLIENT) only see their personal assigned notifications
           if (userRole !== "ADMIN") {
+            const myName = (userName || "").toLowerCase().trim();
+            const myEmail = (userEmail || "").toLowerCase().trim();
+            const isStaff = ["STAFF", "SPECIALIST", "EXECUTIVE"].includes(userRole);
+            const isPartner = userRole === "PARTNER";
+            const isClient = userRole === "CLIENT";
+
             serverNotifs = serverNotifs.filter(n => {
-              const titleLower = (n.title || "").toLowerCase();
-              const actionLower = (n.actionUrl || "").toLowerCase();
-              if (titleLower.includes("awaiting assignment") || actionLower.includes("/dashboard/allocation")) return false;
-              if (titleLower.includes("franchise partner") || actionLower.includes("/dashboard/partners")) return false;
-              if (titleLower.includes("client registered") || actionLower.includes("/dashboard/clients")) return false;
-              return true;
+              const assignedName = (n.assignedToName || "").toLowerCase().trim();
+              const notifPartner = (n.partnerName || "").toLowerCase().trim();
+              const notifClient = (n.clientName || "").toLowerCase().trim();
+
+              if (isStaff) {
+                // Must be directly assigned to this staff member
+                const matchesAssignee = myName && assignedName && (assignedName.includes(myName) || myName.includes(assignedName));
+                return Boolean(matchesAssignee);
+              }
+
+              if (isPartner) {
+                // Must belong to this partner
+                const matchesPartner = (myName && notifPartner && (notifPartner.includes(myName) || myName.includes(notifPartner))) ||
+                                       (myEmail && notifPartner.includes(myEmail));
+                return Boolean(matchesPartner);
+              }
+
+              if (isClient) {
+                // Must belong to this client
+                const matchesClient = (myName && notifClient && (notifClient.includes(myName) || myName.includes(notifClient))) ||
+                                      (myEmail && notifClient.includes(myEmail));
+                return Boolean(matchesClient);
+              }
+
+              return false;
             });
           }
 
+          // Apply persisted dismissed & read states
+          const dismissedSet = getDismissedNotificationIds();
+          const readSet = getReadNotificationIds();
+
+          const activeNotifs = serverNotifs
+            .filter(n => !dismissedSet.has(n.id))
+            .map(n => ({
+              ...n,
+              isRead: n.isRead || readSet.has(n.id),
+            }));
+
           if (prevNotifIdsRef.current !== null) {
-            const hasNewUnread = serverNotifs.some(n => !n.isRead && !prevNotifIdsRef.current?.has(n.id));
+            const hasNewUnread = activeNotifs.some(n => !n.isRead && !prevNotifIdsRef.current?.has(n.id));
             if (hasNewUnread) {
               soundEffects.playNotification();
             }
           }
-          prevNotifIdsRef.current = new Set(serverNotifs.map(n => n.id));
+          prevNotifIdsRef.current = new Set(activeNotifs.map(n => n.id));
 
-          setNotifications(serverNotifs);
+          setNotifications(activeNotifs);
         }
       } catch (err) {
-        // Optional notifications endpoint not present, keep local notifications
+        // Fallback keep local notifications
       }
     };
 
@@ -148,16 +230,16 @@ export default function Topbar({ user }: { user?: any }) {
     }, 30000);
 
     return () => clearInterval(interval);
-  }, []);
+  }, [userRole, userEmail, userName]);
 
   // Synchronize user DP
   useEffect(() => {
-    const userEmail = user?.email;
+    const emailToUse = userEmail;
 
     const loadUserScopedDp = () => {
-      if (userEmail) {
+      if (emailToUse) {
         try {
-          const userSpecificDp = localStorage.getItem(`finsocap_user_dp_${userEmail}`);
+          const userSpecificDp = localStorage.getItem(`finsocap_user_dp_${emailToUse}`);
           if (userSpecificDp) {
             setUserDp(userSpecificDp);
             return;
@@ -176,14 +258,7 @@ export default function Topbar({ user }: { user?: any }) {
       window.removeEventListener("user-dp-updated", handleDpUpdate);
       window.removeEventListener("storage", handleDpUpdate);
     };
-  }, [user?.email]);
-
-  const saveNotifications = (items: NotificationItem[]) => {
-    setNotifications(items);
-    try {
-      localStorage.setItem("finsocap_notifications", JSON.stringify(items));
-    } catch (err) {}
-  };
+  }, [userEmail]);
 
   // Close dropdowns when clicking outside
   useEffect(() => {
@@ -203,22 +278,42 @@ export default function Topbar({ user }: { user?: any }) {
 
   const markAllAsRead = () => {
     const updated = notifications.map(n => ({ ...n, isRead: true }));
-    saveNotifications(updated);
+    setNotifications(updated);
+    try {
+      const allIds = updated.map(n => n.id);
+      localStorage.setItem(`finsocap_notif_read_${userEmail}`, JSON.stringify(allIds));
+    } catch (err) {}
   };
 
   const markAsRead = (id: string) => {
     const updated = notifications.map(n => n.id === id ? { ...n, isRead: true } : n);
-    saveNotifications(updated);
+    setNotifications(updated);
+    try {
+      const readSet = getReadNotificationIds();
+      readSet.add(id);
+      localStorage.setItem(`finsocap_notif_read_${userEmail}`, JSON.stringify(Array.from(readSet)));
+    } catch (err) {}
   };
 
   const removeNotification = (id: string, e: React.MouseEvent) => {
     e.stopPropagation();
     const updated = notifications.filter(n => n.id !== id);
-    saveNotifications(updated);
+    setNotifications(updated);
+    try {
+      const dismissedSet = getDismissedNotificationIds();
+      dismissedSet.add(id);
+      localStorage.setItem(`finsocap_notif_dismissed_${userEmail}`, JSON.stringify(Array.from(dismissedSet)));
+    } catch (err) {}
   };
 
   const clearAllNotifications = () => {
-    saveNotifications([]);
+    const allIds = notifications.map(n => n.id);
+    setNotifications([]);
+    try {
+      const dismissedSet = getDismissedNotificationIds();
+      allIds.forEach(id => dismissedSet.add(id));
+      localStorage.setItem(`finsocap_notif_dismissed_${userEmail}`, JSON.stringify(Array.from(dismissedSet)));
+    } catch (err) {}
   };
 
   const filteredNotifications = notifFilter === "all" 
@@ -261,25 +356,6 @@ export default function Topbar({ user }: { user?: any }) {
         );
     }
   };
-
-  // Read live session from localStorage so logged-in Staff name and role are reflected
-  const [currentUser, setCurrentUser] = useState<any>(user || null);
-
-  useEffect(() => {
-    try {
-      const saved = localStorage.getItem("finsocap_user_session");
-      if (saved) {
-        const parsed = JSON.parse(saved);
-        if (parsed?.user) {
-          setCurrentUser(parsed.user);
-        }
-      }
-    } catch (e) {}
-  }, []);
-
-  const userName = currentUser?.name || user?.name || "Admin";
-  const userRole = currentUser?.role || (user as any)?.role || "ADMIN";
-  const userEmail = currentUser?.email || user?.email || "admin@finsocap.com";
 
   return (
     <header className="h-[74px] bg-white/80 backdrop-blur-xl border-b border-slate-200/80 flex items-center justify-between px-3.5 sm:px-6 lg:px-8 sticky top-0 z-30 transition-colors">
@@ -343,6 +419,43 @@ export default function Topbar({ user }: { user?: any }) {
             </div>
           </div>
         )}
+
+        {/* Financial Business Calculator Button (Global Header Floating Popup) */}
+        <div className="relative">
+          <button
+            onClick={() => {
+              setIsCalculatorOpen(!isCalculatorOpen);
+              setIsNotifOpen(false);
+              setIsProfileOpen(false);
+            }}
+            className={`relative p-2 rounded-2xl border transition-all cursor-pointer active:scale-95 flex items-center justify-center ${
+              isCalculatorOpen
+                ? "bg-slate-900 border-slate-900 shadow-md shadow-slate-900/30 ring-2 ring-blue-500/40"
+                : "bg-slate-100 dark:bg-slate-800/80 hover:bg-slate-200/80 dark:hover:bg-slate-700 border-slate-200 dark:border-slate-700"
+            }`}
+            title="Finsocap Business Calculator (Basic, GST, EMI, %)"
+          >
+            {/* Apple / Modern iOS-style 4-circle Calculator Icon */}
+            <div className="w-[22px] h-[22px] rounded-[7px] bg-[#22252e] p-[2.5px] grid grid-cols-2 gap-[1.5px] shadow-sm select-none">
+              {/* Top-Left: + */}
+              <div className="rounded-full bg-[#464c5a] flex items-center justify-center text-[8px] font-bold text-white leading-none">
+                +
+              </div>
+              {/* Top-Right: - */}
+              <div className="rounded-full bg-[#464c5a] flex items-center justify-center text-[9px] font-bold text-white leading-none">
+                −
+              </div>
+              {/* Bottom-Left: × */}
+              <div className="rounded-full bg-[#464c5a] flex items-center justify-center text-[8px] font-bold text-white leading-none">
+                ×
+              </div>
+              {/* Bottom-Right: = (Orange) */}
+              <div className="rounded-full bg-gradient-to-br from-[#ff9f0a] to-[#f47c00] flex items-center justify-center text-[8px] font-black text-white leading-none shadow-[0_1px_2px_rgba(244,124,0,0.5)]">
+                =
+              </div>
+            </div>
+          </button>
+        </div>
 
         {/* Notification Center */}
         <div ref={notifRef} className="relative">
@@ -524,7 +637,7 @@ export default function Topbar({ user }: { user?: any }) {
                 {userName}
               </p>
               <p className="text-[10px] font-bold text-blue-600 dark:text-sky-400 uppercase tracking-wider mt-0.5">
-                {userRole} &bull; Executive
+                {userRole}
               </p>
             </div>
             
@@ -567,7 +680,7 @@ export default function Topbar({ user }: { user?: any }) {
                     </p>
                     <div className="inline-flex items-center gap-1 text-[9px] font-bold bg-blue-100 dark:bg-blue-950 text-blue-700 dark:text-sky-300 px-2 py-0.5 rounded-full mt-1">
                       <ShieldCheck className="w-3 h-3 text-blue-600 dark:text-sky-400" />
-                      <span>{userRole} Operations Admin</span>
+                      <span>{userRole}</span>
                     </div>
                   </div>
                 </div>
@@ -620,6 +733,12 @@ export default function Topbar({ user }: { user?: any }) {
         </div>
 
       </div>
+
+      {/* Finsocap Business Calculator Modal */}
+      <BusinessCalculatorModal
+        isOpen={isCalculatorOpen}
+        onClose={() => setIsCalculatorOpen(false)}
+      />
     </header>
   );
 }

@@ -2024,7 +2024,7 @@ export default function BlogEditorStudio({ initialData, isEditMode = false }: Bl
 
       {/* 3. AI CO-PILOT LONG-FORM 1500+ WORDS MODAL */}
       {isAiModalOpen && (
-        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-in fade-in duration-150">
+        <div className="fixed inset-0 z-[9999] bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4 animate-in fade-in duration-150">
           <div className="bg-white w-full max-w-lg rounded-3xl shadow-2xl border border-slate-200 p-6 sm:p-8 space-y-6 animate-in zoom-in-95 duration-150">
             <div className="flex items-center justify-between border-b border-slate-100 pb-4">
               <div className="flex items-center gap-2.5">
@@ -2143,7 +2143,7 @@ export default function BlogEditorStudio({ initialData, isEditMode = false }: Bl
 
       {/* 4. POST-PUBLISH SUCCESS MODAL */}
       {showSuccessModal && (
-        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-in fade-in">
+        <div className="fixed inset-0 z-[9999] bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4 animate-in fade-in">
           <div className="bg-white w-full max-w-md rounded-3xl shadow-2xl border border-slate-200 p-8 text-center space-y-5 animate-in zoom-in-95">
             <div className="w-16 h-16 rounded-full bg-emerald-100 text-[#0da687] flex items-center justify-center mx-auto shadow-md">
               <CheckCircle2 className="w-8 h-8" />

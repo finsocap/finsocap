@@ -14,6 +14,7 @@ import BranchFilter from "@/components/Dashboard/BranchFilter";
 import PageBanner from "@/components/Dashboard/PageBanner";
 
 import { useCrmStore } from "@/lib/crmStore";
+import { isDateWithinRange, getCurrentMonthRangeLabel } from "@/lib/dateRangeHelper";
 
 interface SalesPersonPerf {
   id: string;
@@ -34,7 +35,7 @@ interface SalesPersonPerf {
 export default function SalesTeamReportPage() {
   const [selectedPerson, setSelectedPerson] = useState("ALL");
   const [isPersonOpen, setIsPersonOpen] = useState(false);
-  const [dateRange, setDateRange] = useState("01 Sep 2026 - 30 Sep 2026");
+  const [dateRange, setDateRange] = useState(() => getCurrentMonthRangeLabel());
   const [selectedBranch, setSelectedBranch] = useState("All Branches");
   const [tableSearch, setTableSearch] = useState("");
   const [isExporting, setIsExporting] = useState(false);
@@ -43,11 +44,16 @@ export default function SalesTeamReportPage() {
 
   const salesData: SalesPersonPerf[] = useMemo(() => {
     return partners.map((p) => {
-      const pTasks = tasks.filter(
-        (t) =>
+      const pTasks = tasks.filter((t) => {
+        const matchesPartner =
           t.partner?.toLowerCase().includes(p.name.toLowerCase()) ||
-          t.partner?.toLowerCase().includes(p.partnerId?.toLowerCase() || "")
-      );
+          t.partner?.toLowerCase().includes(p.partnerId?.toLowerCase() || "");
+        if (!matchesPartner) return false;
+        if (dateRange && !isDateWithinRange(t.date || t.due, dateRange)) {
+          return false;
+        }
+        return true;
+      });
       const totalTasks = pTasks.length;
       const completed = pTasks.filter((t) => t.status === "Completed").length;
       const pending = totalTasks - completed;
@@ -93,7 +99,7 @@ export default function SalesTeamReportPage() {
         collectionRate,
       };
     });
-  }, [partners, tasks, services]);
+  }, [partners, tasks, services, dateRange]);
 
   // Filtered dataset
   const filtered = useMemo(() => {

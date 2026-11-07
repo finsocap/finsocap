@@ -37,52 +37,105 @@ export default function TeamInfographic({
     const avgUtilization = metrics?.avgUtilization ?? 
       (list.length > 0 ? Math.round(list.reduce((acc, s) => acc + (s.utilizationPercentage || 0), 0) / list.length) : 0);
 
-    const opsCount = metrics?.operationsTeam ?? list.filter(s => (s.department || "").toUpperCase() === "OPERATIONS").length;
-    const legalCount = metrics?.legalTeam ?? list.filter(s => (s.department || "").toUpperCase() === "LEGAL").length;
-    const accCount = metrics?.accountingTeam ?? list.filter(s => (s.department || "").toUpperCase() === "ACCOUNTING").length;
+    // Department counts directly from specialists API
+    // 1. Accounting / CA / Tax
+    const accountingDeptCount = list.filter(s => {
+      const d = (s.department || "").toUpperCase();
+      const r = (s.designation || (s as any).role || "").toUpperCase();
+      return d.includes("ACCOUNT") || d.includes("TAX") || r.includes("CA") || r.includes("ACCOUNTANT");
+    }).length;
 
-    const inFlightCases = list.reduce((acc, s) => acc + (s.activeTasks || 0), 0);
+    // 2. Legal / Compliance / Advocates
+    const legalDeptCount = list.filter(s => {
+      const d = (s.department || "").toUpperCase();
+      const r = (s.designation || (s as any).role || "").toUpperCase();
+      return d.includes("LEGAL") || r.includes("ADVOCATE") || r.includes("LEGAL") || r.includes("CS") || r.includes("COMPLIANCE");
+    }).length;
 
-    // Compute top 3 performers dynamically
+    // 3. Operations / Staff / Other Departments
+    const operationsDeptCount = list.filter(s => {
+      const d = (s.department || "").toUpperCase();
+      const r = (s.designation || (s as any).role || "").toUpperCase();
+      return d.includes("OPERATIONS") || d.includes("MANAGEMENT") || d.includes("TEST") || r.includes("STAFF") || r.includes("SPECIALIST") || r.includes("ASSOCIATE");
+    }).length;
+
+    // Use actual active tasks from real tasks array or specialists API
+    const inFlightCases = tasks && tasks.length > 0
+      ? tasks.filter(t => !["Completed", "Cancelled"].includes(t.status) && Boolean(t.assignee)).length
+      : ((metrics as any)?.activeCaseloadInFlight ?? list.reduce((acc, s) => acc + (s.activeTasks || 0), 0));
+
+    // Compute top performers strictly based on completed tasks
+    // If a staff member hasn't completed any task (completed === 0), they shouldn't appear on the podium!
     let performers: { name: string; count: number; role: string; initials: string }[] = [];
-    if (reportRows && reportRows.length > 0) {
-      performers = [...reportRows]
-        .sort((a, b) => (b.completed || b.assigned) - (a.completed || a.assigned))
-        .map((r) => ({
-          name: r.employeeName,
-          count: r.completed || r.assigned || 0,
-          role: "Specialist",
-          initials: r.employeeName.split(" ").map((n: string) => n[0]).join("").slice(0, 2).toUpperCase(),
-        }));
-    } else if (list.length > 0) {
-      performers = [...list]
-        .sort((a, b) => (b.activeTasks || 0) - (a.activeTasks || 0))
-        .map((s) => ({
-          name: s.fullName,
-          count: s.activeTasks || 0,
-          role: s.designation || "Executive",
-          initials: (s.fullName || "EM").split(" ").map((n: string) => n[0]).join("").slice(0, 2).toUpperCase(),
-        }));
+
+    // Map each specialist/user to their completed tasks from live tasks and reportRows
+    const userCompletionMap = new Map<string, number>();
+
+    // 1. From real live tasks array (status === "Completed")
+    if (tasks && tasks.length > 0) {
+      tasks.forEach((t) => {
+        if (t.status === "Completed" && t.assignee) {
+          const key = t.assignee.toLowerCase().trim();
+          userCompletionMap.set(key, (userCompletionMap.get(key) || 0) + 1);
+        }
+      });
     }
 
-    const first = performers[0] || { name: "No Specialist", count: 0, role: "N/A", initials: "--" };
-    const second = performers[1] || { name: "Pending", count: 0, role: "N/A", initials: "--" };
-    const third = performers[2] || { name: "Pending", count: 0, role: "N/A", initials: "--" };
+    // 2. From reportRows if completed > 0
+    if (reportRows && reportRows.length > 0) {
+      reportRows.forEach((r) => {
+        if (r.employeeName && (r.completed || 0) > 0) {
+          const key = r.employeeName.toLowerCase().trim();
+          const curr = userCompletionMap.get(key) || 0;
+          userCompletionMap.set(key, Math.max(curr, r.completed));
+        }
+      });
+    }
 
-    // Check if anyone has actually completed or handled any cases
-    const hasAnyActivity = (first.count > 0) || (second.count > 0) || (third.count > 0);
+    // Construct valid completed performers list
+    list.forEach((s: any) => {
+      const name = s.fullName || s.name || "";
+      if (!name) return;
+      const key = name.toLowerCase().trim();
+      const completedCount = userCompletionMap.get(key) || 0;
+      if (completedCount > 0) {
+        performers.push({
+          name,
+          count: completedCount,
+          role: s.designation || s.role || "Specialist",
+          initials: name.split(" ").map((n: string) => n[0]).join("").slice(0, 2).toUpperCase(),
+        });
+      }
+    });
+
+    // Sort descending by completed tasks
+    performers.sort((a, b) => b.count - a.count);
+
+    const first = performers[0] || null;
+    const second = performers[1] || null;
+    const third = performers[2] || null;
+
+    // Highest completed count for dynamic height scaling
+    const maxCompleted = first?.count || 1;
+
+    // Check if anyone has actually completed any cases
+    const hasAnyActivity = Boolean(first && first.count > 0);
 
     return {
       total,
       avgUtilization,
-      opsCount,
-      legalCount,
-      accCount,
+      accountingDeptCount,
+      legalDeptCount,
+      operationsDeptCount,
+      opsCount: operationsDeptCount,
+      legalCount: legalDeptCount,
+      accCount: accountingDeptCount,
       inFlightCases,
       performers,
       first,
       second,
       third,
+      maxCompleted,
       hasAnyActivity,
     };
   }, [metrics, specialists, reportRows, users, tasks]);
@@ -120,72 +173,119 @@ export default function TeamInfographic({
                 <Crown className="w-6 h-6" />
               </div>
               <h4 className="text-xs font-bold text-slate-800 dark:text-slate-200">
-                No Performance Records Yet
+                No Completed Tasks Yet
               </h4>
               <p className="text-[11px] text-slate-400 max-w-xs mt-1">
-                Leaderboard rankings will activate dynamically once team specialists complete their first client cases.
+                Leaderboard rankings will activate dynamically once team specialists complete their assigned client tasks.
               </p>
             </div>
           ) : (
             <div className="flex items-end justify-center gap-3 sm:gap-4 pt-10 pb-1">
               
-              {/* Rank #2: Silver */}
+              {/* Rank #2: Silver (Appears only if 2nd specialist has completed >= 1 task) */}
               <div className="flex flex-col items-center flex-1 max-w-[110px]">
-                <div className="w-12 h-12 rounded-full bg-gradient-to-tr from-slate-200 via-blue-50 to-white dark:from-slate-700 dark:to-slate-800 border-2 border-slate-200 dark:border-slate-600 shadow-sm flex items-center justify-center font-black text-slate-700 dark:text-slate-200 text-sm">
-                  {stats.second.initials}
-                </div>
-                <span className="text-xs font-black text-slate-800 dark:text-slate-200 mt-2 block text-center truncate max-w-[95px]">
-                  {stats.second.name}
-                </span>
-                <span className="text-[11px] font-semibold text-slate-400 block mb-2">
-                  {stats.second.count} Cases
-                </span>
+                {stats.second ? (
+                  <>
+                    <div className="w-12 h-12 rounded-full bg-gradient-to-tr from-slate-200 via-blue-50 to-white dark:from-slate-700 dark:to-slate-800 border-2 border-slate-200 dark:border-slate-600 shadow-sm flex items-center justify-center font-black text-slate-700 dark:text-slate-200 text-sm">
+                      {stats.second.initials}
+                    </div>
+                    <span className="text-xs font-black text-slate-800 dark:text-slate-200 mt-2 block text-center truncate max-w-[95px]">
+                      {stats.second.name}
+                    </span>
+                    <span className="text-[11px] font-semibold text-slate-400 block mb-2">
+                      {stats.second.count} {stats.second.count === 1 ? "Completed" : "Completed"}
+                    </span>
 
-                <div className="w-full h-24 sm:h-26 rounded-xl bg-gradient-to-b from-[#e8eef8] to-[#dbe4f3] dark:from-slate-800 dark:to-slate-900 border border-slate-300/80 dark:border-slate-700 shadow-md flex flex-col items-center justify-center p-2">
-                  <span className="text-2xl font-black text-slate-600 dark:text-slate-300">#2</span>
-                  <span className="text-[9px] font-black text-slate-500 dark:text-slate-400 uppercase tracking-widest mt-0.5">SILVER</span>
-                </div>
-              </div>
-
-              {/* Rank #1: Gold */}
-              <div className="flex flex-col items-center flex-1 max-w-[130px]">
-                <div className="relative flex flex-col items-center">
-                  <Crown className="w-5 h-5 text-amber-500 fill-amber-400 drop-shadow-sm mb-1" />
-                  <div className="w-14 h-14 rounded-full bg-gradient-to-tr from-amber-300 via-amber-200 to-yellow-100 border-2 border-amber-300 shadow-md shadow-amber-500/20 flex items-center justify-center font-black text-amber-950 text-base">
-                    {stats.first.initials}
+                    <div
+                      style={{
+                        height: `${Math.max(64, Math.round((stats.second.count / stats.maxCompleted) * 110))}px`,
+                      }}
+                      className="w-full rounded-xl bg-gradient-to-b from-[#e8eef8] to-[#dbe4f3] dark:from-slate-800 dark:to-slate-900 border border-slate-300/80 dark:border-slate-700 shadow-md flex flex-col items-center justify-center p-2 transition-all duration-500"
+                    >
+                      <span className="text-2xl font-black text-slate-600 dark:text-slate-300">#2</span>
+                      <span className="text-[9px] font-black text-slate-500 dark:text-slate-400 uppercase tracking-widest mt-0.5">SILVER</span>
+                    </div>
+                  </>
+                ) : (
+                  <div className="flex flex-col items-center opacity-40">
+                    <div className="w-10 h-10 rounded-full border-2 border-dashed border-slate-300 dark:border-slate-700 flex items-center justify-center text-xs font-bold text-slate-400">
+                      —
+                    </div>
+                    <span className="text-[10px] font-semibold text-slate-400 mt-1 mb-2">Awaiting 2nd</span>
+                    <div className="w-full h-16 rounded-xl border border-dashed border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/30 flex items-center justify-center">
+                      <span className="text-xs font-bold text-slate-400">#2</span>
+                    </div>
                   </div>
-                </div>
-                <span className="text-xs font-black text-slate-900 dark:text-white mt-1.5 block text-center truncate max-w-[110px]">
-                  {stats.first.name}
-                </span>
-                <span className="text-[10px] font-black text-amber-800 dark:text-amber-300 bg-amber-100/90 dark:bg-amber-900/60 px-2 py-0.5 rounded-full mt-0.5 mb-2 border border-amber-300/40">
-                  {stats.first.count} Cases
-                </span>
-
-                <div className="w-full h-34 sm:h-38 rounded-xl bg-gradient-to-b from-[#ffea8a] via-[#f7d356] to-[#ecb828] border-2 border-[#e6a817] shadow-xl shadow-amber-500/25 flex flex-col items-center justify-center p-2 relative overflow-hidden">
-                  <div className="absolute inset-x-0 top-0 h-1 bg-white/70" />
-                  <Trophy className="w-5 h-5 text-amber-950 mb-0.5" />
-                  <span className="text-3xl font-black text-amber-950">#1</span>
-                  <span className="text-[10px] font-black text-amber-950 uppercase tracking-widest mt-0.5">TOP PERFORMER</span>
-                </div>
+                )}
               </div>
 
-              {/* Rank #3: Bronze */}
-              <div className="flex flex-col items-center flex-1 max-w-[110px]">
-                <div className="w-12 h-12 rounded-full bg-gradient-to-tr from-[#f6d7be] to-[#fae9db] dark:from-amber-950/60 dark:to-slate-800 border-2 border-amber-300/60 dark:border-amber-700/60 shadow-sm flex items-center justify-center font-black text-amber-900 dark:text-amber-200 text-sm">
-                  {stats.third.initials}
-                </div>
-                <span className="text-xs font-black text-slate-800 dark:text-slate-200 mt-2 block text-center truncate max-w-[95px]">
-                  {stats.third.name}
-                </span>
-                <span className="text-[11px] font-semibold text-slate-400 block mb-2">
-                  {stats.third.count} Cases
-                </span>
+              {/* Rank #1: Gold (Grows higher dynamically as tasks are completed) */}
+              <div className="flex flex-col items-center flex-1 max-w-[130px]">
+                {stats.first && (
+                  <>
+                    <div className="relative flex flex-col items-center">
+                      <Crown className="w-5 h-5 text-amber-500 fill-amber-400 drop-shadow-sm mb-1" />
+                      <div className="w-14 h-14 rounded-full bg-gradient-to-tr from-amber-300 via-amber-200 to-yellow-100 border-2 border-amber-300 shadow-md shadow-amber-500/20 flex items-center justify-center font-black text-amber-950 text-base">
+                        {stats.first.initials}
+                      </div>
+                    </div>
+                    <span className="text-xs font-black text-slate-900 dark:text-white mt-1.5 block text-center truncate max-w-[110px]">
+                      {stats.first.name}
+                    </span>
+                    <span className="text-[10px] font-black text-amber-800 dark:text-amber-300 bg-amber-100/90 dark:bg-amber-900/60 px-2 py-0.5 rounded-full mt-0.5 mb-2 border border-amber-300/40">
+                      {stats.first.count} {stats.first.count === 1 ? "Completed" : "Completed"}
+                    </span>
 
-                <div className="w-full h-20 sm:h-22 rounded-xl bg-gradient-to-b from-[#fcd3b6] to-[#e4a780] dark:from-amber-950 dark:to-slate-900 border border-amber-600/40 dark:border-amber-700 shadow-md flex flex-col items-center justify-center p-2">
-                  <span className="text-2xl font-black text-amber-950 dark:text-amber-400">#3</span>
-                  <span className="text-[9px] font-black text-amber-950/80 dark:text-amber-400 uppercase tracking-widest mt-0.5">BRONZE</span>
-                </div>
+                    <div
+                      style={{
+                        height: `${Math.min(180, Math.max(100, 100 + stats.first.count * 15))}px`,
+                      }}
+                      className="w-full rounded-xl bg-gradient-to-b from-[#ffea8a] via-[#f7d356] to-[#ecb828] border-2 border-[#e6a817] shadow-xl shadow-amber-500/25 flex flex-col items-center justify-center p-2 relative overflow-hidden transition-all duration-500"
+                    >
+                      <div className="absolute inset-x-0 top-0 h-1 bg-white/70" />
+                      <Trophy className="w-5 h-5 text-amber-950 mb-0.5" />
+                      <span className="text-3xl font-black text-amber-950">#1</span>
+                      <span className="text-[10px] font-black text-amber-950 uppercase tracking-widest mt-0.5">TOP PERFORMER</span>
+                    </div>
+                  </>
+                )}
+              </div>
+
+              {/* Rank #3: Bronze (Appears only if 3rd specialist has completed >= 1 task) */}
+              <div className="flex flex-col items-center flex-1 max-w-[110px]">
+                {stats.third ? (
+                  <>
+                    <div className="w-12 h-12 rounded-full bg-gradient-to-tr from-[#f6d7be] to-[#fae9db] dark:from-amber-950/60 dark:to-slate-800 border-2 border-amber-300/60 dark:border-amber-700/60 shadow-sm flex items-center justify-center font-black text-amber-900 dark:text-amber-200 text-sm">
+                      {stats.third.initials}
+                    </div>
+                    <span className="text-xs font-black text-slate-800 dark:text-slate-200 mt-2 block text-center truncate max-w-[95px]">
+                      {stats.third.name}
+                    </span>
+                    <span className="text-[11px] font-semibold text-slate-400 block mb-2">
+                      {stats.third.count} {stats.third.count === 1 ? "Completed" : "Completed"}
+                    </span>
+
+                    <div
+                      style={{
+                        height: `${Math.max(54, Math.round((stats.third.count / stats.maxCompleted) * 90))}px`,
+                      }}
+                      className="w-full rounded-xl bg-gradient-to-b from-[#fcd3b6] to-[#e4a780] dark:from-amber-950 dark:to-slate-900 border border-amber-600/40 dark:border-amber-700 shadow-md flex flex-col items-center justify-center p-2 transition-all duration-500"
+                    >
+                      <span className="text-2xl font-black text-amber-950 dark:text-amber-400">#3</span>
+                      <span className="text-[9px] font-black text-amber-950/80 dark:text-amber-400 uppercase tracking-widest mt-0.5">BRONZE</span>
+                    </div>
+                  </>
+                ) : (
+                  <div className="flex flex-col items-center opacity-40">
+                    <div className="w-10 h-10 rounded-full border-2 border-dashed border-slate-300 dark:border-slate-700 flex items-center justify-center text-xs font-bold text-slate-400">
+                      —
+                    </div>
+                    <span className="text-[10px] font-semibold text-slate-400 mt-1 mb-2">Awaiting 3rd</span>
+                    <div className="w-full h-12 rounded-xl border border-dashed border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/30 flex items-center justify-center">
+                      <span className="text-xs font-bold text-slate-400">#3</span>
+                    </div>
+                  </div>
+                )}
               </div>
 
             </div>
@@ -195,7 +295,7 @@ export default function TeamInfographic({
         {/* === CARD 2: 3 STACKED METRIC CARDS (CENTER) - 3.5 Cols === */}
         <div className="lg:col-span-3 flex flex-col justify-between gap-3">
           
-          {/* Tile 1: Operations Team */}
+          {/* Tile 1: Accounting & Tax Department */}
           <div className="bg-white dark:bg-[#0c1427] rounded-2xl border border-slate-200/90 dark:border-slate-800 p-4 shadow-xs flex flex-col justify-between flex-1">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-3">
@@ -204,11 +304,11 @@ export default function TeamInfographic({
                 </div>
                 <div>
                   <span className="text-[10px] font-black text-slate-400 uppercase tracking-wider block">
-                    OPERATIONS TEAM
+                    ACCOUNTING &amp; CA DEPT
                   </span>
                   <div className="flex items-baseline gap-2 mt-0.5">
                     <span className="text-lg font-black text-slate-900 dark:text-white">
-                      {stats.opsCount} Specialists
+                      {stats.accountingDeptCount} Specialists
                     </span>
                   </div>
                 </div>
@@ -216,7 +316,7 @@ export default function TeamInfographic({
             </div>
           </div>
 
-          {/* Tile 2: Legal Team */}
+          {/* Tile 2: Total Active Personnel */}
           <div className="bg-white dark:bg-[#0c1427] rounded-2xl border border-slate-200/90 dark:border-slate-800 p-4 shadow-xs flex flex-col justify-between flex-1">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-3">
@@ -225,11 +325,11 @@ export default function TeamInfographic({
                 </div>
                 <div>
                   <span className="text-[10px] font-black text-slate-400 uppercase tracking-wider block">
-                    LEGAL TEAM
+                    TOTAL TEAM SPECIALISTS
                   </span>
                   <div className="flex items-baseline gap-2 mt-0.5">
                     <span className="text-lg font-black text-slate-900 dark:text-white">
-                      {stats.legalCount} Advocates
+                      {stats.total} Active Staff
                     </span>
                   </div>
                 </div>

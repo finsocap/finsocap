@@ -81,6 +81,10 @@ export async function GET(request: NextRequest) {
               time: task.taskDate || "Recently",
               isRead: false,
               actionUrl: `/dashboard/allocation?taskId=${encodeURIComponent(taskId)}`,
+              assignedToName: task.assignedToName || "",
+              assignedToId: task.assignedToId || null,
+              partnerName: task.partnerName || "",
+              clientName: clientName,
             });
           }
 
@@ -94,6 +98,10 @@ export async function GET(request: NextRequest) {
               time: "Action required",
               isRead: false,
               actionUrl: `/dashboard/tasks/${encodeURIComponent(taskId)}`,
+              assignedToName: task.assignedToName || "",
+              assignedToId: task.assignedToId || null,
+              partnerName: task.partnerName || "",
+              clientName: clientName,
             });
           }
 
@@ -107,6 +115,10 @@ export async function GET(request: NextRequest) {
               time: task.taskDate || "Recent",
               isRead: false,
               actionUrl: `/dashboard/tasks/${encodeURIComponent(taskId)}`,
+              assignedToName: task.assignedToName || "",
+              assignedToId: task.assignedToId || null,
+              partnerName: task.partnerName || "",
+              clientName: clientName,
             });
           }
 
@@ -120,6 +132,10 @@ export async function GET(request: NextRequest) {
               time: task.taskDate || "Today",
               isRead: true,
               actionUrl: `/dashboard/tasks/${encodeURIComponent(taskId)}`,
+              assignedToName: task.assignedToName || "",
+              assignedToId: task.assignedToId || null,
+              partnerName: task.partnerName || "",
+              clientName: clientName,
             });
           }
         });
@@ -143,6 +159,7 @@ export async function GET(request: NextRequest) {
             time: partner.createdDate || "Active",
             isRead: true,
             actionUrl: `/dashboard/partners`,
+            partnerName: partner.name || partner.fullName || "",
           });
         });
       } catch (e) {
@@ -165,6 +182,8 @@ export async function GET(request: NextRequest) {
             time: client.createdDate || "Recently",
             isRead: true,
             actionUrl: `/dashboard/clients`,
+            clientName: client.name || client.clientName || "",
+            partnerName: client.partnerName || "",
           });
         });
       } catch (e) {

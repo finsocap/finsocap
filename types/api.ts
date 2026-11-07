@@ -379,6 +379,8 @@ export interface LicenceReportMetrics {
   active: number;
   expiringIn30Days: number;
   expired: number;
+  urlLinked?: number;
+  urlNotLinked?: number;
   rows: LicenceRegistryRow[];
 }
 

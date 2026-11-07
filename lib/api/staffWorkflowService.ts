@@ -44,12 +44,20 @@ export const staffWorkflowService = {
   /**
    * PATCH /api/staff/tasks/{id}/status
    * Transitions work status (e.g. IN_PROGRESS -> PENDING_FROM_CLIENT / SENT_FOR_REVIEW).
+   * Note: The specialist status API ignores stale expectedVersion values and checks the transition against the locked current task.
    */
   updateTaskStatus: async (
     id: number | string,
-    payload: UpdateServiceRequestStatusPayload
+    payload: {
+      status: "PENDING" | "IN_PROGRESS" | "SEE_FULL_REVIEW" | "SENT_FOR_REVIEW" | "PENDING_FROM_CLIENT" | "PENDING_FROM_DEPARTMENT" | "COMPLETED" | "CANCELLED" | string;
+      note?: string;
+      expectedVersion?: number;
+    }
   ): Promise<ApiResponse<ServiceRequestItem>> => {
-    return apiClient.patch<ApiResponse<ServiceRequestItem>>(`/staff/tasks/${id}/status`, payload);
+    return apiClient.patch<ApiResponse<ServiceRequestItem>>(`/staff/tasks/${id}/status`, {
+      status: payload.status,
+      note: payload.note || "Status updated",
+    });
   },
 };
 

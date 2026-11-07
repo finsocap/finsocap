@@ -204,6 +204,7 @@ export default function ServiceEditorForm({ initialData, isEditMode = false }: S
 
   // Feedback State
   const [isSaving, setIsSaving] = useState(false);
+  const [isUploadingFile, setIsUploadingFile] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
   // Submit Handler
@@ -1493,31 +1494,61 @@ export default function ServiceEditorForm({ initialData, isEditMode = false }: S
                 </p>
               </div>
 
-              <label className="btn-primary-vibrant text-xs py-1.5 px-3 cursor-pointer inline-flex items-center gap-1.5">
+              <label className={`btn-primary-vibrant text-xs py-1.5 px-3 cursor-pointer inline-flex items-center gap-1.5 ${isUploadingFile ? "opacity-60 cursor-not-allowed" : ""}`}>
                 <Plus className="w-3.5 h-3.5" />
-                <span>Attach PDF / SOP</span>
+                <span>{isUploadingFile ? "Uploading PDF..." : "Attach PDF / SOP"}</span>
                 <input
                   type="file"
                   accept=".pdf,application/pdf"
+                  disabled={isUploadingFile}
                   className="hidden"
-                  onChange={(e) => {
+                  onChange={async (e) => {
                     const file = e.target.files?.[0];
-                    if (file) {
+                    if (!file) return;
+
+                    setIsUploadingFile(true);
+                    let uploadedUrl = "";
+                    let isCloudinary = false;
+
+                    // 1. Live API Upload: POST /api/admin/service-files/upload
+                    try {
+                      const res = await serviceCatalogService.uploadServiceFile(file, "STUDY_MATERIAL");
+                      if (res?.success && (res.data?.fileUrl || res.data?.url)) {
+                        uploadedUrl = res.data.fileUrl || res.data.url || "";
+                        isCloudinary = true;
+                      }
+                    } catch (apiErr: any) {
+                      console.warn("POST /api/admin/service-files/upload fallback:", apiErr);
+                    }
+
+                    // 2. Client fallback reader if Cloudinary offline/unconfigured
+                    if (!uploadedUrl) {
                       const reader = new FileReader();
                       reader.onload = () => {
                         const base64Url = reader.result as string;
-                        setStudyMaterials([
-                          ...studyMaterials,
+                        setStudyMaterials((prev) => [
+                          ...prev,
                           {
                             id: `mat-${Date.now()}`,
                             title: file.name,
                             fileUrl: base64Url,
                           },
                         ]);
+                        setIsUploadingFile(false);
                       };
                       reader.readAsDataURL(file);
-                      e.target.value = "";
+                    } else {
+                      setStudyMaterials((prev) => [
+                        ...prev,
+                        {
+                          id: `mat-${Date.now()}`,
+                          title: file.name,
+                          fileUrl: uploadedUrl,
+                        },
+                      ]);
+                      setIsUploadingFile(false);
                     }
+                    e.target.value = "";
                   }}
                 />
               </label>
@@ -1691,7 +1722,7 @@ export default function ServiceEditorForm({ initialData, isEditMode = false }: S
 
       {/* Video Preview Modal */}
       {activeVideoPreview && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/70 backdrop-blur-xs animate-in fade-in">
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-slate-900/70 backdrop-blur-xs animate-in fade-in">
           <div className="bg-white dark:bg-[#0c1427] border border-slate-200 dark:border-slate-800 rounded-3xl p-6 w-full max-w-2xl shadow-2xl relative space-y-4">
             <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-800">
               <div className="flex items-center gap-2.5">

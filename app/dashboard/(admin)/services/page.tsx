@@ -5,8 +5,12 @@ import Link from "next/link";
 import { 
   Boxes, Plus, Search, Filter, RotateCcw, Edit2, Eye, 
   Trash2, Clock, CheckCircle2, AlertCircle, X, Sparkles,
-  IndianRupee, Layers, Check, PowerOff, AlertTriangle, Loader2, ArrowRight
+  IndianRupee, Layers, Check, PowerOff, AlertTriangle, Loader2, ArrowRight,
+  FileText, ExternalLink, Video, Download, HelpCircle, ShieldCheck,
+  Tag, RefreshCw, Calendar, TrendingUp, Landmark, ChevronDown, ChevronRight, BarChart3
 } from "lucide-react";
+import UniversalFilePreviewModal from "@/components/Dashboard/UniversalFilePreviewModal";
+import { downloadFile } from "@/lib/fileViewer";
 import { ServiceModel } from "@/lib/crmStore";
 import { serviceCatalogService } from "@/lib/api/serviceCatalogService";
 import { normalizeServiceCategory } from "@/types/api";
@@ -34,6 +38,17 @@ export default function ServicesPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [userRole, setUserRole] = useState<string>("ADMIN");
+  const [previewDocState, setPreviewDocState] = useState<{
+    isOpen: boolean;
+    title: string;
+    docName: string;
+    fileUrl?: string;
+  }>({
+    isOpen: false,
+    title: "",
+    docName: "",
+    fileUrl: undefined,
+  });
 
   useEffect(() => {
     try {
@@ -68,6 +83,54 @@ export default function ServicesPage() {
               ? "Quarterly"
               : "One Time";
 
+          // Parse studyMaterials / sopsJson
+          let parsedSops: any[] = [];
+          if (item.sopsJson) {
+            try {
+              const s = JSON.parse(item.sopsJson);
+              if (Array.isArray(s)) parsedSops = s;
+            } catch (e) {}
+          }
+          const studyMaterials = parsedSops.length > 0
+            ? parsedSops
+            : Array.isArray(item.studyMaterials)
+            ? item.studyMaterials.map((fileUrl: any, idx: number) => 
+                typeof fileUrl === "object" ? fileUrl : { id: `mat-${idx + 1}`, title: `Material ${idx + 1}`, fileUrl }
+              )
+            : Array.isArray(item.studyMaterialFiles)
+            ? item.studyMaterialFiles
+            : [];
+
+          // Parse faqs / faqsJson
+          let parsedFaqs: any[] = [];
+          if (item.faqsJson) {
+            try {
+              const f = JSON.parse(item.faqsJson);
+              if (Array.isArray(f)) parsedFaqs = f;
+            } catch (e) {}
+          }
+          const faqs = parsedFaqs.length > 0
+            ? parsedFaqs
+            : Array.isArray(item.faqs)
+            ? item.faqs.map((f: any, idx: number) => {
+                if (typeof f === "object" && f !== null) return f;
+                const text = String(f || "");
+                const qMark = text.indexOf("?");
+                if (qMark !== -1) {
+                  return {
+                    id: `faq-${idx + 1}`,
+                    question: text.substring(0, qMark + 1).trim(),
+                    answer: text.substring(qMark + 1).trim(),
+                  };
+                }
+                return {
+                  id: `faq-${idx + 1}`,
+                  question: text,
+                  answer: "",
+                };
+              })
+            : [];
+
           return {
             id: item.id,
             name: item.name || "Untitled Service",
@@ -85,9 +148,10 @@ export default function ServicesPage() {
             workflowSteps: Array.isArray(item.workflowSteps) ? item.workflowSteps : [],
             officialGovernmentPortalLinks: Array.isArray(item.officialGovernmentPortalLinks) ? item.officialGovernmentPortalLinks : [],
             trainingVideoTutorials: Array.isArray(item.trainingVideoTutorials) ? item.trainingVideoTutorials : [],
-            studyMaterials: Array.isArray(item.studyMaterials) ? item.studyMaterials : [],
-            faqs: Array.isArray(item.faqs) ? item.faqs : [],
+            studyMaterials: studyMaterials,
+            faqs: faqs,
             contentDetails: item.contentDetails || item.overviewHtml || "",
+            eligibilityCriteria: item.eligibilityCriteria || "",
             yearWiseFeesEnabled: Boolean(item.yearWiseFeesEnabled),
             yearWiseFees: Array.isArray(item.yearWiseFees) ? item.yearWiseFees : [],
             baseGovernmentFee: item.baseGovernmentFee || 0,
@@ -393,7 +457,7 @@ export default function ServicesPage() {
         description="Manage your corporate services, categories, pricing, statutory documents and lifecycle status."
         bottomMeta={`${apiServices.length} Total Services • Verified Catalog`}
         actions={
-          userRole !== "STAFF" ? (
+          !["STAFF", "SPECIALIST", "EXECUTIVE"].includes(userRole.toUpperCase()) ? (
             <Link
               href="/dashboard/services/new"
               className="btn-primary-vibrant text-xs py-2.5 px-4 cursor-pointer flex items-center gap-2 shadow-md shadow-blue-500/25"
@@ -536,8 +600,12 @@ export default function ServicesPage() {
                 <th className="py-3.5 px-4">Category</th>
                 <th className="py-3.5 px-4 text-center">Recurring</th>
                 <th className="py-3.5 px-4">Frequency</th>
-                <th className="py-3.5 px-4">Price (₹)</th>
-                <th className="py-3.5 px-4">Government Fee</th>
+                {!["STAFF", "SPECIALIST", "EXECUTIVE"].includes(userRole.toUpperCase()) && (
+                  <th className="py-3.5 px-4">Price (₹)</th>
+                )}
+                {!["STAFF", "SPECIALIST", "EXECUTIVE"].includes(userRole.toUpperCase()) && (
+                  <th className="py-3.5 px-4">Government Fee</th>
+                )}
                 <th className="py-3.5 px-4">Processing Time</th>
                 <th className="py-3.5 px-4">Status</th>
                 <th className="py-3.5 px-4 text-center">Actions</th>
@@ -605,12 +673,16 @@ export default function ServicesPage() {
                     <td className="py-3.5 px-4 text-slate-600 dark:text-slate-400 font-semibold">
                       {s.frequency}
                     </td>
-                    <td className="py-3.5 px-4 font-black text-slate-900 dark:text-white">
-                      {money(s.price)}
-                    </td>
-                    <td className="py-3.5 px-4 text-slate-600 dark:text-slate-400 font-semibold">
-                      {money(s.gov)}
-                    </td>
+                    {!["STAFF", "SPECIALIST", "EXECUTIVE"].includes(userRole.toUpperCase()) && (
+                      <td className="py-3.5 px-4 font-black text-slate-900 dark:text-white">
+                        {money(s.price)}
+                      </td>
+                    )}
+                    {!["STAFF", "SPECIALIST", "EXECUTIVE"].includes(userRole.toUpperCase()) && (
+                      <td className="py-3.5 px-4 text-slate-600 dark:text-slate-400 font-semibold">
+                        {money(s.gov)}
+                      </td>
+                    )}
                     <td className="py-3.5 px-4 text-slate-600 dark:text-slate-400">
                       {s.time}
                     </td>
@@ -626,7 +698,7 @@ export default function ServicesPage() {
                     </td>
                     <td className="py-3.5 px-4 text-center">
                       <div className="flex items-center justify-center gap-1.5">
-                        {userRole !== "STAFF" && (
+                        {!["STAFF", "SPECIALIST", "EXECUTIVE"].includes(userRole.toUpperCase()) && (
                           <Link
                             href={`/dashboard/services/${s.id}`}
                             className="px-2.5 py-1 rounded-lg text-xs font-bold text-blue-600 dark:text-sky-400 bg-blue-50 dark:bg-blue-950/50 hover:bg-blue-100 transition-colors cursor-pointer"
@@ -642,7 +714,7 @@ export default function ServicesPage() {
                         </button>
                         
                         {/* Delete Service Action - Admin Only */}
-                        {userRole !== "STAFF" && (
+                        {!["STAFF", "SPECIALIST", "EXECUTIVE"].includes(userRole.toUpperCase()) && (
                           <button
                             type="button"
                             onClick={() => {
@@ -671,18 +743,20 @@ export default function ServicesPage() {
 
       {/* Modal: Add / Edit Service */}
       {isAddEditModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-in fade-in overflow-y-auto">
-          <div className="bg-white dark:bg-[#0c1427] border border-slate-200 dark:border-slate-800 rounded-3xl p-6 w-full max-w-2xl shadow-2xl relative my-8 space-y-4">
-            <ModalHeaderBanner
-              icon={Boxes}
-              badge="CATALOG OPERATIONS"
-              title={editingServiceId ? "Edit Service" : "Add New Service"}
-              description="Configure service metadata, professional pricing, statutory government fees and SLA."
-              badgeTag="Catalog"
-              onClose={() => setIsAddEditModalOpen(false)}
-            />
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-in fade-in">
+          <div className="bg-white dark:bg-[#0c1427] border border-slate-200 dark:border-slate-800 rounded-3xl p-6 w-full max-w-2xl shadow-2xl relative max-h-[85vh] flex flex-col space-y-4">
+            <div className="shrink-0">
+              <ModalHeaderBanner
+                icon={Boxes}
+                badge="CATALOG OPERATIONS"
+                title={editingServiceId ? "Edit Service" : "Add New Service"}
+                description="Configure service metadata, professional pricing, statutory government fees and SLA."
+                badgeTag="Catalog"
+                onClose={() => setIsAddEditModalOpen(false)}
+              />
+            </div>
 
-            <form onSubmit={handleSaveService} className="space-y-4">
+            <form onSubmit={handleSaveService} className="flex-1 min-h-0 overflow-y-auto pr-1 space-y-4">
               <div className="p-3 bg-blue-50/70 dark:bg-blue-950/40 rounded-xl text-xs font-bold text-blue-900 dark:text-sky-300">
                 1. Service Details
               </div>
@@ -1067,177 +1141,390 @@ export default function ServicesPage() {
         </div>
       )}
 
-      {/* Modal: View Service */}
+      {/* Modal: View Service - Pixel-Perfect Premium Design Matching Reference */}
       {viewingService && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6 lg:p-8 bg-slate-900/60 backdrop-blur-xs animate-in fade-in">
-          <div className="bg-white dark:bg-[#0c1427] border border-slate-200 dark:border-slate-800 rounded-3xl p-5 sm:p-6 w-full max-w-lg shadow-2xl relative space-y-4 max-h-[75vh] overflow-y-auto no-scrollbar my-auto">
-            <ModalHeaderBanner
-              icon={Eye}
-              badge="SERVICE SPECIFICATIONS"
-              title={viewingService.name}
-              description={`${viewingService.category} · Processing SLA: ${viewingService.time} · ${viewingService.recurring ? `Recurring (${viewingService.frequency})` : "One-Time"}`}
-              badgeTag={viewingService.status}
-              className="py-3 px-3.5"
-              onClose={() => setViewingService(null)}
-            />
-
-            <div className="space-y-4 text-xs">
-              {viewingService.description && (
-                <div className="p-3 bg-slate-50 dark:bg-slate-900/60 rounded-xl border border-slate-200/80 dark:border-slate-800">
-                  <p className="text-[10px] uppercase font-bold text-slate-400 mb-0.5">Overview / Subtitle</p>
-                  <p className="text-slate-700 dark:text-slate-300 font-medium leading-relaxed">{viewingService.description}</p>
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center p-3 sm:p-5 lg:p-6 bg-slate-900/60 backdrop-blur-sm animate-in fade-in">
+          <div className="bg-white dark:bg-[#0c1427] border border-slate-200 dark:border-slate-800 rounded-3xl p-5 sm:p-7 w-full max-w-4xl shadow-2xl relative space-y-4 max-h-[92vh] overflow-y-auto no-scrollbar my-auto">
+            
+            {/* 1. Header Banner with Vibrant Gradient */}
+            <div className="relative overflow-hidden rounded-2xl bg-gradient-to-r from-blue-600 via-indigo-600 to-sky-500 p-4 sm:p-5 text-white shadow-md">
+              <div className="flex items-center justify-between gap-3">
+                <div className="flex items-center gap-3.5 min-w-0">
+                  <div className="w-12 h-12 rounded-xl bg-white/20 backdrop-blur-md flex items-center justify-center text-white shrink-0 shadow-inner">
+                    <Layers className="w-6 h-6" />
+                  </div>
+                  <div className="min-w-0">
+                    <span className="text-[10px] tracking-wider uppercase font-bold text-blue-100 block">
+                      SERVICE SPECIFICATIONS
+                    </span>
+                    <h3 className="text-xl sm:text-2xl font-black text-white truncate leading-tight">
+                      {viewingService.name}
+                    </h3>
+                    <p className="text-xs text-blue-100/90 font-medium mt-0.5 truncate flex items-center gap-1.5">
+                      <Clock className="w-3 h-3 shrink-0" />
+                      <span>{viewingService.category.toUpperCase()}: Processing SLA: {viewingService.time} · Recurring ({viewingService.recurring ? viewingService.frequency : "One Time"})</span>
+                    </p>
+                  </div>
                 </div>
-              )}
 
-              <div className="p-3 bg-blue-50/70 dark:bg-blue-950/40 rounded-xl font-bold text-blue-900 dark:text-sky-300">
-                Service Breakdown
+                <div className="flex items-center gap-2 shrink-0">
+                  <span className="px-3 py-1 rounded-full text-xs font-bold bg-white text-emerald-600 flex items-center gap-1.5 shadow-xs">
+                    <span className="w-2 h-2 rounded-full bg-emerald-500" />
+                    <span>{viewingService.status}</span>
+                  </span>
+                  <button
+                    onClick={() => setViewingService(null)}
+                    className="w-8 h-8 rounded-full bg-white/20 hover:bg-white/30 text-white flex items-center justify-center transition-colors cursor-pointer"
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
+                </div>
               </div>
-              <div className="grid grid-cols-2 gap-3 text-slate-700 dark:text-slate-300 font-semibold">
-                <div>
-                  <p className="text-[10px] uppercase font-bold text-slate-400">Category</p>
-                  <p className="text-sm font-bold text-slate-900 dark:text-white mt-0.5">{viewingService.category}</p>
+            </div>
+
+            {/* 2. Overview & Executive Summary Card */}
+            {viewingService.description && (
+              <div className="relative overflow-hidden rounded-2xl bg-gradient-to-r from-sky-50/70 via-blue-50/50 to-indigo-50/60 dark:from-slate-900 dark:to-slate-800/80 border border-blue-100/80 dark:border-slate-800 p-4 sm:p-5 flex items-center justify-between gap-4 shadow-2xs">
+                <div className="flex items-start gap-3 min-w-0">
+                  <div className="w-8 h-8 rounded-xl bg-blue-600/10 dark:bg-blue-500/20 text-blue-600 dark:text-sky-400 flex items-center justify-center shrink-0 mt-0.5">
+                    <BarChart3 className="w-4 h-4" />
+                  </div>
+                  <div className="min-w-0">
+                    <span className="text-xs font-black text-blue-900 dark:text-sky-300 block">
+                      Overview &amp; Executive Summary
+                    </span>
+                    <p className="text-xs sm:text-sm text-slate-700 dark:text-slate-300 font-medium leading-relaxed mt-0.5">
+                      {viewingService.description}
+                    </p>
+                  </div>
                 </div>
-                <div>
-                  <p className="text-[10px] uppercase font-bold text-slate-400">Recurring</p>
-                  <p className="text-sm font-bold text-slate-900 dark:text-white mt-0.5">
-                    {viewingService.recurring ? `Yes (${viewingService.frequency})` : "One Time"}
-                  </p>
+
+                {/* Decorative Right Illustration Icon */}
+                <div className="hidden sm:flex items-center justify-center w-12 h-12 rounded-2xl bg-white/80 dark:bg-slate-800 border border-blue-200/50 dark:border-slate-700 text-blue-500 shrink-0 opacity-80">
+                  <FileText className="w-6 h-6 text-blue-400" />
                 </div>
-                <div>
-                  <p className="text-[10px] uppercase font-bold text-slate-400">Client Price</p>
-                  <p className="text-sm font-bold text-emerald-600 dark:text-emerald-400 mt-0.5">{money(viewingService.price)}</p>
+              </div>
+            )}
+
+            {/* 3. Service Breakdown & Operational Metrics Section */}
+            <div className="space-y-2.5">
+              <div className="flex items-center gap-2 text-slate-900 dark:text-white">
+                <Boxes className="w-4 h-4 text-blue-600 dark:text-sky-400" />
+                <h4 className="text-xs font-black uppercase tracking-wider">
+                  Service Breakdown &amp; Operational Metrics
+                </h4>
+              </div>
+
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                {/* Category Card */}
+                <div className="p-3.5 rounded-2xl bg-white dark:bg-slate-900/90 border border-slate-200/80 dark:border-slate-800 flex items-center gap-3 shadow-2xs">
+                  <div className="w-9 h-9 rounded-xl bg-purple-50 dark:bg-purple-950/60 text-purple-600 dark:text-purple-400 flex items-center justify-center shrink-0">
+                    <Tag className="w-4 h-4" />
+                  </div>
+                  <div className="min-w-0">
+                    <span className="text-[10px] uppercase font-bold text-slate-400 block">Category</span>
+                    <span className="text-xs sm:text-sm font-black text-slate-900 dark:text-white truncate block">
+                      {viewingService.category}
+                    </span>
+                  </div>
                 </div>
-                <div>
-                  <p className="text-[10px] uppercase font-bold text-slate-400">Government Fee</p>
-                  <p className="text-sm font-bold text-slate-900 dark:text-white mt-0.5">{money(viewingService.gov)}</p>
+
+                {/* Recurring Card */}
+                <div className="p-3.5 rounded-2xl bg-white dark:bg-slate-900/90 border border-slate-200/80 dark:border-slate-800 flex items-center gap-3 shadow-2xs">
+                  <div className="w-9 h-9 rounded-xl bg-sky-50 dark:bg-sky-950/60 text-sky-600 dark:text-sky-400 flex items-center justify-center shrink-0">
+                    <RefreshCw className="w-4 h-4" />
+                  </div>
+                  <div className="min-w-0">
+                    <span className="text-[10px] uppercase font-bold text-slate-400 block">Recurring</span>
+                    <span className="text-xs sm:text-sm font-black text-slate-900 dark:text-white truncate block">
+                      {viewingService.recurring ? `Yes (${viewingService.frequency})` : "One Time"}
+                    </span>
+                  </div>
                 </div>
-                {viewingService.partnerProfit !== undefined && viewingService.partnerProfit > 0 && (
-                  <div>
-                    <p className="text-[10px] uppercase font-bold text-slate-400">Partner Profit</p>
-                    <p className="text-sm font-bold text-blue-600 dark:text-sky-400 mt-0.5">{money(viewingService.partnerProfit)}</p>
+
+                {/* Processing SLA Card */}
+                <div className="p-3.5 rounded-2xl bg-white dark:bg-slate-900/90 border border-slate-200/80 dark:border-slate-800 flex items-center gap-3 shadow-2xs">
+                  <div className="w-9 h-9 rounded-xl bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400 flex items-center justify-center shrink-0">
+                    <Calendar className="w-4 h-4" />
+                  </div>
+                  <div className="min-w-0">
+                    <span className="text-[10px] uppercase font-bold text-slate-400 block">Processing SLA</span>
+                    <span className="text-xs sm:text-sm font-black text-slate-900 dark:text-white truncate block">
+                      {viewingService.time}
+                    </span>
+                  </div>
+                </div>
+
+                {/* Client Price Card (Admin Only) */}
+                {!["STAFF", "SPECIALIST", "EXECUTIVE"].includes(userRole.toUpperCase()) ? (
+                  <div className="p-3.5 rounded-2xl bg-emerald-50/50 dark:bg-emerald-950/20 border border-emerald-200/70 dark:border-emerald-900/40 flex items-center gap-3 shadow-2xs">
+                    <div className="w-9 h-9 rounded-xl bg-emerald-100 dark:bg-emerald-900/60 text-emerald-700 dark:text-emerald-300 flex items-center justify-center shrink-0">
+                      <IndianRupee className="w-4 h-4" />
+                    </div>
+                    <div className="min-w-0">
+                      <span className="text-[10px] uppercase font-bold text-emerald-700 dark:text-emerald-400 block">Client Price</span>
+                      <span className="text-xs sm:text-sm font-black text-emerald-700 dark:text-emerald-300 truncate block">
+                        {money(viewingService.price)}
+                      </span>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="p-3.5 rounded-2xl bg-white dark:bg-slate-900/90 border border-slate-200/80 dark:border-slate-800 flex items-center gap-3 shadow-2xs">
+                    <div className="w-9 h-9 rounded-xl bg-emerald-50 dark:bg-emerald-950/60 text-emerald-600 dark:text-emerald-400 flex items-center justify-center shrink-0">
+                      <CheckCircle2 className="w-4 h-4" />
+                    </div>
+                    <div className="min-w-0">
+                      <span className="text-[10px] uppercase font-bold text-slate-400 block">Status</span>
+                      <span className="text-xs sm:text-sm font-black text-emerald-600 dark:text-emerald-400 truncate block">
+                        {viewingService.status}
+                      </span>
+                    </div>
                   </div>
                 )}
-                <div>
-                  <p className="text-[10px] uppercase font-bold text-slate-400">Processing SLA</p>
-                  <p className="text-sm font-bold text-slate-900 dark:text-white mt-0.5">{viewingService.time}</p>
-                </div>
               </div>
 
-              {/* Year-wise Fees if enabled */}
-              {viewingService.yearWiseFeesEnabled && viewingService.yearWiseFees && viewingService.yearWiseFees.length > 0 && (
-                <div className="space-y-2">
-                  <div className="p-3 bg-indigo-50/70 dark:bg-indigo-950/40 rounded-xl font-bold text-indigo-900 dark:text-indigo-300">
-                    Year-wise Fee Structure
+              {/* Second Row for Partner Profit & Government Fee (Admin Only) */}
+              {!["STAFF", "SPECIALIST", "EXECUTIVE"].includes(userRole.toUpperCase()) && (
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="p-3.5 rounded-2xl bg-white dark:bg-slate-900/90 border border-slate-200/80 dark:border-slate-800 flex items-center gap-3 shadow-2xs">
+                    <div className="w-9 h-9 rounded-xl bg-blue-50 dark:bg-blue-950/60 text-blue-600 dark:text-sky-400 flex items-center justify-center shrink-0">
+                      <TrendingUp className="w-4 h-4" />
+                    </div>
+                    <div className="min-w-0">
+                      <span className="text-[10px] uppercase font-bold text-slate-400 block">Partner Profit</span>
+                      <span className="text-xs sm:text-sm font-black text-blue-600 dark:text-sky-400 truncate block">
+                        {money(viewingService.partnerProfit || 0)}
+                      </span>
+                    </div>
                   </div>
-                  <div className="space-y-1.5">
-                    {viewingService.yearWiseFees.map((yf: any, idx: number) => (
-                      <div key={idx} className="flex items-center justify-between p-2.5 rounded-xl bg-slate-50 dark:bg-slate-900/60 border border-slate-200/60 dark:border-slate-800 text-xs">
-                        <span className="font-bold text-slate-800 dark:text-slate-200">{yf.year} Year(s)</span>
-                        <div className="flex items-center gap-3 font-mono">
-                          <span className="text-slate-500">Gov: ₹{yf.governmentFee}</span>
-                          <span className="text-slate-500">Prof: ₹{yf.professionalFee}</span>
-                          <span className="font-bold text-emerald-600 dark:text-emerald-400">Total: ₹{yf.total}</span>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
 
-              {/* Required Documents */}
-              <div className="p-3 bg-blue-50/70 dark:bg-blue-950/40 rounded-xl font-bold text-blue-900 dark:text-sky-300">
-                Required Documents
-              </div>
-              {viewingService.requiredDocuments && viewingService.requiredDocuments.length > 0 ? (
-                <ul className="space-y-1.5 pl-1">
-                  {viewingService.requiredDocuments.map((doc: any, idx: number) => (
-                    <li key={idx} className="flex items-center gap-2 text-slate-700 dark:text-slate-300 font-medium">
-                      <span className="w-1.5 h-1.5 rounded-full bg-blue-500" />
-                      <span>{typeof doc === "string" ? doc : doc.name}</span>
-                    </li>
-                  ))}
-                </ul>
-              ) : (
-                <p className="text-slate-400 italic">No specific documents specified for this service.</p>
-              )}
-
-              {/* Key Features / Highlights */}
-              {viewingService.keyFeatures && viewingService.keyFeatures.length > 0 && (
-                <div className="space-y-2">
-                  <div className="p-3 bg-blue-50/70 dark:bg-blue-950/40 rounded-xl font-bold text-blue-900 dark:text-sky-300">
-                    Key Features &amp; Highlights
-                  </div>
-                  <ul className="space-y-1.5 pl-1">
-                    {viewingService.keyFeatures.map((feat: string, idx: number) => (
-                      <li key={idx} className="flex items-center gap-2 text-slate-700 dark:text-slate-300 font-medium">
-                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
-                        <span>{feat}</span>
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              )}
-
-              {/* Workflow Steps */}
-              {viewingService.workflowSteps && viewingService.workflowSteps.length > 0 && (
-                <div className="space-y-2">
-                  <div className="p-3 bg-blue-50/70 dark:bg-blue-950/40 rounded-xl font-bold text-blue-900 dark:text-sky-300">
-                    Service Steps / Workflow
-                  </div>
-                  <ol className="space-y-1.5 pl-1 list-decimal list-inside text-slate-700 dark:text-slate-300 font-medium">
-                    {viewingService.workflowSteps.map((step: string, idx: number) => (
-                      <li key={idx} className="leading-relaxed">
-                        <span className="ml-1">{step}</span>
-                      </li>
-                    ))}
-                  </ol>
-                </div>
-              )}
-
-              {/* FAQs */}
-              {viewingService.faqs && viewingService.faqs.length > 0 && (
-                <div className="space-y-2">
-                  <div className="p-3 bg-blue-50/70 dark:bg-blue-950/40 rounded-xl font-bold text-blue-900 dark:text-sky-300">
-                    Frequently Asked Questions (FAQs)
-                  </div>
-                  <div className="space-y-2">
-                    {viewingService.faqs.map((faq: string, idx: number) => (
-                      <div key={idx} className="p-2.5 rounded-xl bg-slate-50 dark:bg-slate-900/60 border border-slate-200/60 dark:border-slate-800 text-xs">
-                        <p className="font-bold text-slate-900 dark:text-white">Q: {faq}</p>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              {/* Official Government Links */}
-              {viewingService.officialGovernmentPortalLinks && viewingService.officialGovernmentPortalLinks.length > 0 && (
-                <div className="space-y-2">
-                  <div className="p-3 bg-blue-50/70 dark:bg-blue-950/40 rounded-xl font-bold text-blue-900 dark:text-sky-300">
-                    Official Government Portals
-                  </div>
-                  <div className="space-y-1.5">
-                    {viewingService.officialGovernmentPortalLinks.map((link: string, idx: number) => (
-                      <a
-                        key={idx}
-                        href={link}
-                        target="_blank"
-                        rel="noreferrer"
-                        className="flex items-center gap-1.5 text-blue-600 dark:text-sky-400 hover:underline font-medium break-all"
-                      >
-                        <span>🔗</span>
-                        <span>{link}</span>
-                      </a>
-                    ))}
+                  <div className="p-3.5 rounded-2xl bg-white dark:bg-slate-900/90 border border-slate-200/80 dark:border-slate-800 flex items-center gap-3 shadow-2xs">
+                    <div className="w-9 h-9 rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 flex items-center justify-center shrink-0">
+                      <Landmark className="w-4 h-4" />
+                    </div>
+                    <div className="min-w-0">
+                      <span className="text-[10px] uppercase font-bold text-slate-400 block">Government Fee</span>
+                      <span className="text-xs sm:text-sm font-black text-slate-900 dark:text-white truncate block">
+                        {money(viewingService.gov)}
+                      </span>
+                    </div>
                   </div>
                 </div>
               )}
             </div>
 
-            <div className="flex justify-end pt-5 border-t border-slate-100 dark:border-slate-800 mt-5">
+            {/* 4. Year-wise Fee Structure & Pricing Tiers (Matching Reference with Stamp & Coins) */}
+            {!["STAFF", "SPECIALIST", "EXECUTIVE"].includes(userRole.toUpperCase()) && viewingService.yearWiseFeesEnabled && viewingService.yearWiseFees && viewingService.yearWiseFees.length > 0 && (
+              <div className="relative overflow-hidden rounded-2xl bg-gradient-to-r from-blue-50/70 via-indigo-50/40 to-white dark:from-slate-900 dark:to-slate-900/60 border border-indigo-100 dark:border-slate-800 p-4 sm:p-5 shadow-2xs">
+                <div className="flex items-center gap-2 text-indigo-900 dark:text-indigo-300 mb-3">
+                  <Calendar className="w-4 h-4 text-indigo-600 dark:text-indigo-400" />
+                  <span className="text-xs font-black uppercase tracking-wider">
+                    Year-wise Fee Structure &amp; Pricing Tiers
+                  </span>
+                </div>
+
+                <div className="flex flex-wrap items-center gap-2.5">
+                  {viewingService.yearWiseFees.map((yf: any, idx: number) => (
+                    <div key={idx} className="flex items-center gap-3 p-2.5 px-4 rounded-xl bg-white dark:bg-slate-800 border border-slate-200/80 dark:border-slate-700 text-xs shadow-2xs">
+                      <span className="font-extrabold text-slate-900 dark:text-white text-xs">{yf.year} Year(s)</span>
+                      <span className="text-slate-500 font-mono text-[11px]">Gov: ₹{yf.governmentFee}</span>
+                      <span className="text-slate-500 font-mono text-[11px]">Prof: ₹{yf.professionalFee}</span>
+                      <span className="px-2 py-0.5 rounded-md font-black bg-emerald-50 text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-400 border border-emerald-200">
+                        ₹{yf.total}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* 5. Two-Column Cards: Content / Detailed Information (Left) vs Documents & Checklist (Right) */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              
+              {/* Content / Detailed Information (Left) */}
+              <div className="p-4 sm:p-5 rounded-2xl bg-white dark:bg-slate-900/90 border border-slate-200/80 dark:border-slate-800 shadow-2xs space-y-3">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2 text-blue-900 dark:text-sky-300 font-black text-xs uppercase tracking-wider">
+                    <FileText className="w-4 h-4 text-blue-600 dark:text-sky-400" />
+                    <span>Content / Detailed Information</span>
+                  </div>
+                  <ChevronDown className="w-4 h-4 text-slate-400" />
+                </div>
+                <div className="flex items-center justify-between p-3 rounded-xl bg-slate-50/80 dark:bg-slate-800/60 border border-slate-200/60 dark:border-slate-700 text-xs">
+                  <div className="flex items-center gap-2.5">
+                    <FileText className="w-4 h-4 text-blue-500 shrink-0" />
+                    <span className="font-semibold text-slate-800 dark:text-slate-200">
+                      {viewingService.contentDetails || "Standard statutory corporate compliance filing and service overview."}
+                    </span>
+                  </div>
+                  <ChevronRight className="w-4 h-4 text-slate-400 shrink-0" />
+                </div>
+              </div>
+
+              {/* Documents & Checklist (Right) */}
+              <div className="p-4 sm:p-5 rounded-2xl bg-white dark:bg-slate-900/90 border border-slate-200/80 dark:border-slate-800 shadow-2xs space-y-3">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2 text-emerald-900 dark:text-emerald-300 font-black text-xs uppercase tracking-wider">
+                    <CheckCircle2 className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
+                    <span>Documents &amp; Checklist</span>
+                  </div>
+                  <ChevronDown className="w-4 h-4 text-slate-400" />
+                </div>
+                <div className="space-y-2">
+                  {viewingService.requiredDocuments && viewingService.requiredDocuments.length > 0 ? (
+                    viewingService.requiredDocuments.map((doc: any, idx: number) => (
+                      <div key={idx} className="flex items-center justify-between p-3 rounded-xl bg-slate-50/80 dark:bg-slate-800/60 border border-slate-200/60 dark:border-slate-700 text-xs">
+                        <div className="flex items-center gap-2.5">
+                          <span className="w-2 h-2 rounded-full bg-emerald-500 shrink-0" />
+                          <span className="font-semibold text-slate-800 dark:text-slate-200">
+                            {typeof doc === "string" ? doc : doc.name}
+                          </span>
+                        </div>
+                        <Download className="w-4 h-4 text-slate-400 hover:text-slate-700 cursor-pointer" />
+                      </div>
+                    ))
+                  ) : (
+                    <div className="p-3 rounded-xl bg-slate-50/80 dark:bg-slate-800/60 border border-slate-200/60 dark:border-slate-700 text-xs text-slate-400 italic">
+                      No specific documents attached.
+                    </div>
+                  )}
+                </div>
+              </div>
+
+            </div>
+
+            {/* 6. Frequently Asked Questions (FAQs) Accordion Card */}
+            {viewingService.faqs && viewingService.faqs.length > 0 && (
+              <div className="p-4 sm:p-5 rounded-2xl bg-white dark:bg-slate-900/90 border border-slate-200/80 dark:border-slate-800 shadow-2xs space-y-3">
+                <div className="flex items-center gap-2 text-purple-900 dark:text-purple-300 font-black text-xs uppercase tracking-wider">
+                  <HelpCircle className="w-4 h-4 text-purple-600 dark:text-purple-400" />
+                  <span>Frequently Asked Questions (FAQs)</span>
+                </div>
+                <div className="space-y-2">
+                  {viewingService.faqs.map((faqItem: any, idx: number) => {
+                    const q = typeof faqItem === "object" ? faqItem.question : faqItem;
+                    const a = typeof faqItem === "object" ? faqItem.answer : "";
+                    return (
+                      <div key={idx} className="flex items-start justify-between p-3.5 rounded-xl bg-slate-50/80 dark:bg-slate-800/60 border border-slate-200/60 dark:border-slate-700 text-xs">
+                        <div className="space-y-1">
+                          <p className="font-bold text-slate-900 dark:text-white">
+                            <span className="text-purple-600 dark:text-purple-400 font-black mr-1">Q.</span>
+                            {q}
+                          </p>
+                          {a && (
+                            <p className="text-slate-600 dark:text-slate-300 pl-4 font-medium leading-relaxed">
+                              {a}
+                            </p>
+                          )}
+                        </div>
+                        <ChevronRight className="w-4 h-4 text-slate-400 shrink-0 mt-0.5" />
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+
+            {/* 7. Official Links, Tutorials & Knowledge Base Section */}
+            <div className="space-y-2.5">
+              <div className="flex items-center gap-2 text-slate-900 dark:text-white">
+                <ExternalLink className="w-4 h-4 text-blue-600 dark:text-sky-400" />
+                <h4 className="text-xs font-black uppercase tracking-wider">
+                  Official Links, Tutorials &amp; Knowledge Base
+                </h4>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                {/* Official Government Portals Card */}
+                <div className="p-4 rounded-2xl bg-blue-50/40 dark:bg-slate-900/80 border border-blue-100 dark:border-slate-800 space-y-2.5 shadow-2xs">
+                  <div className="flex items-center gap-2 text-blue-900 dark:text-sky-300 font-bold text-xs">
+                    <span>🌐</span>
+                    <span>Official Government Portals</span>
+                  </div>
+                  {viewingService.officialGovernmentPortalLinks && viewingService.officialGovernmentPortalLinks.length > 0 ? (
+                    viewingService.officialGovernmentPortalLinks.map((link: string, idx: number) => (
+                      <a
+                        key={idx}
+                        href={link}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="flex items-center justify-between p-3 rounded-xl bg-white dark:bg-slate-800 border border-slate-200/70 dark:border-slate-700 text-blue-600 dark:text-sky-400 hover:border-blue-400 text-xs font-bold transition-all shadow-2xs"
+                      >
+                        <div className="flex items-center gap-2 truncate pr-2">
+                          <ExternalLink className="w-3.5 h-3.5 shrink-0" />
+                          <span className="truncate">{link}</span>
+                        </div>
+                        <ExternalLink className="w-3.5 h-3.5 shrink-0 text-slate-400" />
+                      </a>
+                    ))
+                  ) : (
+                    <div className="p-3 rounded-xl bg-white dark:bg-slate-800 border border-slate-200/70 text-xs text-slate-400 italic">
+                      No government portal link registered.
+                    </div>
+                  )}
+                </div>
+
+                {/* Study Material & SOP Guidelines Card */}
+                <div className="p-4 rounded-2xl bg-indigo-50/40 dark:bg-slate-900/80 border border-indigo-100 dark:border-slate-800 space-y-2.5 shadow-2xs">
+                  <div className="flex items-center gap-2 text-indigo-900 dark:text-indigo-300 font-bold text-xs">
+                    <span>▶️</span>
+                    <span>Study Material &amp; SOP Guideline (Files &amp; Attachments)</span>
+                  </div>
+                  {viewingService.studyMaterials && viewingService.studyMaterials.length > 0 ? (
+                    viewingService.studyMaterials.map((mat: any, idx: number) => {
+                      const title = typeof mat === "object" ? mat.title || `Material ${idx + 1}` : `Document ${idx + 1}`;
+                      const fileUrl = typeof mat === "object" ? mat.fileUrl : mat;
+                      return (
+                        <div
+                          key={idx}
+                          className="flex items-center justify-between p-3 rounded-xl bg-white dark:bg-slate-800 border border-slate-200/70 dark:border-slate-700 text-xs shadow-2xs"
+                        >
+                          <div className="flex items-center gap-2 min-w-0 pr-2">
+                            <FileText className="w-4 h-4 text-blue-500 shrink-0" />
+                            <span className="font-bold text-slate-800 dark:text-slate-200 truncate">{title}</span>
+                          </div>
+                          <div className="flex items-center gap-2 shrink-0">
+                            {fileUrl && fileUrl !== "#" && (
+                              <>
+                                <button
+                                  type="button"
+                                  onClick={() => setPreviewDocState({
+                                    isOpen: true,
+                                    title: title,
+                                    docName: title.endsWith(".pdf") ? title : `${title}.pdf`,
+                                    fileUrl: fileUrl,
+                                  })}
+                                  className="px-3 py-1 rounded-lg bg-blue-100 dark:bg-blue-950 text-blue-600 dark:text-sky-300 font-bold text-xs hover:bg-blue-600 hover:text-white transition-colors cursor-pointer"
+                                >
+                                  View
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => downloadFile(fileUrl, title.endsWith(".pdf") ? title : `${title}.pdf`)}
+                                  className="text-slate-400 hover:text-slate-700 cursor-pointer"
+                                >
+                                  <Download className="w-4 h-4" />
+                                </button>
+                              </>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })
+                  ) : (
+                    <div className="p-3 rounded-xl bg-white dark:bg-slate-800 border border-slate-200/70 text-xs text-slate-400 italic">
+                      No SOP files attached.
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            {/* Footer with Close Button */}
+            <div className="flex justify-end pt-3 border-t border-slate-100 dark:border-slate-800">
               <button
                 onClick={() => setViewingService(null)}
-                className="px-4 py-2 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-xs font-bold text-slate-700 dark:text-slate-200 cursor-pointer"
+                className="px-6 py-2 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-xs font-bold text-slate-700 dark:text-slate-200 cursor-pointer transition-colors"
               >
                 Close
               </button>
@@ -1248,7 +1535,7 @@ export default function ServicesPage() {
 
       {/* Modal: Delete Service Confirmation */}
       {deleteConfirmService && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-in fade-in">
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-in fade-in">
           <div className="bg-white dark:bg-[#0c1427] border border-slate-200 dark:border-slate-800 rounded-3xl p-6 w-full max-w-md shadow-2xl relative animate-in zoom-in-95 duration-150 space-y-4">
             <ModalHeaderBanner
               icon={Trash2}
@@ -1301,6 +1588,16 @@ export default function ServicesPage() {
           </div>
         </div>
       )}
+
+      {/* Universal Document Preview Modal for Study Materials & SOPs */}
+      <UniversalFilePreviewModal
+        isOpen={previewDocState.isOpen}
+        onClose={() => setPreviewDocState((prev) => ({ ...prev, isOpen: false }))}
+        title={previewDocState.title}
+        fileName={previewDocState.docName}
+        fileUrl={previewDocState.fileUrl}
+        category="SERVICE STUDY MATERIAL / SOP"
+      />
     </div>
   );
 }

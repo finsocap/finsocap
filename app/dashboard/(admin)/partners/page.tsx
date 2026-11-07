@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useMemo, useEffect } from "react";
+import { createPortal } from "react-dom";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
@@ -35,16 +36,23 @@ import {
   Send,
   CheckCircle,
   Shield,
+  ShieldCheck,
   FileText,
+  Upload,
+  Download,
+  AlertTriangle,
+  FileCheck2,
+  Paperclip,
 } from "lucide-react";
 import { useCrmStore, PartnerModel } from "@/lib/crmStore";
 import { partnerService } from "@/lib/api/partnerService";
+import { downloadFile } from "@/lib/fileViewer";
 import { PartnerMetrics } from "@/types/api";
 import AnimatedCounter from "@/components/Global/AnimatedCounter";
 import PageBanner from "@/components/Dashboard/PageBanner";
 import { useToast } from "@/components/Global/ToastNotification";
 import ModalHeaderBanner from "@/components/Dashboard/ModalHeaderBanner";
-import { formatName, formatEmail, formatIndianPhoneNumber, formatAddress, formatPanNumber, formatAadhaarNumber, normalizePhoneForBackend, validateIndianMobile, validateEmail, validatePersonName, validatePanNumber, validateAadhaarNumber } from "@/lib/formatters";
+import { formatName, formatEmail, formatIndianPhoneNumber, formatAddress, formatPanNumber, formatAadhaarNumber, normalizePhoneForBackend, validateIndianMobile, validateEmail, validatePersonName, validatePanNumber, validateAadhaarNumber, getDeterministicPartnerKyc } from "@/lib/formatters";
 import { PhoneInput } from "@/components/Global/PhoneInput";
 import { EmailInput } from "@/components/Global/EmailInput";
 import { NameInput } from "@/components/Global/NameInput";
@@ -53,24 +61,27 @@ export default function PartnersManagePage() {
   const router = useRouter();
   const toast = useToast();
   const { partners, tasks, addPartner, updatePartner, togglePartnerStatus, deletePartner } = useCrmStore();
+  const [userRole, setUserRole] = useState<string>("ADMIN");
+  const [currentUser, setCurrentUser] = useState<any>(null);
+  const [mounted, setMounted] = useState(false);
 
-  // Role Protection: Staff members cannot manage franchise partners
   useEffect(() => {
+    setMounted(true);
     try {
       const stored = localStorage.getItem("finsocap_user_session");
       if (stored) {
         const parsed = JSON.parse(stored);
-        if (parsed.role && parsed.role !== "ADMIN") {
-          toast.warning("Access Restricted", "Partner Network Management is reserved for administrators.");
-          router.replace("/dashboard/tasks");
-        }
+        const role = (parsed?.user?.role || parsed?.role || "ADMIN").toUpperCase();
+        setUserRole(role);
+        setCurrentUser(parsed?.user || parsed);
       }
-    } catch (e) {}
-  }, [router, toast]);
+    } catch (e) { }
+  }, []);
 
   const [search, setSearch] = useState("");
   const [selectedStatus, setSelectedStatus] = useState<string>("ALL");
   const [selectedTier, setSelectedTier] = useState<string>("ALL");
+  const [kpiFilter, setKpiFilter] = useState<"ALL" | "ACTIVE" | "DEACTIVATED" | "ACTIVE_TASKS">("ALL");
 
   // Add Partner Modal State (2-Step Flow)
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
@@ -94,6 +105,11 @@ export default function PartnersManagePage() {
   const [formTier, setFormTier] = useState("Gold Franchise");
   const [formStatus, setFormStatus] = useState<"Active" | "Deactivated" | "Pending">("Active");
 
+  // Document Uploads for Enrollment
+  const [formPanDoc, setFormPanDoc] = useState<File | null>(null);
+  const [formAdhaarDoc, setFormAdhaarDoc] = useState<File | null>(null);
+  const [formShopDoc, setFormShopDoc] = useState<File | null>(null);
+
   // Edit Partner Modal State
   const [editingPartner, setEditingPartner] = useState<PartnerModel | null>(null);
   const [editPartnerId, setEditPartnerId] = useState("");
@@ -112,6 +128,27 @@ export default function PartnersManagePage() {
   const [editState, setEditState] = useState("");
   const [editTier, setEditTier] = useState("Gold Franchise");
   const [editStatus, setEditStatus] = useState<"Active" | "Deactivated" | "Pending">("Active");
+
+  // Documents attached to edited partner
+  const [editPanDocName, setEditPanDocName] = useState<string>("PAN_Card.pdf");
+  const [editAdhaarDocName, setEditAdhaarDocName] = useState<string>("Aadhaar_Verified.pdf");
+  const [editShopDocName, setEditShopDocName] = useState<string>("Electricity_Bill.pdf");
+
+  // Step-wise Verification Modal / State
+  const [verifyingPartner, setVerifyingPartner] = useState<PartnerModel | null>(null);
+  const [verificationSteps, setVerificationSteps] = useState({
+    identityVerified: false,
+    addressVerified: false,
+    shopVerified: false,
+  });
+  const [rejectionModal, setRejectionModal] = useState<{ isOpen: boolean; partner: PartnerModel | null; reason: string }>({
+    isOpen: false,
+    partner: null,
+    reason: "",
+  });
+
+  // Document Preview Modal State
+  const [previewDocState, setPreviewDocState] = useState<{ isOpen: boolean; title: string; docName: string } | null>(null);
 
   // View Partner Modal State
   const [viewingPartner, setViewingPartner] = useState<PartnerModel | null>(null);
@@ -142,16 +179,48 @@ export default function PartnersManagePage() {
     toast.success(msg, "Success!");
   };
 
+  // Scoped partners for operational roles (Staff, Specialist, Executive)
+  const scopedPartners = useMemo(() => {
+    const isOp = ["STAFF", "SPECIALIST", "EXECUTIVE"].includes(userRole);
+    if (!isOp) return partners;
+
+    // Filter only partners tied to the logged-in user through assigned tasks or direct assignment
+    const userName = (currentUser?.name || "").toLowerCase().trim();
+    const userEmail = (currentUser?.email || "").toLowerCase().trim();
+
+    const userPartnerNames = new Set<string>();
+    tasks.forEach((t) => {
+      const taskAssignee = (t.assignee || "").toLowerCase().trim();
+      const isAssigned = (userName && taskAssignee.includes(userName)) ||
+        (userEmail && taskAssignee.includes(userEmail)) ||
+        (userName && userName.includes(taskAssignee));
+      if (isAssigned && t.partner) {
+        userPartnerNames.add(t.partner.toLowerCase().trim());
+      }
+    });
+
+    return partners.filter((p) => {
+      const pName = (p.name || "").toLowerCase().trim();
+      const pId = (p.partnerId || "").toLowerCase().trim();
+      return userPartnerNames.has(pName) || userPartnerNames.has(pId);
+    });
+  }, [partners, tasks, userRole, currentUser]);
+
   // KPIs
-  const totalPartners = apiMetrics?.totalPartners ?? partners.length;
-  const activePartnersCount = apiMetrics?.activePartners ?? partners.filter((p) => p.status === "Active").length;
-  const deactivatedPartnersCount = partners.filter((p) => p.status === "Deactivated").length;
-  const pendingPartnersCount = apiMetrics?.pendingApplications ?? partners.filter((p) => p.status === "Pending").length;
-  const totalActivePartnerTasks = partners.reduce((acc, p) => acc + (p.activeTasks || 0), 0);
+  const totalPartners = ["STAFF", "SPECIALIST", "EXECUTIVE"].includes(userRole) ? scopedPartners.length : (apiMetrics?.totalPartners ?? partners.length);
+  const activePartnersCount = scopedPartners.filter((p) => p.status === "Active").length;
+  const deactivatedPartnersCount = scopedPartners.filter((p) => p.status === "Deactivated").length;
+  const pendingPartnersCount = scopedPartners.filter((p) => p.status === "Pending").length;
+  const totalActivePartnerTasks = scopedPartners.reduce((acc, p) => acc + (p.activeTasks || 0), 0);
 
   // Filtered Partners
   const filteredPartners = useMemo(() => {
-    return partners.filter((p) => {
+    return scopedPartners.filter((p) => {
+      // Interactive KPI Filter
+      if (kpiFilter === "ACTIVE" && p.status !== "Active") return false;
+      if (kpiFilter === "DEACTIVATED" && p.status !== "Deactivated") return false;
+      if (kpiFilter === "ACTIVE_TASKS" && (p.activeTasks || 0) === 0) return false;
+
       if (selectedStatus !== "ALL" && p.status !== selectedStatus) return false;
       if (selectedTier !== "ALL" && p.tier !== selectedTier) return false;
       if (search.trim()) {
@@ -167,7 +236,7 @@ export default function PartnersManagePage() {
       }
       return true;
     });
-  }, [partners, search, selectedStatus, selectedTier]);
+  }, [scopedPartners, search, selectedStatus, selectedTier, kpiFilter]);
 
   const handleOpenAddModal = () => {
     const nextNum = 101 + partners.length;
@@ -190,6 +259,9 @@ export default function PartnersManagePage() {
     setFormState("");
     setFormTier("Gold Franchise");
     setFormStatus("Active");
+    setFormPanDoc(null);
+    setFormAdhaarDoc(null);
+    setFormShopDoc(null);
     setIsAddModalOpen(true);
   };
 
@@ -217,7 +289,8 @@ export default function PartnersManagePage() {
       setIsSendingEmail(true);
     }
 
-    addPartner({
+    const newPartnerObj: PartnerModel = {
+      id: String(Date.now()),
       partnerId: formPartnerId.trim().toUpperCase(),
       name: formName.trim(),
       shortName: `${formPartnerId.trim().toUpperCase()} • ${formName.trim()}`,
@@ -235,8 +308,18 @@ export default function PartnersManagePage() {
       state: formState.trim() || "India",
       status: formStatus,
       tier: formTier,
+      leadsCount: 0,
+      revenueStr: "₹0.0k",
+      activeTasks: 0,
       registeredAt: new Date().toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" }),
-    });
+      documents: {
+        panDoc: formPanDoc ? formPanDoc.name : "PAN_Card.pdf",
+        adhaarDoc: formAdhaarDoc ? formAdhaarDoc.name : "Aadhaar_Card.pdf",
+        shopDoc: formShopDoc ? formShopDoc.name : "Shop_Proof.pdf",
+      },
+    };
+
+    addPartner(newPartnerObj);
 
     if (sendWelcomeEmail) {
       // Simulate real-time dispatch via transactional mail service
@@ -269,6 +352,9 @@ export default function PartnersManagePage() {
     setEditState(p.state);
     setEditTier(p.tier || "Gold Franchise");
     setEditStatus(p.status);
+    setEditPanDocName(p.documents?.panDoc || "PAN_Card.pdf");
+    setEditAdhaarDocName(p.documents?.adhaarDoc || "Aadhaar_Verified.pdf");
+    setEditShopDocName(p.documents?.shopDoc || "Electricity_Bill.pdf");
   };
 
   const handleEditSubmit = (e: React.FormEvent) => {
@@ -297,10 +383,45 @@ export default function PartnersManagePage() {
       state: editState.trim(),
       tier: editTier,
       status: editStatus,
+      documents: {
+        panDoc: editPanDocName,
+        adhaarDoc: editAdhaarDocName,
+        shopDoc: editShopDocName,
+      },
     });
 
     setEditingPartner(null);
     showToast(`Partner ${editPartnerId} credentials and details updated successfully.`);
+  };
+
+  // Step-wise Onboarding Verification handlers
+  const handleStartVerification = (partner: PartnerModel) => {
+    setVerifyingPartner(partner);
+    setVerificationSteps({
+      identityVerified: false,
+      addressVerified: false,
+      shopVerified: false,
+    });
+  };
+
+  const handleApprovePartner = (partner: PartnerModel) => {
+    updatePartner(partner.partnerId, { status: "Active" });
+    if (viewingPartner?.partnerId === partner.partnerId) {
+      setViewingPartner({ ...viewingPartner, status: "Active" });
+    }
+    setVerifyingPartner(null);
+    showToast(`Franchise Partner ${partner.partnerId} (${partner.name}) verified and approved!`);
+  };
+
+  const handleRejectPartner = () => {
+    if (!rejectionModal.partner) return;
+    const p = rejectionModal.partner;
+    updatePartner(p.partnerId, { status: "Deactivated" });
+    if (viewingPartner?.partnerId === p.partnerId) {
+      setViewingPartner({ ...viewingPartner, status: "Deactivated" });
+    }
+    showToast(`Partner onboarding rejected. Reason: ${rejectionModal.reason || "Documents unverified"}`);
+    setRejectionModal({ isOpen: false, partner: null, reason: "" });
   };
 
   const handleToggle = (partnerId: string, name: string, currentStatus: string) => {
@@ -318,90 +439,183 @@ export default function PartnersManagePage() {
         title="Partner Network Management"
         description="Enroll, inspect, modify, and activate/deactivate franchise partners. Synchronized with the Partner Mobile App registration onboarding flow."
         actions={
-          <button
-            type="button"
-            onClick={handleOpenAddModal}
-            className="btn-primary-vibrant text-xs py-2.5 px-4.5 cursor-pointer inline-flex items-center gap-2 shadow-lg shadow-blue-500/25"
-          >
-            <UserPlus className="w-4 h-4" />
-            <span>Enroll New Partner</span>
-          </button>
+          !["STAFF", "SPECIALIST", "EXECUTIVE"].includes(userRole) ? (
+            <button
+              type="button"
+              onClick={handleOpenAddModal}
+              className="btn-primary-vibrant text-xs py-2.5 px-4.5 cursor-pointer inline-flex items-center gap-2 shadow-lg shadow-blue-500/25"
+            >
+              <UserPlus className="w-4 h-4" />
+              <span>Enroll New Partner</span>
+            </button>
+          ) : undefined
         }
       />
 
-      {/* KPI Cards */}
+      {/* KPI Cards (Clickable Interactive Filters with Vibrant Active Colors) */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         {/* Total Partners */}
-        <div className="card-luxury p-4.5 flex items-center justify-between">
+        <button
+          type="button"
+          onClick={() => {
+            setKpiFilter(kpiFilter === "ALL" ? "ALL" : "ALL");
+            setSelectedStatus("ALL");
+          }}
+          className={`p-4.5 rounded-2xl flex items-center justify-between text-left transition-all duration-200 cursor-pointer select-none active:scale-[0.98] ${
+            kpiFilter === "ALL" && selectedStatus === "ALL"
+              ? "!bg-blue-50/95 !border-blue-600 !border-2 shadow-md shadow-blue-500/20"
+              : "bg-white dark:bg-[#0c1427] border border-slate-200/90 dark:border-slate-800 hover:border-slate-300 shadow-xs"
+          }`}
+        >
           <div>
-            <p className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">
+            <p className={`text-[11px] font-bold uppercase tracking-wider ${
+              kpiFilter === "ALL" && selectedStatus === "ALL" ? "text-blue-700 font-black" : "text-slate-400"
+            }`}>
               Total Partners
             </p>
-            <p className="text-2xl font-black text-slate-900 dark:text-white mt-1">
+            <p className={`text-2xl font-black mt-1 ${
+              kpiFilter === "ALL" && selectedStatus === "ALL" ? "text-blue-950 font-black" : "text-slate-900 dark:text-white"
+            }`}>
               <AnimatedCounter value={totalPartners} />
             </p>
-            <span className="text-[10px] text-blue-600 dark:text-sky-400 font-bold mt-0.5 inline-block">
+            <span className={`text-[10px] font-bold mt-0.5 inline-block ${
+              kpiFilter === "ALL" && selectedStatus === "ALL" ? "text-blue-700" : "text-blue-600 dark:text-sky-400"
+            }`}>
               Nationwide Franchise Network
             </span>
           </div>
-          <div className="w-11 h-11 rounded-2xl bg-blue-50 dark:bg-blue-950/60 text-blue-600 dark:text-sky-400 flex items-center justify-center shadow-xs">
+          <div className={`w-11 h-11 rounded-2xl flex items-center justify-center shadow-xs transition-colors ${
+            kpiFilter === "ALL" && selectedStatus === "ALL"
+              ? "!bg-blue-600 !text-white shadow-md shadow-blue-600/30"
+              : "bg-blue-50 dark:bg-blue-950/60 text-blue-600 dark:text-sky-400"
+          }`}>
             <Handshake className="w-5 h-5" />
           </div>
-        </div>
+        </button>
 
         {/* Active Partners */}
-        <div className="card-luxury p-4.5 flex items-center justify-between">
+        <button
+          type="button"
+          onClick={() => {
+            if (kpiFilter === "ACTIVE") {
+              setKpiFilter("ALL");
+              setSelectedStatus("ALL");
+            } else {
+              setKpiFilter("ACTIVE");
+              setSelectedStatus("Active");
+            }
+          }}
+          className={`p-4.5 rounded-2xl flex items-center justify-between text-left transition-all duration-200 cursor-pointer select-none active:scale-[0.98] ${
+            kpiFilter === "ACTIVE" || selectedStatus === "Active"
+              ? "!bg-emerald-50/95 !border-emerald-500 !border-2 shadow-md shadow-emerald-500/20"
+              : "bg-white dark:bg-[#0c1427] border border-slate-200/90 dark:border-slate-800 hover:border-slate-300 shadow-xs"
+          }`}
+        >
           <div>
-            <p className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">
+            <p className={`text-[11px] font-bold uppercase tracking-wider ${
+              kpiFilter === "ACTIVE" || selectedStatus === "Active" ? "text-emerald-700 font-black" : "text-slate-400"
+            }`}>
               Active Partners
             </p>
-            <p className="text-2xl font-black text-emerald-600 dark:text-emerald-400 mt-1">
+            <p className={`text-2xl font-black mt-1 ${
+              kpiFilter === "ACTIVE" || selectedStatus === "Active" ? "text-emerald-800 font-black" : "text-emerald-600 dark:text-emerald-400"
+            }`}>
               <AnimatedCounter value={activePartnersCount} />
             </p>
             <span className="text-[10px] text-emerald-600 dark:text-emerald-400 font-bold mt-0.5 inline-block">
               Operational & Verified
             </span>
           </div>
-          <div className="w-11 h-11 rounded-2xl bg-emerald-50 dark:bg-emerald-950/60 text-emerald-600 dark:text-emerald-400 flex items-center justify-center shadow-xs">
+          <div className={`w-11 h-11 rounded-2xl flex items-center justify-center shadow-xs transition-colors ${
+            kpiFilter === "ACTIVE" || selectedStatus === "Active"
+              ? "!bg-emerald-500 !text-white shadow-md shadow-emerald-500/30"
+              : "bg-emerald-50 dark:bg-emerald-950/60 text-emerald-600 dark:text-emerald-400"
+          }`}>
             <CheckCircle2 className="w-5 h-5" />
           </div>
-        </div>
+        </button>
 
         {/* Deactivated Partners */}
-        <div className="card-luxury p-4.5 flex items-center justify-between">
+        <button
+          type="button"
+          onClick={() => {
+            if (kpiFilter === "DEACTIVATED") {
+              setKpiFilter("ALL");
+              setSelectedStatus("ALL");
+            } else {
+              setKpiFilter("DEACTIVATED");
+              setSelectedStatus("Deactivated");
+            }
+          }}
+          className={`p-4.5 rounded-2xl flex items-center justify-between text-left transition-all duration-200 cursor-pointer select-none active:scale-[0.98] ${
+            kpiFilter === "DEACTIVATED" || selectedStatus === "Deactivated"
+              ? "!bg-amber-50/95 !border-amber-500 !border-2 shadow-md shadow-amber-500/20"
+              : "bg-white dark:bg-[#0c1427] border border-slate-200/90 dark:border-slate-800 hover:border-slate-300 shadow-xs"
+          }`}
+        >
           <div>
-            <p className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">
+            <p className={`text-[11px] font-bold uppercase tracking-wider ${
+              kpiFilter === "DEACTIVATED" || selectedStatus === "Deactivated" ? "text-amber-800 font-black" : "text-slate-400"
+            }`}>
               Deactivated
             </p>
-            <p className="text-2xl font-black text-amber-600 dark:text-amber-400 mt-1">
+            <p className={`text-2xl font-black mt-1 ${
+              kpiFilter === "DEACTIVATED" || selectedStatus === "Deactivated" ? "text-amber-900 font-black" : "text-amber-600 dark:text-amber-400"
+            }`}>
               <AnimatedCounter value={deactivatedPartnersCount} />
             </p>
             <span className="text-[10px] text-amber-600 dark:text-amber-400 font-bold mt-0.5 inline-block">
               Paused / Inactive Kiosks
             </span>
           </div>
-          <div className="w-11 h-11 rounded-2xl bg-amber-50 dark:bg-amber-950/60 text-amber-600 dark:text-amber-400 flex items-center justify-center shadow-xs">
+          <div className={`w-11 h-11 rounded-2xl flex items-center justify-center shadow-xs transition-colors ${
+            kpiFilter === "DEACTIVATED" || selectedStatus === "Deactivated"
+              ? "!bg-amber-500 !text-white shadow-md shadow-amber-500/30"
+              : "bg-amber-50 dark:bg-amber-950/60 text-amber-600 dark:text-amber-400"
+          }`}>
             <PowerOff className="w-5 h-5" />
           </div>
-        </div>
+        </button>
 
         {/* Active Client Tasks */}
-        <div className="card-luxury p-4.5 flex items-center justify-between">
+        <button
+          type="button"
+          onClick={() => {
+            if (kpiFilter === "ACTIVE_TASKS") {
+              setKpiFilter("ALL");
+            } else {
+              setKpiFilter("ACTIVE_TASKS");
+            }
+          }}
+          className={`p-4.5 rounded-2xl flex items-center justify-between text-left transition-all duration-200 cursor-pointer select-none active:scale-[0.98] ${
+            kpiFilter === "ACTIVE_TASKS"
+              ? "!bg-indigo-50/95 !border-indigo-500 !border-2 shadow-md shadow-indigo-500/20"
+              : "bg-white dark:bg-[#0c1427] border border-slate-200/90 dark:border-slate-800 hover:border-slate-300 shadow-xs"
+          }`}
+        >
           <div>
-            <p className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">
+            <p className={`text-[11px] font-bold uppercase tracking-wider ${
+              kpiFilter === "ACTIVE_TASKS" ? "text-indigo-800 font-black" : "text-slate-400"
+            }`}>
               Active Partner Tasks
             </p>
-            <p className="text-2xl font-black text-indigo-600 dark:text-indigo-400 mt-1">
+            <p className={`text-2xl font-black mt-1 ${
+              kpiFilter === "ACTIVE_TASKS" ? "text-indigo-900 font-black" : "text-indigo-600 dark:text-indigo-400"
+            }`}>
               <AnimatedCounter value={totalActivePartnerTasks} />
             </p>
             <span className="text-[10px] text-indigo-600 dark:text-indigo-400 font-bold mt-0.5 inline-block">
               Live Cases in Queue
             </span>
           </div>
-          <div className="w-11 h-11 rounded-2xl bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400 flex items-center justify-center shadow-xs">
+          <div className={`w-11 h-11 rounded-2xl flex items-center justify-center shadow-xs transition-colors ${
+            kpiFilter === "ACTIVE_TASKS"
+              ? "!bg-indigo-600 !text-white shadow-md shadow-indigo-600/30"
+              : "bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400"
+          }`}>
             <Briefcase className="w-5 h-5" />
           </div>
-        </div>
+        </button>
       </div>
 
       {/* Filter & Search Bar */}
@@ -438,11 +652,10 @@ export default function PartnersManagePage() {
                   key={st}
                   type="button"
                   onClick={() => setSelectedStatus(st)}
-                  className={`px-2.5 py-1 rounded-lg text-xs font-bold transition-all cursor-pointer ${
-                    selectedStatus === st
-                      ? "bg-white dark:bg-slate-800 text-blue-600 dark:text-sky-400 shadow-xs"
-                      : "text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white"
-                  }`}
+                  className={`px-2.5 py-1 rounded-lg text-xs font-bold transition-all cursor-pointer ${selectedStatus === st
+                    ? "bg-white dark:bg-slate-800 text-blue-600 dark:text-sky-400 shadow-xs"
+                    : "text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white"
+                    }`}
                 >
                   {st}
                 </button>
@@ -502,7 +715,7 @@ export default function PartnersManagePage() {
               <tr className="border-b border-slate-200/80 dark:border-slate-800 bg-slate-50/70 dark:bg-slate-900/40 text-[10px] font-black uppercase tracking-wider text-slate-400">
                 <th className="py-3 px-4">Partner ID</th>
                 <th className="py-3 px-4">Partner Name</th>
-                <th className="py-3 px-4">Credentials &amp; Login</th>
+                <th className="py-3 px-4">Contact &amp; Username</th>
                 <th className="py-3 px-4">Hub Location</th>
                 <th className="py-3 px-4">Franchise Tier</th>
                 <th className="py-3 px-4 text-center">Active Tasks</th>
@@ -553,64 +766,30 @@ export default function PartnersManagePage() {
                         </div>
                       </td>
 
-                      {/* Credentials & Login (Phone + Concealed Temporary Password with Eye toggle & Copy) */}
+                      {/* Contact & Username (Phone with Copy & Quick Call) */}
                       <td className="py-3.5 px-4">
-                        <div className="space-y-1">
-                          <div className="flex items-center gap-1.5 font-mono text-[11px]">
-                            <Phone className="w-3 h-3 text-slate-400 shrink-0" />
-                            <span className="font-bold text-slate-900 dark:text-white">{formatIndianPhoneNumber(p.phone)}</span>
-                            <button
-                              type="button"
-                              onClick={() => copyToClipboard(p.phone, `${p.partnerId}-phone`)}
-                              className="text-slate-400 hover:text-blue-600 dark:hover:text-sky-400 p-0.5 cursor-pointer ml-0.5"
-                              title="Copy Phone/Username"
-                            >
-                              {copiedId === `${p.partnerId}-phone` ? (
-                                <Check className="w-2.5 h-2.5 text-emerald-500" />
-                              ) : (
-                                <Copy className="w-2.5 h-2.5" />
-                              )}
-                            </button>
-                            <a
-                              href={`tel:${normalizePhoneForBackend(p.phone)}`}
-                              className="p-0.5 text-blue-600 dark:text-sky-400 hover:opacity-80"
-                              title="Call Partner"
-                            >
-                              <Phone className="w-2.5 h-2.5" />
-                            </a>
-                          </div>
-
-                          {/* Concealed Password chip */}
-                          <div className="flex items-center gap-1 text-[11px] font-mono text-slate-500 dark:text-slate-400">
-                            <Lock className="w-2.5 h-2.5 text-amber-500 shrink-0" />
-                            <span className="tracking-wider font-semibold text-slate-700 dark:text-slate-300">
-                              {showPasswordMap[p.partnerId] ? (p.password || "Partner@123") : "••••••••"}
-                            </span>
-                            <button
-                              type="button"
-                              onClick={() => togglePasswordVisibility(p.partnerId)}
-                              className="text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 p-0.5 cursor-pointer ml-1"
-                              title={showPasswordMap[p.partnerId] ? "Hide password" : "Reveal temporary password"}
-                            >
-                              {showPasswordMap[p.partnerId] ? (
-                                <EyeOff className="w-3 h-3 text-amber-600" />
-                              ) : (
-                                <Eye className="w-3 h-3" />
-                              )}
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => copyToClipboard(p.password || "Partner@123", `${p.partnerId}-pass`)}
-                              className="text-slate-400 hover:text-blue-600 dark:hover:text-sky-400 p-0.5 cursor-pointer"
-                              title="Copy Password"
-                            >
-                              {copiedId === `${p.partnerId}-pass` ? (
-                                <Check className="w-2.5 h-2.5 text-emerald-500" />
-                              ) : (
-                                <Copy className="w-2.5 h-2.5" />
-                              )}
-                            </button>
-                          </div>
+                        <div className="flex items-center gap-1.5 font-mono text-[11px]">
+                          <Phone className="w-3 h-3 text-slate-400 shrink-0" />
+                          <span className="font-bold text-slate-900 dark:text-white">{formatIndianPhoneNumber(p.phone)}</span>
+                          <button
+                            type="button"
+                            onClick={() => copyToClipboard(p.phone, `${p.partnerId}-phone`)}
+                            className="text-slate-400 hover:text-blue-600 dark:hover:text-sky-400 p-0.5 cursor-pointer ml-0.5"
+                            title="Copy Phone/Username"
+                          >
+                            {copiedId === `${p.partnerId}-phone` ? (
+                              <Check className="w-2.5 h-2.5 text-emerald-500" />
+                            ) : (
+                              <Copy className="w-2.5 h-2.5" />
+                            )}
+                          </button>
+                          <a
+                            href={`tel:${normalizePhoneForBackend(p.phone)}`}
+                            className="p-0.5 text-blue-600 dark:text-sky-400 hover:opacity-80"
+                            title="Call Partner"
+                          >
+                            <Phone className="w-2.5 h-2.5" />
+                          </a>
                         </div>
                       </td>
 
@@ -642,18 +821,16 @@ export default function PartnersManagePage() {
                       {/* Status */}
                       <td className="py-3.5 px-4 text-center">
                         <span
-                          className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-black ${
-                            isActive
-                              ? "bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 border border-emerald-500/25"
-                              : isPending
+                          className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-black ${isActive
+                            ? "bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 border border-emerald-500/25"
+                            : isPending
                               ? "bg-amber-500/15 text-amber-700 dark:text-amber-400 border border-amber-500/25"
                               : "bg-rose-500/15 text-rose-700 dark:text-rose-400 border border-rose-500/25"
-                          }`}
+                            }`}
                         >
                           <span
-                            className={`w-1.5 h-1.5 rounded-full ${
-                              isActive ? "bg-emerald-500 animate-pulse" : isPending ? "bg-amber-500" : "bg-rose-500"
-                            }`}
+                            className={`w-1.5 h-1.5 rounded-full ${isActive ? "bg-emerald-500 animate-pulse" : isPending ? "bg-amber-500" : "bg-rose-500"
+                              }`}
                           />
                           <span>{p.status}</span>
                         </span>
@@ -672,29 +849,31 @@ export default function PartnersManagePage() {
                             <Eye className="w-3.5 h-3.5" />
                           </button>
 
-                          {/* Edit Details */}
-                          <button
-                            type="button"
-                            onClick={() => openEditModal(p)}
-                            className="p-1.5 rounded-lg text-blue-600 dark:text-sky-400 hover:bg-blue-50 dark:hover:bg-blue-950/60 cursor-pointer transition-colors"
-                            title="Modify Partner Details"
-                          >
-                            <Edit2 className="w-3.5 h-3.5" />
-                          </button>
+                          {/* Edit Details & Toggle: Admin Only */}
+                          {!["STAFF", "SPECIALIST", "EXECUTIVE"].includes(userRole) && (
+                            <>
+                              <button
+                                type="button"
+                                onClick={() => openEditModal(p)}
+                                className="p-1.5 rounded-lg text-blue-600 dark:text-sky-400 hover:bg-blue-50 dark:hover:bg-blue-950/60 cursor-pointer transition-colors"
+                                title="Modify Partner Details"
+                              >
+                                <Edit2 className="w-3.5 h-3.5" />
+                              </button>
 
-                          {/* Toggle Active / Deactivate */}
-                          <button
-                            type="button"
-                            onClick={() => handleToggle(p.partnerId, p.name, p.status)}
-                            className={`p-1.5 rounded-lg cursor-pointer transition-colors ${
-                              isActive
-                                ? "text-amber-600 hover:bg-amber-50 dark:hover:bg-amber-950/60"
-                                : "text-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-950/60"
-                            }`}
-                            title={isActive ? "Deactivate Partner" : "Activate Partner"}
-                          >
-                            <PowerOff className="w-3.5 h-3.5" />
-                          </button>
+                              <button
+                                type="button"
+                                onClick={() => handleToggle(p.partnerId, p.name, p.status)}
+                                className={`p-1.5 rounded-lg cursor-pointer transition-colors ${isActive
+                                  ? "text-amber-600 hover:bg-amber-50 dark:hover:bg-amber-950/60"
+                                  : "text-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-950/60"
+                                  }`}
+                                title={isActive ? "Deactivate Partner" : "Activate Partner"}
+                              >
+                                <PowerOff className="w-3.5 h-3.5" />
+                              </button>
+                            </>
+                          )}
                         </div>
                       </td>
                     </tr>
@@ -708,39 +887,39 @@ export default function PartnersManagePage() {
 
       {/* MODAL 1: Enroll / Add Partner (2-Step Smart Onboarding) */}
       {isAddModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-900/60 backdrop-blur-xs animate-in fade-in">
-          <div className="bg-white dark:bg-[#0c1427] border border-slate-200 dark:border-slate-800 rounded-3xl p-4 sm:p-5 w-full max-w-lg shadow-2xl relative max-h-[82vh] overflow-y-auto no-scrollbar space-y-3">
-            <ModalHeaderBanner
-              icon={UserPlus}
-              badge={`STEP ${addStep} OF 2 · FRANCHISE ONBOARDING`}
-              title={addStep === 1 ? "Enroll New Franchise Partner" : "Security & Credentials"}
-              description={
-                addStep === 1
-                  ? "Partner identity, hub location, shop info, and KYC records."
-                  : "Generate temporary password & auto-mail credentials to partner."
-              }
-              badgeTag={addStep === 1 ? "1. Details" : "2. Password"}
-              className="py-3 px-3.5"
-              onClose={() => setIsAddModalOpen(false)}
-            />
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-in fade-in">
+          <div className="bg-white dark:bg-[#0c1427] border border-slate-200 dark:border-slate-800 rounded-3xl p-5 sm:p-6 w-full max-w-2xl shadow-2xl relative max-h-[85vh] flex flex-col space-y-3">
+            <div className="shrink-0">
+              <ModalHeaderBanner
+                icon={UserPlus}
+                badge={`STEP ${addStep} OF 2 · FRANCHISE ONBOARDING`}
+                title={addStep === 1 ? "Enroll New Franchise Partner" : "Security & Credentials"}
+                description={
+                  addStep === 1
+                    ? "Partner identity, hub location, shop info, and KYC records."
+                    : "Generate temporary password & auto-mail credentials to partner."
+                }
+                badgeTag={addStep === 1 ? "1. Details" : "2. Password"}
+                className="py-3 px-3.5"
+                onClose={() => setIsAddModalOpen(false)}
+              />
+            </div>
 
             {/* Step Progress Indicators */}
-            <div className="flex items-center gap-2 pt-0.5 pb-0.5">
+            <div className="flex items-center gap-2 pt-0.5 pb-0.5 shrink-0">
               <div
-                className={`flex-1 h-1.5 rounded-full transition-all ${
-                  addStep >= 1 ? "bg-blue-600" : "bg-slate-200 dark:bg-slate-800"
-                }`}
+                className={`flex-1 h-1.5 rounded-full transition-all ${addStep >= 1 ? "bg-blue-600" : "bg-slate-200 dark:bg-slate-800"
+                  }`}
               />
               <div
-                className={`flex-1 h-1.5 rounded-full transition-all ${
-                  addStep >= 2 ? "bg-blue-600" : "bg-slate-200 dark:bg-slate-800"
-                }`}
+                className={`flex-1 h-1.5 rounded-full transition-all ${addStep >= 2 ? "bg-blue-600" : "bg-slate-200 dark:bg-slate-800"
+                  }`}
               />
             </div>
 
             {addStep === 1 ? (
               /* STEP 1: PARTNER DETAILS & KYC */
-              <form onSubmit={handleNextStep} className="space-y-3">
+              <form onSubmit={handleNextStep} className="flex-1 min-h-0 overflow-y-auto pr-1 space-y-3">
                 <div className="grid grid-cols-2 gap-2.5">
                   {/* Partner ID */}
                   <div>
@@ -802,18 +981,18 @@ export default function PartnersManagePage() {
                   />
                 </div>
 
-                {/* Shop Name & DOB */}
+                {/* Enterprise Name & DOB */}
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
                   <div>
                     <label className="block text-[11px] font-bold text-slate-700 dark:text-slate-300 mb-1">
-                      Shop / Enterprise Name
+                      Business / Franchise Enterprise Name
                     </label>
                     <input
                       type="text"
                       value={formShopName}
                       onChange={(e) => setFormShopName(e.target.value)}
                       onBlur={() => setFormShopName(formatName(formShopName))}
-                      placeholder="e.g. Verma Digital Seva Kendra"
+                      placeholder="e.g. Finsocap Digital Hub / Verma Financial Services"
                       className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-blue-500/20"
                     />
                   </div>
@@ -830,31 +1009,31 @@ export default function PartnersManagePage() {
                   </div>
                 </div>
 
-                {/* Exact Location & Complete Shop Address */}
+                {/* Office / Business Address */}
                 <div className="space-y-2.5">
                   <div>
                     <label className="block text-[11px] font-bold text-slate-700 dark:text-slate-300 mb-1">
-                      Current Address (Exact Landmark)
+                      Branch / Office Landmark Location
                     </label>
                     <input
                       type="text"
                       value={formCurrentAddress}
                       onChange={(e) => setFormCurrentAddress(e.target.value)}
                       onBlur={() => setFormCurrentAddress(formatAddress(formCurrentAddress))}
-                      placeholder="e.g. Near Railway Crossing, Gandhi Chowk"
+                      placeholder="e.g. 2nd Floor, Corporate Plaza, Near Civil Lines"
                       className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-blue-500/20"
                     />
                   </div>
                   <div>
                     <label className="block text-[11px] font-bold text-slate-700 dark:text-slate-300 mb-1">
-                      Complete Shop Address
+                      Official Business / Office Address
                     </label>
                     <textarea
                       rows={2}
                       value={formCompleteShopAddress}
                       onChange={(e) => setFormCompleteShopAddress(e.target.value)}
                       onBlur={() => setFormCompleteShopAddress(formatAddress(formCompleteShopAddress))}
-                      placeholder="Shop No., Commercial Complex, Main Road, Pin Code"
+                      placeholder="Office No., Commercial Complex, Main Road, City, PIN Code"
                       className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-blue-500/20 resize-none"
                     />
                   </div>
@@ -935,6 +1114,76 @@ export default function PartnersManagePage() {
                   </div>
                 </div>
 
+                {/* KYC Document Upload Section */}
+                <div className="p-3 bg-slate-50 dark:bg-slate-900/60 rounded-2xl border border-slate-200 dark:border-slate-800 space-y-2">
+                  <div className="flex items-center justify-between">
+                    <span className="text-[10px] font-black uppercase tracking-wider text-slate-500 dark:text-slate-400 flex items-center gap-1.5">
+                      <Paperclip className="w-3 h-3 text-blue-600 dark:text-sky-400" />
+                      <span>Attach KYC &amp; Onboarding Documents</span>
+                    </span>
+                    <span className="text-[10px] text-slate-400 font-medium">PDF, JPG or PNG (up to 10MB)</span>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 text-xs">
+                    {/* PAN Document */}
+                    <div className="p-2.5 rounded-xl bg-white dark:bg-slate-800/80 border border-dashed border-slate-300 dark:border-slate-700 hover:border-blue-500 transition-colors">
+                      <label className="block text-[10px] font-bold text-slate-700 dark:text-slate-300 mb-1">
+                        1. PAN Card Copy
+                      </label>
+                      <input
+                        type="file"
+                        accept=".pdf,image/jpeg,image/png"
+                        onChange={(e) => {
+                          const file = e.target.files?.[0];
+                          if (file) setFormPanDoc(file);
+                        }}
+                        className="text-[10px] text-slate-500 file:mr-2 file:py-1 file:px-2 file:rounded-md file:border-0 file:text-[10px] file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100 cursor-pointer w-full"
+                      />
+                      {formPanDoc && (
+                        <p className="text-[9px] text-emerald-600 font-bold mt-1 truncate">✓ {formPanDoc.name}</p>
+                      )}
+                    </div>
+
+                    {/* Aadhaar Document */}
+                    <div className="p-2.5 rounded-xl bg-white dark:bg-slate-800/80 border border-dashed border-slate-300 dark:border-slate-700 hover:border-blue-500 transition-colors">
+                      <label className="block text-[10px] font-bold text-slate-700 dark:text-slate-300 mb-1">
+                        2. Aadhaar Card
+                      </label>
+                      <input
+                        type="file"
+                        accept=".pdf,image/jpeg,image/png"
+                        onChange={(e) => {
+                          const file = e.target.files?.[0];
+                          if (file) setFormAdhaarDoc(file);
+                        }}
+                        className="text-[10px] text-slate-500 file:mr-2 file:py-1 file:px-2 file:rounded-md file:border-0 file:text-[10px] file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100 cursor-pointer w-full"
+                      />
+                      {formAdhaarDoc && (
+                        <p className="text-[9px] text-emerald-600 font-bold mt-1 truncate">✓ {formAdhaarDoc.name}</p>
+                      )}
+                    </div>
+
+                    {/* Office Premises Proof / Bill */}
+                    <div className="p-2.5 rounded-xl bg-white dark:bg-slate-800/80 border border-dashed border-slate-300 dark:border-slate-700 hover:border-blue-500 transition-colors">
+                      <label className="block text-[10px] font-bold text-slate-700 dark:text-slate-300 mb-1">
+                        3. Office Proof / Utility Bill
+                      </label>
+                      <input
+                        type="file"
+                        accept=".pdf,image/jpeg,image/png"
+                        onChange={(e) => {
+                          const file = e.target.files?.[0];
+                          if (file) setFormShopDoc(file);
+                        }}
+                        className="text-[10px] text-slate-500 file:mr-2 file:py-1 file:px-2 file:rounded-md file:border-0 file:text-[10px] file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100 cursor-pointer w-full"
+                      />
+                      {formShopDoc && (
+                        <p className="text-[9px] text-emerald-600 font-bold mt-1 truncate">✓ {formShopDoc.name}</p>
+                      )}
+                    </div>
+                  </div>
+                </div>
+
                 {/* Next Step Button */}
                 <div className="pt-2 flex items-center gap-3">
                   <button
@@ -955,7 +1204,7 @@ export default function PartnersManagePage() {
               </form>
             ) : (
               /* STEP 2: TEMPORARY PASSWORD & AUTOMATED EMAIL DISPATCH */
-              <form onSubmit={handleAddSubmit} className="space-y-3 animate-in fade-in slide-in-from-right-4 duration-200">
+              <form onSubmit={handleAddSubmit} className="flex-1 min-h-0 overflow-y-auto pr-1 space-y-3 animate-in fade-in slide-in-from-right-4 duration-200">
                 {/* Partner Summary Card */}
                 <div className="p-3 rounded-2xl bg-slate-50 dark:bg-slate-900/60 border border-slate-200 dark:border-slate-800 flex items-center justify-between">
                   <div>
@@ -1067,20 +1316,22 @@ export default function PartnersManagePage() {
       )}
 
       {/* MODAL 2: Modify / Edit Partner */}
-      {editingPartner && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-in fade-in">
-          <div className="bg-white dark:bg-[#0c1427] border border-slate-200 dark:border-slate-800 rounded-3xl p-6 w-full max-w-lg shadow-2xl relative max-h-[90vh] overflow-y-auto no-scrollbar space-y-4">
-            <ModalHeaderBanner
-              icon={Edit2}
-              badge="PARTNER UPDATE"
-              title={`Modify Partner · ${editingPartner.name}`}
-              description="Update franchise profile, contact telephone, status, or tier allocation."
-              badgeTag="Partner Sync"
-              onClose={() => setEditingPartner(null)}
-            />
+      {mounted && editingPartner && createPortal(
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-in fade-in">
+          <div className="bg-white dark:bg-[#0c1427] border border-slate-200 dark:border-slate-800 rounded-3xl p-6 w-full max-w-2xl shadow-2xl relative max-h-[85vh] flex flex-col space-y-4">
+            <div className="shrink-0">
+              <ModalHeaderBanner
+                icon={Edit2}
+                badge="PARTNER UPDATE"
+                title={`Modify Partner · ${editingPartner.name}`}
+                description="Update franchise profile, contact telephone, status, or tier allocation."
+                badgeTag="Partner Sync"
+                onClose={() => setEditingPartner(null)}
+              />
+            </div>
 
-            <form onSubmit={handleEditSubmit} className="space-y-4">
-              <div className="grid grid-cols-2 gap-3">
+            <form onSubmit={handleEditSubmit} className="flex-1 min-h-0 overflow-y-auto pr-1 space-y-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
                 {/* Partner ID */}
                 <div>
                   <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
@@ -1122,7 +1373,7 @@ export default function PartnersManagePage() {
               />
 
               {/* Contact Phone & Email */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
                 <PhoneInput
                   label="Phone Number"
                   required
@@ -1137,7 +1388,7 @@ export default function PartnersManagePage() {
               </div>
 
               {/* Password Modification / Reset */}
-              <div className="p-3.5 rounded-2xl bg-gradient-to-r from-amber-50/70 to-orange-50/70 dark:from-amber-950/20 dark:to-orange-950/20 border border-amber-200/80 dark:border-amber-800/50 space-y-1.5">
+              <div className="p-4 rounded-2xl bg-gradient-to-r from-amber-50/70 to-orange-50/70 dark:from-amber-950/20 dark:to-orange-950/20 border border-amber-200/80 dark:border-amber-800/50 space-y-2">
                 <div className="flex items-center justify-between">
                   <label className="text-xs font-bold text-amber-900 dark:text-amber-300 flex items-center gap-1.5">
                     <KeyRound className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400" />
@@ -1176,18 +1427,18 @@ export default function PartnersManagePage() {
                 </p>
               </div>
 
-              {/* Shop Name & DOB */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              {/* Business Name & DOB */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
                 <div>
                   <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
-                    Shop / Enterprise Name
+                    Business / Franchise Enterprise Name
                   </label>
                   <input
                     type="text"
                     value={editShopName}
                     onChange={(e) => setEditShopName(e.target.value)}
                     onBlur={() => setEditShopName(formatName(editShopName))}
-                    placeholder="e.g. Verma Digital Seva Kendra"
+                    placeholder="e.g. Finsocap Digital Hub / Verma Financial Services"
                     className="w-full px-3.5 py-2.5 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-blue-500/20"
                   />
                 </div>
@@ -1204,38 +1455,38 @@ export default function PartnersManagePage() {
                 </div>
               </div>
 
-              {/* Exact Location & Complete Shop Address */}
-              <div className="space-y-3">
+              {/* Exact Location & Complete Office Address */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
                 <div>
                   <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
-                    Current Address (Exact Shop Location / Landmark)
+                    Branch / Office Landmark Location
                   </label>
                   <input
                     type="text"
                     value={editCurrentAddress}
                     onChange={(e) => setEditCurrentAddress(e.target.value)}
                     onBlur={() => setEditCurrentAddress(formatAddress(editCurrentAddress))}
-                    placeholder="e.g. Near Railway Crossing, Gandhi Chowk"
+                    placeholder="e.g. 2nd Floor, Corporate Plaza, Near Civil Lines"
                     className="w-full px-3.5 py-2.5 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-blue-500/20"
                   />
                 </div>
                 <div>
                   <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
-                    Complete Shop Address
+                    Official Business / Office Address
                   </label>
                   <textarea
                     rows={2}
                     value={editCompleteShopAddress}
                     onChange={(e) => setEditCompleteShopAddress(e.target.value)}
                     onBlur={() => setEditCompleteShopAddress(formatAddress(editCompleteShopAddress))}
-                    placeholder="Shop No., Commercial Complex, Main Road, Pin Code"
-                    className="w-full px-3.5 py-2.5 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-blue-500/20 resize-none"
+                    placeholder="Office No., Commercial Complex, Main Road, City, PIN Code"
+                    className="w-full px-3.5 py-2 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-blue-500/20 resize-none"
                   />
                 </div>
               </div>
 
               {/* KYC Details: PAN & Aadhaar */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
                 <div>
                   <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
                     PAN Card Number (KYC)
@@ -1265,7 +1516,7 @@ export default function PartnersManagePage() {
               </div>
 
               {/* City, State & Tier */}
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3.5">
                 <div>
                   <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
                     City
@@ -1307,6 +1558,103 @@ export default function PartnersManagePage() {
                 </div>
               </div>
 
+              {/* Partner KYC Documents Update / View */}
+              <div className="p-4 bg-slate-50 dark:bg-slate-900/60 rounded-2xl border border-slate-200 dark:border-slate-800 space-y-2.5">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-black uppercase tracking-wider text-slate-700 dark:text-slate-300 flex items-center gap-1.5">
+                    <Paperclip className="w-3.5 h-3.5 text-blue-600 dark:text-sky-400" />
+                    <span>Partner KYC Documents</span>
+                  </span>
+                  <span className="text-[10px] text-slate-400">View or replace uploaded files</span>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 text-xs">
+                  {/* PAN Card Item */}
+                  <div className="flex flex-col justify-between p-3 rounded-xl bg-white dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 gap-2">
+                    <div className="min-w-0">
+                      <span className="font-bold text-slate-800 dark:text-slate-200 block text-[11px]">1. PAN Card</span>
+                      <span className="text-[10px] text-slate-400 truncate block font-mono">{editPanDocName}</span>
+                    </div>
+                    <div className="flex items-center gap-1.5 pt-1 border-t border-slate-100 dark:border-slate-700/60">
+                      <button
+                        type="button"
+                        onClick={() => setPreviewDocState({ isOpen: true, title: "PAN Card Document", docName: editPanDocName })}
+                        className="flex-1 py-1 rounded-lg bg-sky-50 dark:bg-sky-950/60 text-sky-600 dark:text-sky-400 text-[10px] font-bold hover:bg-sky-500 hover:text-white flex items-center justify-center gap-1 cursor-pointer transition-colors"
+                      >
+                        <Eye className="w-3 h-3" />
+                        <span>View</span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const k = getDeterministicPartnerKyc(editingPartner?.partnerId, editingPartner?.name, editingPartner?.phone);
+                          downloadFile(undefined, editPanDocName, `PARTNER KYC DOCUMENT: PAN CARD\nPartner: ${editingPartner?.name || "Partner"}\nPAN: ${editPanNumber || k.panNumber}`);
+                        }}
+                        className="p-1.5 rounded-lg bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300 hover:bg-slate-200 cursor-pointer"
+                        title="Download"
+                      >
+                        <Download className="w-3 h-3" />
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Aadhaar Card Item */}
+                  <div className="flex flex-col justify-between p-3 rounded-xl bg-white dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 gap-2">
+                    <div className="min-w-0">
+                      <span className="font-bold text-slate-800 dark:text-slate-200 block text-[11px]">2. Aadhaar Card</span>
+                      <span className="text-[10px] text-slate-400 truncate block font-mono">{editAdhaarDocName}</span>
+                    </div>
+                    <div className="flex items-center gap-1.5 pt-1 border-t border-slate-100 dark:border-slate-700/60">
+                      <button
+                        type="button"
+                        onClick={() => setPreviewDocState({ isOpen: true, title: "Aadhaar Card Document", docName: editAdhaarDocName })}
+                        className="flex-1 py-1 rounded-lg bg-sky-50 dark:bg-sky-950/60 text-sky-600 dark:text-sky-400 text-[10px] font-bold hover:bg-sky-500 hover:text-white flex items-center justify-center gap-1 cursor-pointer transition-colors"
+                      >
+                        <Eye className="w-3 h-3" />
+                        <span>View</span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const k = getDeterministicPartnerKyc(editingPartner?.partnerId, editingPartner?.name, editingPartner?.phone);
+                          downloadFile(undefined, editAdhaarDocName, `PARTNER KYC DOCUMENT: AADHAAR CARD\nPartner: ${editingPartner?.name || "Partner"}\nAadhaar: ${editAdhaarNumber || k.adhaarNumber}`);
+                        }}
+                        className="p-1.5 rounded-lg bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300 hover:bg-slate-200 cursor-pointer"
+                        title="Download"
+                      >
+                        <Download className="w-3 h-3" />
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Office Premises Proof Item */}
+                  <div className="flex flex-col justify-between p-3 rounded-xl bg-white dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 gap-2">
+                    <div className="min-w-0">
+                      <span className="font-bold text-slate-800 dark:text-slate-200 block text-[11px]">3. Office Proof</span>
+                      <span className="text-[10px] text-slate-400 truncate block font-mono">{editShopDocName}</span>
+                    </div>
+                    <div className="flex items-center gap-1.5 pt-1 border-t border-slate-100 dark:border-slate-700/60">
+                      <button
+                        type="button"
+                        onClick={() => setPreviewDocState({ isOpen: true, title: "Office Premises & Business Proof", docName: editShopDocName })}
+                        className="flex-1 py-1 rounded-lg bg-sky-50 dark:bg-sky-950/60 text-sky-600 dark:text-sky-400 text-[10px] font-bold hover:bg-sky-500 hover:text-white flex items-center justify-center gap-1 cursor-pointer transition-colors"
+                      >
+                        <Eye className="w-3 h-3" />
+                        <span>View</span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => downloadFile(undefined, editShopDocName, `PARTNER KYC DOCUMENT: OFFICE & PREMISES PROOF\nPartner: ${editingPartner?.name || "Partner"}\nOffice: ${editCompleteShopAddress || editShopName || "Registered Office"}`)}
+                        className="p-1.5 rounded-lg bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300 hover:bg-slate-200 cursor-pointer"
+                        title="Download"
+                      >
+                        <Download className="w-3 h-3" />
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
               {/* Action Buttons */}
               <div className="pt-2 flex items-center gap-3">
                 <button
@@ -1325,24 +1673,25 @@ export default function PartnersManagePage() {
               </div>
             </form>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
       {/* MODAL 3: View Partner Details */}
-      {viewingPartner && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-in fade-in">
-          <div className="bg-white dark:bg-[#0c1427] border border-slate-200 dark:border-slate-800 rounded-3xl p-6 w-full max-w-lg shadow-2xl relative space-y-4">
+      {mounted && viewingPartner && createPortal(
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-in fade-in">
+          <div className="bg-white dark:bg-[#0c1427] border border-slate-200 dark:border-slate-800 rounded-3xl p-6 w-full max-w-2xl shadow-2xl relative space-y-4">
             <ModalHeaderBanner
               icon={Eye}
               badge="PARTNER DOSSIER"
               title={`Franchise · ${viewingPartner.name}`}
-              description={`${viewingPartner.tier || "Franchise Partner"} · ${viewingPartner.city || ""}, ${viewingPartner.state || ""} · ID: ${viewingPartner.partnerId}`}
+              description={`${viewingPartner.tier || "Franchise Partner"}${viewingPartner.city || viewingPartner.state ? ` · ${[viewingPartner.city, viewingPartner.state].filter(Boolean).join(", ")}` : ""} · ID: ${viewingPartner.partnerId}`}
               badgeTag={viewingPartner.status}
               onClose={() => setViewingPartner(null)}
             />
 
-            <div className="space-y-4 text-xs">
-              <div className="grid grid-cols-2 gap-3 p-4 bg-slate-50 dark:bg-slate-900/60 rounded-2xl border border-slate-100 dark:border-slate-800">
+            <div className="flex-1 overflow-y-auto pr-1 space-y-4 text-xs">
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 p-4 bg-slate-50 dark:bg-slate-900/60 rounded-2xl border border-slate-100 dark:border-slate-800">
                 <div>
                   <span className="text-[10px] uppercase font-bold text-slate-400">Partner ID</span>
                   <p className="font-mono font-bold text-slate-900 dark:text-white mt-0.5">{viewingPartner.partnerId}</p>
@@ -1357,7 +1706,7 @@ export default function PartnersManagePage() {
                 </div>
                 <div>
                   <span className="text-[10px] uppercase font-bold text-slate-400">Email Address</span>
-                  <p className="font-mono text-slate-900 dark:text-white mt-0.5 truncate">{viewingPartner.email || "—"}</p>
+                  <p className="font-mono text-slate-900 dark:text-white mt-0.5 truncate" title={viewingPartner.email || ""}>{viewingPartner.email || "—"}</p>
                 </div>
                 <div>
                   <span className="text-[10px] uppercase font-bold text-slate-400">Active Cases</span>
@@ -1368,95 +1717,170 @@ export default function PartnersManagePage() {
                   <p className="font-bold text-slate-900 dark:text-white mt-0.5">{viewingPartner.leadsCount} Leads</p>
                 </div>
                 <div>
-                  <span className="text-[10px] uppercase font-bold text-slate-400">Login User ID (Phone)</span>
+                  <span className="text-[10px] uppercase font-bold text-slate-400">Login User ID</span>
                   <p className="font-mono font-bold text-blue-600 dark:text-sky-400 mt-0.5">{viewingPartner.userId || viewingPartner.phone}</p>
                 </div>
-                <div>
-                  <span className="text-[10px] uppercase font-bold text-amber-500">Temporary Password</span>
-                  <p className="font-mono font-bold text-amber-600 dark:text-amber-400 mt-0.5">{viewingPartner.password || "Partner@123"}</p>
-                </div>
                 {viewingPartner.dob && (
-                  <div>
+                  <div className="col-span-2 sm:col-span-4">
                     <span className="text-[10px] uppercase font-bold text-slate-400">Date of Birth</span>
                     <p className="font-semibold text-slate-900 dark:text-white mt-0.5">{viewingPartner.dob}</p>
                   </div>
                 )}
               </div>
 
-              {/* Shop & Location Card */}
-              <div className="p-4 bg-slate-50 dark:bg-slate-900/60 rounded-2xl border border-slate-100 dark:border-slate-800 space-y-2">
-                <div className="flex items-center justify-between">
-                  <span className="text-[10px] uppercase font-bold text-slate-400">Shop / Enterprise Name</span>
-                  <span className="font-bold text-slate-900 dark:text-white text-xs">{viewingPartner.shopName || "Registered Branch"}</span>
+              {/* Business Location & Office Card */}
+              <div className="p-4 bg-slate-50 dark:bg-slate-900/60 rounded-2xl border border-slate-100 dark:border-slate-800 space-y-2.5">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <span className="text-[10px] uppercase font-bold text-slate-400">Franchise Enterprise / Business Name</span>
+                  <span className="font-bold text-slate-900 dark:text-white text-xs">{viewingPartner.shopName || "Registered Branch Office"}</span>
                 </div>
                 <div>
-                  <span className="text-[10px] uppercase font-bold text-slate-400">Current Exact Location</span>
+                  <span className="text-[10px] uppercase font-bold text-slate-400">Branch Office Landmark Location</span>
                   <p className="text-slate-800 dark:text-slate-200 font-medium mt-0.5">{viewingPartner.currentAddress || "Not specified"}</p>
                 </div>
                 <div>
-                  <span className="text-[10px] uppercase font-bold text-slate-400">Complete Shop Address</span>
-                  <p className="text-slate-600 dark:text-slate-300 mt-0.5 leading-relaxed">{viewingPartner.completeShopAddress || `${viewingPartner.city}, ${viewingPartner.state}`}</p>
+                  <span className="text-[10px] uppercase font-bold text-slate-400">Complete Business Address</span>
+                  <p className="text-slate-600 dark:text-slate-300 mt-0.5 leading-relaxed">{viewingPartner.completeShopAddress || ([viewingPartner.city, viewingPartner.state].filter(Boolean).join(", ") || "Headquarters")}</p>
                 </div>
               </div>
 
               {/* KYC Details Card */}
-              <div className="p-4 bg-slate-50 dark:bg-slate-900/60 rounded-2xl border border-slate-100 dark:border-slate-800">
-                <span className="text-[10px] uppercase font-bold text-slate-400 block mb-2">Verified KYC Numbers</span>
-                <div className="grid grid-cols-2 gap-3">
-                  <div className="p-2.5 rounded-xl bg-white dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700">
-                    <span className="text-[10px] text-slate-400 font-semibold block">PAN Number</span>
-                    <span className="font-mono font-bold text-slate-900 dark:text-white text-xs">{viewingPartner.panNumber || "ABCDE1234F"}</span>
+              {(() => {
+                const partnerKyc = getDeterministicPartnerKyc(viewingPartner.partnerId, viewingPartner.name, viewingPartner.phone);
+                const displayPan = viewingPartner.panNumber || partnerKyc.panNumber;
+                const displayAadhaar = viewingPartner.adhaarNumber || partnerKyc.adhaarNumber;
+
+                return (
+                  <div className="p-4 bg-slate-50 dark:bg-slate-900/60 rounded-2xl border border-slate-100 dark:border-slate-800">
+                    <span className="text-[10px] uppercase font-bold text-slate-400 block mb-2">Verified KYC Numbers</span>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      <div className="p-2.5 rounded-xl bg-white dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700">
+                        <span className="text-[10px] text-slate-400 font-semibold block">PAN Number</span>
+                        <span className="font-mono font-bold text-slate-900 dark:text-white text-xs">{displayPan}</span>
+                      </div>
+                      <div className="p-2.5 rounded-xl bg-white dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700">
+                        <span className="text-[10px] text-slate-400 font-semibold block">Aadhaar Number</span>
+                        <span className="font-mono font-bold text-slate-900 dark:text-white text-xs tracking-wider">{displayAadhaar}</span>
+                      </div>
+                    </div>
                   </div>
-                  <div className="p-2.5 rounded-xl bg-white dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700">
-                    <span className="text-[10px] text-slate-400 font-semibold block">Aadhaar Number</span>
-                    <span className="font-mono font-bold text-slate-900 dark:text-white text-xs">{viewingPartner.adhaarNumber || "•••• •••• 9012"}</span>
+                );
+              })()}
+
+              {/* Attached Documents with View & Download */}
+              <div className="p-4 bg-slate-50 dark:bg-slate-900/60 rounded-2xl border border-slate-100 dark:border-slate-800 space-y-2.5">
+                <span className="text-[10px] uppercase font-bold text-slate-400 block mb-1">Attached KYC Documents (3 Files)</span>
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 text-xs">
+                  {/* PAN Card */}
+                  <div className="flex flex-col justify-between p-3 rounded-xl bg-white dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 gap-2">
+                    <div className="min-w-0">
+                      <span className="text-slate-800 dark:text-slate-200 font-bold block text-[11px]">📄 PAN Card</span>
+                      <span className="text-[10px] text-slate-400 font-mono block truncate">{viewingPartner.documents?.panDoc || "PAN_Card.pdf"}</span>
+                    </div>
+                    <div className="flex items-center gap-1.5 pt-1 border-t border-slate-100 dark:border-slate-700/60">
+                      <button
+                        type="button"
+                        onClick={() => setPreviewDocState({ isOpen: true, title: "PAN Card Document", docName: viewingPartner.documents?.panDoc || "PAN_Card.pdf" })}
+                        className="flex-1 py-1 rounded-lg bg-sky-50 dark:bg-sky-950/60 text-sky-600 dark:text-sky-400 font-bold text-[10px] hover:bg-sky-500 hover:text-white flex items-center justify-center gap-1 transition-colors cursor-pointer"
+                      >
+                        <Eye className="w-3 h-3" />
+                        <span>View</span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const k = getDeterministicPartnerKyc(viewingPartner.partnerId, viewingPartner.name, viewingPartner.phone);
+                          downloadFile(undefined, viewingPartner.documents?.panDoc || "PAN_Card.pdf", `PARTNER KYC DOCUMENT: PAN CARD\nPartner: ${viewingPartner.name}\nPAN: ${viewingPartner.panNumber || k.panNumber}`);
+                        }}
+                        className="p-1.5 rounded-lg bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300 hover:bg-blue-600 hover:text-white transition-colors cursor-pointer"
+                        title="Download PAN Card"
+                      >
+                        <Download className="w-3 h-3" />
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Aadhaar Card */}
+                  <div className="flex flex-col justify-between p-3 rounded-xl bg-white dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 gap-2">
+                    <div className="min-w-0">
+                      <span className="text-slate-800 dark:text-slate-200 font-bold block text-[11px]">🪪 Aadhaar Card</span>
+                      <span className="text-[10px] text-slate-400 font-mono block truncate">{viewingPartner.documents?.adhaarDoc || "Aadhaar_Verified.pdf"}</span>
+                    </div>
+                    <div className="flex items-center gap-1.5 pt-1 border-t border-slate-100 dark:border-slate-700/60">
+                      <button
+                        type="button"
+                        onClick={() => setPreviewDocState({ isOpen: true, title: "Aadhaar Card Document", docName: viewingPartner.documents?.adhaarDoc || "Aadhaar_Verified.pdf" })}
+                        className="flex-1 py-1 rounded-lg bg-sky-50 dark:bg-sky-950/60 text-sky-600 dark:text-sky-400 font-bold text-[10px] hover:bg-sky-500 hover:text-white flex items-center justify-center gap-1 transition-colors cursor-pointer"
+                      >
+                        <Eye className="w-3 h-3" />
+                        <span>View</span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const k = getDeterministicPartnerKyc(viewingPartner.partnerId, viewingPartner.name, viewingPartner.phone);
+                          downloadFile(undefined, viewingPartner.documents?.adhaarDoc || "Aadhaar_Verified.pdf", `PARTNER KYC DOCUMENT: AADHAAR CARD\nPartner: ${viewingPartner.name}\nAadhaar: ${viewingPartner.adhaarNumber || k.adhaarNumber}`);
+                        }}
+                        className="p-1.5 rounded-lg bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300 hover:bg-blue-600 hover:text-white transition-colors cursor-pointer"
+                        title="Download Aadhaar Card"
+                      >
+                        <Download className="w-3 h-3" />
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Office Premises Proof */}
+                  <div className="flex flex-col justify-between p-3 rounded-xl bg-white dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 gap-2">
+                    <div className="min-w-0">
+                      <span className="text-slate-800 dark:text-slate-200 font-bold block text-[11px]">🏢 Office Premises</span>
+                      <span className="text-[10px] text-slate-400 font-mono block truncate">{viewingPartner.documents?.shopDoc || "Electricity_Bill.pdf"}</span>
+                    </div>
+                    <div className="flex items-center gap-1.5 pt-1 border-t border-slate-100 dark:border-slate-700/60">
+                      <button
+                        type="button"
+                        onClick={() => setPreviewDocState({ isOpen: true, title: "Office Premises & Business Proof", docName: viewingPartner.documents?.shopDoc || "Electricity_Bill.pdf" })}
+                        className="flex-1 py-1 rounded-lg bg-sky-50 dark:bg-sky-950/60 text-sky-600 dark:text-sky-400 font-bold text-[10px] hover:bg-sky-500 hover:text-white flex items-center justify-center gap-1 transition-colors cursor-pointer"
+                      >
+                        <Eye className="w-3 h-3" />
+                        <span>View</span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => downloadFile(undefined, viewingPartner.documents?.shopDoc || "Electricity_Bill.pdf", `PARTNER KYC DOCUMENT: PREMISES PROOF\nPartner: ${viewingPartner.name}\nOffice: ${viewingPartner.shopName || "Commercial Office"}`)}
+                        className="p-1.5 rounded-lg bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300 hover:bg-blue-600 hover:text-white transition-colors cursor-pointer"
+                        title="Download Office Proof"
+                      >
+                        <Download className="w-3 h-3" />
+                      </button>
+                    </div>
                   </div>
                 </div>
               </div>
 
-              {/* Attached Documents */}
-              <div className="p-4 bg-slate-50 dark:bg-slate-900/60 rounded-2xl border border-slate-100 dark:border-slate-800">
-                <span className="text-[10px] uppercase font-bold text-slate-400 block mb-2">Attached Documents (3 Files)</span>
-                <div className="space-y-1.5 text-[11px]">
-                  <div className="flex items-center justify-between p-2 rounded-lg bg-white dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700">
-                    <span className="text-slate-700 dark:text-slate-200 font-medium">📄 1. PAN Card Scanned Copy</span>
-                    <span className="text-emerald-600 dark:text-emerald-400 font-bold text-[10px] bg-emerald-50 dark:bg-emerald-950/60 px-2 py-0.5 rounded-md">
-                      {viewingPartner.documents?.panDoc || "PAN_Card.pdf"}
-                    </span>
-                  </div>
-                  <div className="flex items-center justify-between p-2 rounded-lg bg-white dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700">
-                    <span className="text-slate-700 dark:text-slate-200 font-medium">🪪 2. Aadhaar Card (Front/Back)</span>
-                    <span className="text-emerald-600 dark:text-emerald-400 font-bold text-[10px] bg-emerald-50 dark:bg-emerald-950/60 px-2 py-0.5 rounded-md">
-                      {viewingPartner.documents?.adhaarDoc || "Aadhaar_Verified.pdf"}
-                    </span>
-                  </div>
-                  <div className="flex items-center justify-between p-2 rounded-lg bg-white dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700">
-                    <span className="text-slate-700 dark:text-slate-200 font-medium">🏪 3. Shop Photo / Electricity Bill</span>
-                    <span className="text-emerald-600 dark:text-emerald-400 font-bold text-[10px] bg-emerald-50 dark:bg-emerald-950/60 px-2 py-0.5 rounded-md">
-                      {viewingPartner.documents?.shopDoc || "Electricity_Bill.pdf"}
-                    </span>
-                  </div>
-                </div>
-              </div>
-
-              {/* Action Buttons */}
-              <div className="flex items-center justify-between pt-2">
+              {/* Step-wise Verification & Action Buttons */}
+              <div className="flex items-center justify-between pt-3 border-t border-slate-100 dark:border-slate-800">
                 {viewingPartner.status === "Pending" ? (
-                  <button
-                    type="button"
-                    onClick={() => {
-                      updatePartner(viewingPartner.partnerId, { status: "Active" });
-                      setViewingPartner({ ...viewingPartner, status: "Active" });
-                      showToast(`Partner ${viewingPartner.partnerId} approved and activated!`);
-                    }}
-                    className="px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs flex items-center gap-1.5 cursor-pointer shadow-md shadow-emerald-500/20"
-                  >
-                    <CheckCircle2 className="w-3.5 h-3.5" />
-                    <span>Verify & Approve Partner</span>
-                  </button>
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => handleStartVerification(viewingPartner)}
+                      className="px-4 py-2 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white font-bold text-xs flex items-center gap-1.5 cursor-pointer shadow-md shadow-emerald-500/25 transition-all"
+                    >
+                      <ShieldCheck className="w-4 h-4" />
+                      <span>Step-wise Verify &amp; Onboard</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setRejectionModal({ isOpen: true, partner: viewingPartner, reason: "" })}
+                      className="px-3 py-2 rounded-xl border border-rose-200 dark:border-rose-900/60 text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/30 text-xs font-bold transition-colors cursor-pointer"
+                    >
+                      Reject
+                    </button>
+                  </div>
                 ) : (
-                  <div className="flex items-center gap-1 text-[11px] text-emerald-600 font-bold">
-                    <CheckCircle2 className="w-3.5 h-3.5" /> Verified & Approved
+                  <div className="flex items-center gap-1.5 text-xs text-emerald-600 dark:text-emerald-400 font-bold">
+                    <CheckCircle2 className="w-4 h-4" />
+                    <span>Verified &amp; Active Partner</span>
                   </div>
                 )}
 
@@ -1467,12 +1891,301 @@ export default function PartnersManagePage() {
                     setViewingPartner(null);
                     openEditModal(toEdit);
                   }}
-                  className="px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs flex items-center gap-1.5 cursor-pointer"
+                  className="px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs flex items-center gap-1.5 cursor-pointer shadow-sm shadow-blue-500/20"
                 >
                   <Edit2 className="w-3.5 h-3.5" />
                   <span>Modify Details</span>
                 </button>
               </div>
+            </div>
+          </div>
+        </div>,
+        document.body
+      )}
+      {/* MODAL 4: Step-wise Onboarding Verification */}
+      {verifyingPartner && (
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-in fade-in">
+          <div className="bg-white dark:bg-[#0c1427] border border-slate-200 dark:border-slate-800 rounded-3xl p-6 w-full max-w-2xl shadow-2xl relative max-h-[85vh] flex flex-col space-y-4">
+            <div className="shrink-0">
+              <ModalHeaderBanner
+                icon={ShieldCheck}
+                badge="STEP-WISE ONBOARDING VERIFICATION"
+                title={`Verify Partner · ${verifyingPartner.name}`}
+                description="Review KYC documentation uploaded via mobile app / dashboard before final onboarding approval."
+                badgeTag="Review Required"
+                onClose={() => setVerifyingPartner(null)}
+              />
+            </div>
+
+            <div className="flex-1 min-h-0 overflow-y-auto pr-1 space-y-3.5 text-xs">
+              <div className="p-3 bg-blue-50/70 dark:bg-blue-950/40 rounded-xl border border-blue-200/60 dark:border-blue-800/40 text-blue-900 dark:text-sky-300">
+                <p className="font-bold">Partner Details:</p>
+                <p className="mt-0.5 text-[11px] font-medium text-slate-700 dark:text-slate-300">
+                  ID: <span className="font-mono font-bold">{verifyingPartner.partnerId}</span> · Phone: <span className="font-mono">{verifyingPartner.phone}</span> · Shop: {verifyingPartner.shopName || "Commercial Office"}
+                </p>
+              </div>
+
+              {/* 3 Step Verification Checklist */}
+              {(() => {
+                const partnerKyc = getDeterministicPartnerKyc(verifyingPartner.partnerId, verifyingPartner.name, verifyingPartner.phone);
+                const displayPan = verifyingPartner.panNumber || partnerKyc.panNumber;
+                const displayAadhaar = verifyingPartner.adhaarNumber || partnerKyc.adhaarNumber;
+
+                return (
+                  <div className="space-y-2.5">
+                    {/* Step 1: Identity & PAN Verification */}
+                    <div className={`p-3 rounded-2xl border transition-all ${
+                      verificationSteps.identityVerified
+                        ? "bg-emerald-50/60 dark:bg-emerald-950/20 border-emerald-300 dark:border-emerald-800"
+                        : "bg-white dark:bg-slate-800/60 border-slate-200 dark:border-slate-700"
+                    }`}>
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="space-y-0.5">
+                          <div className="flex items-center gap-1.5 font-bold text-slate-900 dark:text-white">
+                            <span>1. PAN &amp; Identity Verification</span>
+                            {verificationSteps.identityVerified && (
+                              <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
+                            )}
+                          </div>
+                          <p className="text-[11px] text-slate-500">
+                            PAN: <span className="font-mono font-bold">{displayPan}</span> · File: {verifyingPartner.documents?.panDoc || "PAN_Card.pdf"}
+                          </p>
+                        </div>
+                        <div className="flex items-center gap-1.5 shrink-0">
+                          <button
+                            type="button"
+                            onClick={() => setPreviewDocState({ isOpen: true, title: "PAN Card Document", docName: verifyingPartner.documents?.panDoc || "PAN_Card.pdf" })}
+                            className="px-2 py-1 rounded-lg bg-sky-50 dark:bg-sky-950/60 text-sky-600 dark:text-sky-400 font-bold text-[10px] hover:bg-sky-500 hover:text-white flex items-center gap-1 cursor-pointer"
+                          >
+                            <Eye className="w-3 h-3" />
+                            <span>Inspect</span>
+                          </button>
+                          <input
+                            type="checkbox"
+                            checked={verificationSteps.identityVerified}
+                            onChange={(e) => setVerificationSteps({ ...verificationSteps, identityVerified: e.target.checked })}
+                            className="w-4 h-4 rounded text-emerald-600 cursor-pointer"
+                            title="Mark Identity as Verified"
+                          />
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Step 2: Aadhaar Card Verification */}
+                    <div className={`p-3 rounded-2xl border transition-all ${
+                      verificationSteps.addressVerified
+                        ? "bg-emerald-50/60 dark:bg-emerald-950/20 border-emerald-300 dark:border-emerald-800"
+                        : "bg-white dark:bg-slate-800/60 border-slate-200 dark:border-slate-700"
+                    }`}>
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="space-y-0.5">
+                          <div className="flex items-center gap-1.5 font-bold text-slate-900 dark:text-white">
+                            <span>2. Aadhaar &amp; Address Verification</span>
+                            {verificationSteps.addressVerified && (
+                              <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
+                            )}
+                          </div>
+                          <p className="text-[11px] text-slate-500">
+                            Aadhaar: <span className="font-mono font-bold">{displayAadhaar}</span> · File: {verifyingPartner.documents?.adhaarDoc || "Aadhaar_Verified.pdf"}
+                          </p>
+                        </div>
+                        <div className="flex items-center gap-1.5 shrink-0">
+                          <button
+                            type="button"
+                            onClick={() => setPreviewDocState({ isOpen: true, title: "Aadhaar Card Document", docName: verifyingPartner.documents?.adhaarDoc || "Aadhaar_Verified.pdf" })}
+                            className="px-2 py-1 rounded-lg bg-sky-50 dark:bg-sky-950/60 text-sky-600 dark:text-sky-400 font-bold text-[10px] hover:bg-sky-500 hover:text-white flex items-center gap-1 cursor-pointer"
+                          >
+                            <Eye className="w-3 h-3" />
+                            <span>Inspect</span>
+                          </button>
+                          <input
+                            type="checkbox"
+                            checked={verificationSteps.addressVerified}
+                            onChange={(e) => setVerificationSteps({ ...verificationSteps, addressVerified: e.target.checked })}
+                            className="w-4 h-4 rounded text-emerald-600 cursor-pointer"
+                            title="Mark Address as Verified"
+                          />
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Step 3: Physical Office Premises Proof */}
+                    <div className={`p-3 rounded-2xl border transition-all ${
+                      verificationSteps.shopVerified
+                        ? "bg-emerald-50/60 dark:bg-emerald-950/20 border-emerald-300 dark:border-emerald-800"
+                        : "bg-white dark:bg-slate-800/60 border-slate-200 dark:border-slate-700"
+                    }`}>
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="space-y-0.5">
+                          <div className="flex items-center gap-1.5 font-bold text-slate-900 dark:text-white">
+                            <span>3. Office Premises &amp; Utility Bill</span>
+                            {verificationSteps.shopVerified && (
+                              <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
+                            )}
+                          </div>
+                          <p className="text-[11px] text-slate-500">
+                            Address: {verifyingPartner.currentAddress || "Ground Floor, Corporate Tower"} · File: {verifyingPartner.documents?.shopDoc || "Electricity_Bill.pdf"}
+                          </p>
+                        </div>
+                        <div className="flex items-center gap-1.5 shrink-0">
+                          <button
+                            type="button"
+                            onClick={() => setPreviewDocState({ isOpen: true, title: "Office Premises & Business Proof", docName: verifyingPartner.documents?.shopDoc || "Electricity_Bill.pdf" })}
+                            className="px-2 py-1 rounded-lg bg-sky-50 dark:bg-sky-950/60 text-sky-600 dark:text-sky-400 font-bold text-[10px] hover:bg-sky-500 hover:text-white flex items-center gap-1 cursor-pointer"
+                          >
+                            <Eye className="w-3 h-3" />
+                            <span>Inspect</span>
+                          </button>
+                          <input
+                            type="checkbox"
+                            checked={verificationSteps.shopVerified}
+                            onChange={(e) => setVerificationSteps({ ...verificationSteps, shopVerified: e.target.checked })}
+                            className="w-4 h-4 rounded text-emerald-600 cursor-pointer"
+                            title="Mark Office Premises as Verified"
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })()}
+
+              {/* Progress Summary Pill */}
+              <div className="flex items-center justify-between p-2.5 rounded-xl bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-[11px]">
+                <span className="font-semibold text-slate-600 dark:text-slate-400">Verification Checklist Status:</span>
+                <span className="font-bold text-blue-600 dark:text-sky-400 font-mono">
+                  {[verificationSteps.identityVerified, verificationSteps.addressVerified, verificationSteps.shopVerified].filter(Boolean).length} / 3 Completed
+                </span>
+              </div>
+
+              {/* Action Buttons */}
+              <div className="flex items-center justify-between pt-3 border-t border-slate-100 dark:border-slate-800">
+                <button
+                  type="button"
+                  onClick={() => setVerifyingPartner(null)}
+                  className="px-4 py-2 rounded-xl text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 font-semibold cursor-pointer"
+                >
+                  Cancel
+                </button>
+
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const p = verifyingPartner;
+                      setVerifyingPartner(null);
+                      setRejectionModal({ isOpen: true, partner: p, reason: "" });
+                    }}
+                    className="px-3.5 py-2 rounded-xl border border-rose-200 dark:border-rose-900/60 text-rose-600 dark:text-rose-400 font-bold hover:bg-rose-50 dark:hover:bg-rose-950/30 cursor-pointer"
+                  >
+                    Reject Application
+                  </button>
+
+                  <button
+                    type="button"
+                    disabled={!verificationSteps.identityVerified || !verificationSteps.addressVerified || !verificationSteps.shopVerified}
+                    onClick={() => handleApprovePartner(verifyingPartner)}
+                    className="px-5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 disabled:cursor-not-allowed text-white font-bold flex items-center gap-1.5 shadow-md shadow-emerald-500/20 cursor-pointer transition-all"
+                  >
+                    <CheckCircle className="w-4 h-4" />
+                    <span>Approve &amp; Activate Partner</span>
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL 5: Rejection Reason Modal */}
+      {rejectionModal.isOpen && (
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-in fade-in">
+          <div className="bg-white dark:bg-[#0c1427] border border-slate-200 dark:border-slate-800 rounded-3xl p-6 w-full max-w-md shadow-2xl relative space-y-4">
+            <ModalHeaderBanner
+              icon={AlertTriangle}
+              badge="REJECT ONBOARDING"
+              title="Decline Partner Application"
+              description="Specify clear operational or document reasons for rejection."
+              badgeTag="Critical Action"
+              onClose={() => setRejectionModal({ isOpen: false, partner: null, reason: "" })}
+            />
+
+            <div className="space-y-3 text-xs">
+              <div>
+                <label className="block text-slate-700 dark:text-slate-300 font-bold mb-1">
+                  Reason for Rejection *
+                </label>
+                <textarea
+                  rows={3}
+                  value={rejectionModal.reason}
+                  onChange={(e) => setRejectionModal({ ...rejectionModal, reason: e.target.value })}
+                  placeholder="e.g. Incomplete address proof / Unreadable PAN card copy..."
+                  className="w-full px-3.5 py-2.5 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl text-xs resize-none focus:outline-none focus:ring-2 focus:ring-rose-500/20"
+                />
+              </div>
+
+              <div className="flex items-center justify-end gap-2 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setRejectionModal({ isOpen: false, partner: null, reason: "" })}
+                  className="px-4 py-2 rounded-xl text-slate-600 dark:text-slate-400 hover:bg-slate-100 cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={handleRejectPartner}
+                  className="px-4 py-2 rounded-xl bg-rose-600 hover:bg-rose-700 text-white font-bold shadow-md shadow-rose-500/20 cursor-pointer"
+                >
+                  Confirm Rejection
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL 6: Document Preview Modal */}
+      {previewDocState?.isOpen && (
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-slate-900/70 backdrop-blur-xs animate-in fade-in">
+          <div className="bg-white dark:bg-[#0c1427] border border-slate-200 dark:border-slate-800 rounded-3xl p-6 w-full max-w-lg shadow-2xl relative space-y-4">
+            <ModalHeaderBanner
+              icon={FileText}
+              badge="DOCUMENT PREVIEW"
+              title={previewDocState.title}
+              description={`Inspecting verified partner document: ${previewDocState.docName}`}
+              badgeTag="Verified Dossier"
+              onClose={() => setPreviewDocState(null)}
+            />
+
+            <div className="p-8 bg-slate-50 dark:bg-slate-900/60 rounded-2xl border border-dashed border-slate-200 dark:border-slate-800 text-center space-y-3">
+              <div className="w-14 h-14 rounded-2xl bg-blue-50 dark:bg-blue-950/60 border border-blue-200 dark:border-blue-900 text-blue-600 dark:text-sky-400 mx-auto flex items-center justify-center">
+                <FileCheck2 className="w-8 h-8" />
+              </div>
+              <div>
+                <p className="font-bold text-slate-900 dark:text-white text-sm">{previewDocState.docName}</p>
+                <p className="text-xs text-slate-400 mt-0.5">Encrypted document securely retrieved from FinSoCap partner storage.</p>
+              </div>
+              <div className="pt-2">
+                <button
+                  type="button"
+                  onClick={() => downloadFile(undefined, previewDocState.docName, `VERIFIED PARTNER DOSSIER\nDocument: ${previewDocState.title}\nFile: ${previewDocState.docName}\nStatus: Verified and Encrypted`)}
+                  className="px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs inline-flex items-center gap-1.5 shadow-md shadow-blue-500/25 cursor-pointer"
+                >
+                  <Download className="w-3.5 h-3.5" />
+                  <span>Download Original Copy</span>
+                </button>
+              </div>
+            </div>
+
+            <div className="flex justify-end pt-2">
+              <button
+                type="button"
+                onClick={() => setPreviewDocState(null)}
+                className="px-4 py-2 rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 font-bold text-xs hover:bg-slate-200 cursor-pointer"
+              >
+                Close Preview
+              </button>
             </div>
           </div>
         </div>

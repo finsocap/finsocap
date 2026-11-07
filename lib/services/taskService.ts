@@ -1,5 +1,7 @@
 import { TaskItem, TaskStatus, TaskComment, TaskAttachment, CommentAttachment, TaskCertificate, canTransitionStatus } from "@/types";
 import { initialTasks } from "@/lib/tasksData";
+import { calculateOverdueDays } from "@/lib/dateRangeHelper";
+import { mapBackendTaskStatus } from "@/lib/formatters";
 
 const STORAGE_KEY = "finsocap_tasks_operations_v2";
 
@@ -77,7 +79,7 @@ export const taskService = {
                 String(item.id) === id ||
                 item.taskId?.toLowerCase() === id.toLowerCase() ||
                 (id.startsWith("T-") && item.taskId?.toLowerCase().startsWith(id.toLowerCase()))
-              ) || json.data[0];
+              );
             }
           }
         } catch (e) {}
@@ -125,6 +127,74 @@ export const taskService = {
       }
 
       if (apiTask) {
+        // Fetch detailed service-request to obtain live history & audit trail for this specific request
+        let serviceRequestHistory: any[] = [];
+        const numericSrId = typeof apiTask.id === "number" ? apiTask.id : Number(apiTask.id);
+        if (numericSrId > 0) {
+          try {
+            const srRes = await fetch(`/api/proxy/service-requests/${numericSrId}`, { cache: "no-store" });
+            if (srRes.ok) {
+              const srJson = await srRes.json();
+              if (srJson?.success && srJson?.data) {
+                if (Array.isArray(srJson.data.history)) {
+                  serviceRequestHistory = srJson.data.history;
+                }
+                // Keep version freshest
+                if (typeof srJson.data.version === "number") {
+                  apiTask.version = srJson.data.version;
+                }
+              }
+            }
+          } catch (srErr) {
+            console.warn("[taskService.getById] Live service-request detail warning:", srErr);
+          }
+        }
+
+        // Map live backend history items to UI StatusHistory objects
+        const liveStatusHistory = serviceRequestHistory.length > 0
+          ? serviceRequestHistory.map((h: any) => {
+              let title = h.note;
+              if (!title) {
+                if (h.type === "STATUS_CHANGED") {
+                  title = `Status updated to ${mapBackendTaskStatus(h.status)}`;
+                } else if (h.type === "ASSIGNED") {
+                  title = "Task assigned to specialist";
+                } else if (h.type === "UNASSIGNED") {
+                  title = "Task unassigned";
+                } else if (h.type === "ASSIGNMENT_UPDATED") {
+                  title = "Assignment updated";
+                } else if (h.type === "WORK_DOCUMENT_UPLOADED") {
+                  title = "Work document uploaded";
+                } else {
+                  title = h.type;
+                }
+              }
+              return {
+                id: `sh-${h.id}`,
+                status: mapBackendTaskStatus(h.status) as TaskStatus,
+                title,
+                timestamp: h.createdAt
+                  ? new Date(h.createdAt).toLocaleDateString("en-GB", {
+                      day: "2-digit",
+                      month: "short",
+                      year: "numeric",
+                      hour: "2-digit",
+                      minute: "2-digit",
+                    })
+                  : "Recent",
+                updatedBy: h.actor || (h.actorRole === "STAFF" ? "Specialist" : "Admin"),
+              };
+            }).reverse()
+          : [
+              {
+                id: `sh-${apiTask.id || "1"}`,
+                status: mapBackendTaskStatus(apiTask.status) as TaskStatus,
+                title: `Task initiated (${apiTask.assignmentStatus || "ASSIGNED"})`,
+                timestamp: apiTask.taskDate || "Today",
+                updatedBy: "System",
+              },
+            ];
+
         // Map partner attached documents ONLY if present in live API payload
         const partnerAttachments: TaskAttachment[] = Array.isArray(apiTask.documents)
           ? apiTask.documents.map((doc: any, idx: number) => ({
@@ -139,6 +209,8 @@ export const taskService = {
 
         const mapped: TaskItem = {
           id: apiTask.taskId || apiTask.requestCode || `T-${apiTask.id}`,
+          numericId: typeof apiTask.id === "number" ? apiTask.id : Number(apiTask.id) || undefined,
+          version: typeof apiTask.version === "number" ? apiTask.version : 0,
           partnerId: apiTask.partnerId ? (String(apiTask.partnerId).startsWith("P-") ? String(apiTask.partnerId) : `P-${apiTask.partnerId}`) : "P-101",
           partnerName: apiTask.partnerName || "HQ",
           partnerContact: apiTask.partnerContact || "",
@@ -147,18 +219,12 @@ export const taskService = {
           nameOfBusiness: apiTask.nameOfBusiness || apiTask.clientName || apiTask.customerName || "—",
           taskCategory: apiTask.taskCategory || "Compliance",
           serviceName: apiTask.serviceName || "Service",
-          status: (apiTask.status === "IN_PROGRESS"
-            ? "In Progress"
-            : apiTask.status === "PENDING_FROM_CLIENT"
-            ? "Pending from Client"
-            : apiTask.status === "COMPLETED"
-            ? "Completed"
-            : apiTask.status === "SENT_FOR_REVIEW"
-            ? "Sent for Review"
-            : "Pending") as TaskStatus,
+          status: mapBackendTaskStatus(apiTask.status) as TaskStatus,
           taskDate: apiTask.taskDate || (apiTask.createdAt ? new Date(apiTask.createdAt).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" }) : "Today"),
           dueDate: apiTask.dueDate || "",
-          overdueDays: apiTask.overdueDays || 0,
+          overdueDays: typeof apiTask.overdueDays === "number" && apiTask.overdueDays > 0
+            ? apiTask.overdueDays
+            : calculateOverdueDays(apiTask.dueDate, apiTask.status),
           assignedTo: apiTask.assignedToName || apiTask.assignedTo?.name
             ? {
                 id: String(apiTask.assignedToId || apiTask.assignedTo?.id || "1"),
@@ -172,15 +238,7 @@ export const taskService = {
             ...(apiTask.queryMessage ? [{ id: "c-query", userName: "Admin Query", userRole: "ADMIN", timestamp: "Recent Query", text: apiTask.queryMessage }] : []),
           ],
           attachments: partnerAttachments,
-          statusHistory: [
-            {
-              id: `sh-${apiTask.id || "1"}`,
-              status: (apiTask.status === "IN_PROGRESS" ? "In Progress" : "Pending") as TaskStatus,
-              title: `Task initiated (${apiTask.assignmentStatus || "ASSIGNED"})`,
-              timestamp: apiTask.taskDate || "Today",
-              updatedBy: "System",
-            }
-          ],
+          statusHistory: liveStatusHistory,
         };
 
         return mapped;
@@ -241,17 +299,9 @@ export const taskService = {
   // Update status with history tracking & stepwise workflow check
   updateStatus: async (id: string, newStatus: TaskStatus, updatedBy = "Admin"): Promise<TaskItem | null> => {
     const tasks = getStoredTasks();
-    const task = tasks.find((t) => t.id === id);
-    if (!task) return null;
+    let task = tasks.find((t) => t.id === id || (t.id && id && t.id.toLowerCase() === id.toLowerCase()));
 
-    if (!canTransitionStatus(task.status, newStatus)) {
-      console.warn(`[taskService] Invalid stepwise transition: ${task.status} -> ${newStatus}`);
-      return null;
-    }
-
-    task.status = newStatus;
-    if (!task.statusHistory) task.statusHistory = [];
-    task.statusHistory.unshift({
+    const newHistoryEntry = {
       id: `sh-${Date.now()}`,
       status: newStatus,
       title: `Status changed to ${newStatus}`,
@@ -263,10 +313,27 @@ export const taskService = {
         minute: "2-digit",
       }),
       updatedBy,
-    });
+    };
 
-    setStoredTasks([...tasks]);
-    return task;
+    if (task) {
+      task.status = newStatus;
+      if (!task.statusHistory) task.statusHistory = [];
+      task.statusHistory.unshift(newHistoryEntry);
+      setStoredTasks([...tasks]);
+      return task;
+    }
+
+    // If task was loaded directly from live API and not yet in localStorage, fetch/construct and store it
+    const liveTask = await taskService.getById(id);
+    if (liveTask) {
+      liveTask.status = newStatus;
+      if (!liveTask.statusHistory) liveTask.statusHistory = [];
+      liveTask.statusHistory.unshift(newHistoryEntry);
+      setStoredTasks([liveTask, ...tasks]);
+      return liveTask;
+    }
+
+    return null;
   },
 
   // Add Comment with optional attachments
@@ -364,6 +431,7 @@ export const taskService = {
       userId?: string; 
       password?: string; 
       fileName?: string;
+      completedBy?: string;
     }
   ): Promise<TaskItem | null> => {
     const tasks = getStoredTasks();
@@ -373,6 +441,28 @@ export const taskService = {
     task.status = "Completed";
     task.license = details.licenceNumber;
 
+    const completedTimestamp = new Date().toLocaleDateString("en-GB", {
+      day: "2-digit",
+      month: "short",
+      year: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+    });
+
+    task.completionDetails = {
+      licenceType: details.licenceType,
+      category: details.category,
+      service: details.service,
+      licenceNumber: details.licenceNumber,
+      issueDate: details.issueDate,
+      expiryDate: details.expiryDate,
+      userId: details.userId,
+      password: details.password,
+      fileName: details.fileName || `${details.service.replace(/\s+/g, "_")}_Official_Certificate.pdf`,
+      completedBy: details.completedBy || "Staff Executive",
+      completedAt: completedTimestamp,
+    };
+
     if (!task.certificates) task.certificates = [];
     task.certificates.unshift({
       id: `cert-${Date.now()}`,
@@ -380,7 +470,7 @@ export const taskService = {
       certificateName: `${details.service} - ${details.licenceType}`,
       issuedDate: details.issueDate,
       validTill: details.expiryDate,
-      submittedBy: "Admin",
+      submittedBy: details.completedBy || "Staff Executive",
       submittedAt: new Date().toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" }),
       fileName: details.fileName || `${details.service.replace(/\s+/g, "_")}_Official_Certificate.pdf`,
       fileUrl: "/placeholder-cert.pdf",
@@ -391,15 +481,9 @@ export const taskService = {
     task.statusHistory.unshift({
       id: `sh-${Date.now()}`,
       status: "Completed",
-      title: `Task completed. ${details.licenceType} #${details.licenceNumber} issued.`,
-      timestamp: new Date().toLocaleDateString("en-GB", {
-        day: "2-digit",
-        month: "short",
-        year: "numeric",
-        hour: "2-digit",
-        minute: "2-digit",
-      }),
-      updatedBy: "Admin",
+      title: `Task completed by staff. ${details.licenceType} #${details.licenceNumber} generated and submitted.`,
+      timestamp: completedTimestamp,
+      updatedBy: details.completedBy || "Staff Executive",
     });
 
     setStoredTasks([...tasks]);
@@ -408,7 +492,7 @@ export const taskService = {
 
   // Update task details (full edit/modify)
   updateTask: async (id: string, updates: Partial<TaskItem>, updatedBy = "Admin"): Promise<TaskItem | null> => {
-    // 1. If assignedTo changed or unassigned, sync to Live Backend API
+    // 1. If assignedTo explicitly changed, sync to Live Backend API
     try {
       // Find numeric id if available
       let numericId: string | number | null = null;
@@ -427,8 +511,30 @@ export const taskService = {
       }
 
       if (numericId) {
-        // If unassigning
-        if (updates.assignedTo === undefined || updates.assignedTo === null) {
+        // Direct fast PUT update with dueDate and status to /api/admin/tasks/{id}
+        const statusMap: Record<string, string> = {
+          "Pending": "PENDING",
+          "In Progress": "IN_PROGRESS",
+          "Pending from Client": "PENDING_FROM_CLIENT",
+          "Pending from Department": "PENDING_FROM_DEPARTMENT",
+          "Sent for Review": "SENT_FOR_REVIEW",
+          "Overdue": "PENDING_FROM_CLIENT",
+          "Completed": "COMPLETED",
+          "Cancelled": "CANCELLED",
+        };
+        const backendStatus = updates.status ? (statusMap[updates.status] || updates.status) : undefined;
+
+        fetch(`/api/proxy/tasks/${numericId}`, {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            ...(updates.dueDate !== undefined ? { dueDate: updates.dueDate || null } : {}),
+            ...(backendStatus ? { status: backendStatus } : {}),
+          }),
+        }).catch((e) => console.warn("Backend PUT /tasks sync warning:", e));
+
+        // If explicitly unassigning (passed null)
+        if ("assignedTo" in updates && updates.assignedTo === null) {
           try {
             await fetch(`/api/proxy/admin/service-requests/${numericId}/assignment`, {
               method: "PUT",
@@ -466,12 +572,21 @@ export const taskService = {
       tasks.push(task);
     }
 
-    // Handle explicit unassignment
-    if (updates.assignedTo === undefined || updates.assignedTo === null) {
+    // Only unassign if "assignedTo" was explicitly passed in updates as null
+    if ("assignedTo" in updates && updates.assignedTo === null) {
       delete (task as any).assignedTo;
     }
 
-    Object.assign(task, updates);
+    // Filter out undefined values from updates so existing properties (like assignedTo) are never wiped
+    const safeUpdates = Object.entries(updates).reduce((acc: any, [key, val]) => {
+      if (val !== undefined) acc[key] = val;
+      return acc;
+    }, {});
+
+    Object.assign(task, safeUpdates);
+
+    // Recompute overdue days if dueDate or status is updated
+    task.overdueDays = calculateOverdueDays(task.dueDate, task.status);
 
     if (!task.statusHistory) task.statusHistory = [];
     task.statusHistory.unshift({

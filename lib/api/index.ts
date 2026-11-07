@@ -17,4 +17,5 @@ export * from "./messageService";
 export * from "./partnerWorkflowService";
 export * from "./adminWorkflowService";
 export * from "./staffWorkflowService";
+export * from "./taskCollaborationService";
 

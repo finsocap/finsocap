@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { getAssetUrl } from "@/lib/brandConfig";
@@ -31,12 +31,15 @@ import {
   Activity,
   Database,
   Lock,
-  X
+  X,
+  LogOut
 } from "lucide-react";
 import DeveloperProfileModal from "../Global/DeveloperProfileModal";
+import WeatherWidgetCard from "./WeatherWidgetCard";
 import { useTheme } from "@/components/Providers/ThemeProvider";
 
 import { useCrmStore } from "@/lib/crmStore";
+import { isOperationalRole } from "@/lib/roleAuth";
 
 function normalizePath(rawPath?: string | null): string {
   if (!rawPath) return "";
@@ -53,10 +56,8 @@ export default function Sidebar({ userRole = "ADMIN" }: { userRole?: string }) {
   const [optimisticHref, setOptimisticHref] = useState<string | null>(null);
   const { config } = useTheme();
   const { tasks, services } = useCrmStore();
-  const openTasksCount = tasks.filter(t => !["Completed", "Cancelled"].includes(t.status)).length;
-  const unassignedTasksCount = tasks.filter(t => !t.assignee && t.status !== "Completed").length;
-
   const [activeRole, setActiveRole] = useState(userRole);
+  const [currentUser, setCurrentUser] = useState<any>(null);
 
   useEffect(() => {
     try {
@@ -65,10 +66,28 @@ export default function Sidebar({ userRole = "ADMIN" }: { userRole?: string }) {
         const parsed = JSON.parse(saved);
         if (parsed?.user?.role) {
           setActiveRole(parsed.user.role);
+          setCurrentUser(parsed.user);
         }
       }
     } catch (e) {}
   }, []);
+
+  const isOperational = isOperationalRole(activeRole);
+
+  const openTasksCount = useMemo(() => {
+    if (isOperational && currentUser?.name) {
+      const myName = (currentUser.name || "").toLowerCase().trim();
+      const myEmail = (currentUser.email || "").toLowerCase().trim();
+      return tasks.filter(t => {
+        const a = (t.assignee || "").toLowerCase().trim();
+        const matches = (myName && a.includes(myName)) || (myName && myName.includes(a)) || (myEmail && a.includes(myEmail));
+        return matches && !["Completed", "Cancelled"].includes(t.status);
+      }).length;
+    }
+    return tasks.filter(t => !["Completed", "Cancelled"].includes(t.status)).length;
+  }, [tasks, isOperational, currentUser]);
+
+  const unassignedTasksCount = tasks.filter(t => !t.assignee && t.status !== "Completed").length;
   
   // Track active report tab with fallback to URL query param
   const [activeReportTab, setActiveReportTab] = useState<string>(() => {
@@ -186,13 +205,14 @@ export default function Sidebar({ userRole = "ADMIN" }: { userRole?: string }) {
     );
   };
 
-  const isStaff = activeRole === "STAFF";
-
-  const coreNavItems = isStaff
+  const coreNavItems = isOperational
     ? [
         { label: "Dashboard", href: "/dashboard", icon: Home },
         { label: "My Assigned Tasks", href: "/dashboard/tasks", icon: ClipboardList, badge: openTasksCount > 0 ? `${openTasksCount}` : undefined },
         { label: "Products / Services", href: "/dashboard/services", icon: Boxes },
+        { label: "Partners", href: "/dashboard/partners", icon: Handshake },
+        { label: "Clients", href: "/dashboard/clients", icon: Users },
+        { label: "Team", href: "/dashboard/team", icon: ShieldCheck },
       ]
     : [
         { label: "Dashboard", href: "/dashboard", icon: Home },
@@ -204,7 +224,7 @@ export default function Sidebar({ userRole = "ADMIN" }: { userRole?: string }) {
         { label: "Team", href: "/dashboard/team", icon: ShieldCheck },
       ];
 
-  const reportNavItems = isStaff
+  const reportNavItems = isOperational
     ? [
         { label: "Service Team Report", href: "/dashboard/reports?tab=service", icon: Award },
       ]
@@ -388,126 +408,125 @@ export default function Sidebar({ userRole = "ADMIN" }: { userRole?: string }) {
           })}
         </div>
 
-        {/* Bottom Section: Live System Health & Security Telemetry */}
-        {!isCollapsed && (
-          <div className="mt-auto pt-3 pb-1">
-            <div className="p-3.5 rounded-2xl bg-gradient-to-b from-slate-50 via-white to-blue-50/20 dark:from-[#0c1427] dark:via-[#0c1427] dark:to-blue-950/20 border border-slate-200/90 dark:border-slate-800 shadow-xs space-y-2.5">
-              
-              {/* Header: System Health status */}
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-1.5">
-                  <Activity className="w-3.5 h-3.5 text-blue-600 dark:text-sky-400" />
-                  <span className="text-[10px] font-black uppercase tracking-wider text-slate-700 dark:text-slate-300">
-                    System Health
-                  </span>
-                </div>
-                <span className="inline-flex items-center gap-1 text-[9px] font-black text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/60 px-1.5 py-0.5 rounded-full border border-emerald-500/20">
-                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-                  Optimal
-                </span>
-              </div>
-
-              {/* Telemetry Metrics Grid */}
-              <div className="grid grid-cols-2 gap-2 pt-0.5 text-[10px]">
-                <div className="p-2 rounded-xl bg-slate-50 dark:bg-slate-900/60 border border-slate-100 dark:border-slate-800/80">
-                  <span className="text-[9px] font-bold text-slate-400 block uppercase tracking-tight">Response Time</span>
-                  <div className="flex items-center gap-1 mt-0.5">
-                    <span className="font-black text-slate-900 dark:text-white">24 ms</span>
-                    <span className="text-[8px] font-bold text-emerald-500">Fast</span>
-                  </div>
-                </div>
-
-                <div className="p-2 rounded-xl bg-slate-50 dark:bg-slate-900/60 border border-slate-100 dark:border-slate-800/80">
-                  <span className="text-[9px] font-bold text-slate-400 block uppercase tracking-tight">Cloud Data</span>
-                  <div className="flex items-center gap-1 mt-0.5">
-                    <span className="font-black text-slate-900 dark:text-white">Synced</span>
-                    <Database className="w-2.5 h-2.5 text-blue-500" />
-                  </div>
-                </div>
-              </div>
-
-              {/* Security & Uptime Footer */}
-              <div className="pt-2 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between text-[10px]">
-                <div className="flex items-center gap-1 text-slate-500 dark:text-slate-400 font-semibold">
-                  <Lock className="w-2.5 h-2.5 text-slate-400" />
-                  <span>SHA-256 SSL</span>
-                </div>
-                <span className="font-extrabold text-blue-600 dark:text-sky-400 text-[10px]">
-                  99.98% Uptime
-                </span>
-              </div>
-
-            </div>
-          </div>
-        )}
+        {/* Bottom Section: Live Weather & Forecast Widget (Replaced System Health) */}
+        <div className={`mt-auto pt-3 pb-1 ${isCollapsed ? "px-1" : ""}`}>
+          <WeatherWidgetCard isCollapsed={isCollapsed} />
+        </div>
       </nav>
 
-      {/* Bottom: Message Center (Team & Partners Chat Hub) */}
+      {/* Bottom: Logout Button (Temporary Red Pill Matching Message Center dimensions) */}
       <div className={`p-3 border-t border-slate-200/90 dark:border-slate-800/90 ${isCollapsed ? "px-2" : ""}`}>
+        {/* Red Logout Button in exact width and height */}
         {!isCollapsed ? (
-          <Link
-            href="/dashboard/chat"
-            onClick={() => setOptimisticHref("/dashboard/chat")}
-            className={`relative overflow-hidden flex items-center justify-between p-3 rounded-2xl border transition-all duration-300 group cursor-pointer ${
-              normalizePath(pathname) === "/dashboard/chat"
-                ? "bg-gradient-to-r from-blue-600 via-indigo-600 to-blue-700 border-transparent shadow-lg shadow-blue-500/30 scale-[1.02]"
-                : "bg-gradient-to-br from-white via-blue-50/50 to-indigo-50/30 dark:from-[#0b1226] dark:via-[#0e1c44]/60 dark:to-[#080d1a] border-blue-200/80 dark:border-blue-800/60 hover:border-blue-400 dark:hover:border-blue-600 hover:shadow-xl hover:shadow-blue-500/15"
-            }`}
+          <button
+            type="button"
+            onClick={() => {
+              try {
+                sessionStorage.removeItem("finsocap_session_login_logged");
+                localStorage.removeItem("finsocap_user_session");
+              } catch (e) {}
+              router.push("/dashboard/login");
+            }}
+            className="w-full relative overflow-hidden flex items-center justify-between p-3 rounded-2xl border border-red-500/30 bg-gradient-to-r from-red-600 via-rose-600 to-red-700 hover:from-red-700 hover:to-rose-800 text-white shadow-lg shadow-red-500/25 transition-all duration-300 group cursor-pointer hover:scale-[1.02]"
           >
-            {/* Ambient Glow */}
-            <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-500 pointer-events-none">
-              <div className="absolute -top-6 -right-6 w-20 h-20 bg-blue-500/20 dark:bg-blue-400/20 rounded-full blur-xl" />
-              <div className="absolute -bottom-6 -left-6 w-20 h-20 bg-indigo-500/20 dark:bg-indigo-400/20 rounded-full blur-xl" />
-            </div>
-
             <div className="flex items-center gap-2.5 relative z-10">
-              <div className={`relative w-9 h-9 rounded-xl flex items-center justify-center shrink-0 shadow-md transition-all duration-300 group-hover:scale-110 group-hover:rotate-3 ${
-                normalizePath(pathname) === "/dashboard/chat"
-                  ? "bg-white/25 text-white ring-2 ring-white/30"
-                  : "bg-gradient-to-tr from-blue-600 via-indigo-600 to-purple-600 text-white shadow-blue-500/30 ring-2 ring-blue-500/10"
-              }`}>
-                <MessagesSquare className="w-4 h-4" />
-                <span className="absolute -top-1 -right-1 w-2.5 h-2.5 bg-emerald-500 rounded-full border-2 border-white dark:border-[#0c1427] animate-pulse" />
+              <div className="relative w-9 h-9 rounded-xl flex items-center justify-center shrink-0 shadow-md bg-white/20 text-white ring-2 ring-white/30 transition-transform duration-300 group-hover:scale-110">
+                <LogOut className="w-4 h-4" />
               </div>
-              <div className="flex flex-col min-w-0">
-                <div className="flex items-center gap-1.5">
-                  <span className={`text-[11px] font-black uppercase tracking-wider leading-tight ${
-                    normalizePath(pathname) === "/dashboard/chat" ? "text-white" : "text-slate-900 dark:text-white"
-                  }`}>
-                    Message Center
-                  </span>
-                  <span className={`w-1.5 h-1.5 rounded-full ${
-                    normalizePath(pathname) === "/dashboard/chat" ? "bg-white" : "bg-emerald-500"
-                  }`} />
-                </div>
-                <span className={`text-[10px] font-bold mt-0.5 truncate ${
-                  normalizePath(pathname) === "/dashboard/chat" ? "text-blue-100" : "text-blue-600 dark:text-sky-400"
-                }`}>
-                  Team &amp; Partner Comms
+              <div className="flex flex-col min-w-0 text-left">
+                <span className="text-[11px] font-black uppercase tracking-wider leading-tight text-white">
+                  LOGOUT
+                </span>
+                <span className="text-[10px] font-bold mt-0.5 truncate text-red-100">
+                  Exit Dashboard Session
                 </span>
               </div>
             </div>
-            <ChevronRight className={`w-4 h-4 shrink-0 transition-transform duration-300 group-hover:translate-x-1 relative z-10 ${
-              normalizePath(pathname) === "/dashboard/chat"
-                ? "text-white"
-                : "text-slate-400 group-hover:text-blue-600 dark:group-hover:text-sky-400"
-            }`} />
-          </Link>
+            <ChevronRight className="w-4 h-4 shrink-0 transition-transform duration-300 group-hover:translate-x-1 relative z-10 text-white" />
+          </button>
         ) : (
-          <Link
-            href="/dashboard/chat"
-            onClick={() => setOptimisticHref("/dashboard/chat")}
-            title="Message Center: Team & Partner Comms"
-            className={`relative w-10 h-10 mx-auto rounded-xl flex items-center justify-center cursor-pointer transition-all ${
-              normalizePath(pathname) === "/dashboard/chat"
-                ? "bg-blue-600 text-white shadow-md shadow-blue-500/20"
-                : "bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-blue-50 hover:text-blue-600"
-            }`}
+          <button
+            type="button"
+            onClick={() => {
+              try {
+                sessionStorage.removeItem("finsocap_session_login_logged");
+                localStorage.removeItem("finsocap_user_session");
+              } catch (e) {}
+              router.push("/dashboard/login");
+            }}
+            title="Logout from Dashboard"
+            className="relative w-10 h-10 mx-auto rounded-xl flex items-center justify-center cursor-pointer transition-all bg-red-600 text-white hover:bg-red-700 shadow-md shadow-red-500/20"
           >
-            <MessagesSquare className="w-4 h-4" />
-            <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-emerald-500 rounded-full ring-2 ring-white dark:ring-slate-900" />
-          </Link>
+            <LogOut className="w-4 h-4" />
+          </button>
         )}
+
+        {/* 
+          ORIGINAL MESSAGE CENTER CODE (HIDDEN AS REQUESTED, PRESERVED FOR FUTURE USE):
+          {!isCollapsed ? (
+            <Link
+              href="/dashboard/chat"
+              onClick={() => setOptimisticHref("/dashboard/chat")}
+              className={`relative overflow-hidden flex items-center justify-between p-3 rounded-2xl border transition-all duration-300 group cursor-pointer ${
+                normalizePath(pathname) === "/dashboard/chat"
+                  ? "bg-gradient-to-r from-blue-600 via-indigo-600 to-blue-700 border-transparent shadow-lg shadow-blue-500/30 scale-[1.02]"
+                  : "bg-gradient-to-br from-white via-blue-50/50 to-indigo-50/30 dark:from-[#0b1226] dark:via-[#0e1c44]/60 dark:to-[#080d1a] border-blue-200/80 dark:border-blue-800/60 hover:border-blue-400 dark:hover:border-blue-600 hover:shadow-xl hover:shadow-blue-500/15"
+              }`}
+            >
+              <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-500 pointer-events-none">
+                <div className="absolute -top-6 -right-6 w-20 h-20 bg-blue-500/20 dark:bg-blue-400/20 rounded-full blur-xl" />
+                <div className="absolute -bottom-6 -left-6 w-20 h-20 bg-indigo-500/20 dark:bg-indigo-400/20 rounded-full blur-xl" />
+              </div>
+
+              <div className="flex items-center gap-2.5 relative z-10">
+                <div className={`relative w-9 h-9 rounded-xl flex items-center justify-center shrink-0 shadow-md transition-all duration-300 group-hover:scale-110 group-hover:rotate-3 ${
+                  normalizePath(pathname) === "/dashboard/chat"
+                    ? "bg-white/25 text-white ring-2 ring-white/30"
+                    : "bg-gradient-to-tr from-blue-600 via-indigo-600 to-purple-600 text-white shadow-blue-500/30 ring-2 ring-blue-500/10"
+                }`}>
+                  <MessagesSquare className="w-4 h-4" />
+                  <span className="absolute -top-1 -right-1 w-2.5 h-2.5 bg-emerald-500 rounded-full border-2 border-white dark:border-[#0c1427] animate-pulse" />
+                </div>
+                <div className="flex flex-col min-w-0">
+                  <div className="flex items-center gap-1.5">
+                    <span className={`text-[11px] font-black uppercase tracking-wider leading-tight ${
+                      normalizePath(pathname) === "/dashboard/chat" ? "text-white" : "text-slate-900 dark:text-white"
+                    }`}>
+                      Message Center
+                    </span>
+                    <span className={`w-1.5 h-1.5 rounded-full ${
+                      normalizePath(pathname) === "/dashboard/chat" ? "bg-white" : "bg-emerald-500"
+                    }`} />
+                  </div>
+                  <span className={`text-[10px] font-bold mt-0.5 truncate ${
+                    normalizePath(pathname) === "/dashboard/chat" ? "text-blue-100" : "text-blue-600 dark:text-sky-400"
+                  }`}>
+                    Team &amp; Partner Comms
+                  </span>
+                </div>
+              </div>
+              <ChevronRight className={`w-4 h-4 shrink-0 transition-transform duration-300 group-hover:translate-x-1 relative z-10 ${
+                normalizePath(pathname) === "/dashboard/chat"
+                  ? "text-white"
+                  : "text-slate-400 group-hover:text-blue-600 dark:group-hover:text-sky-400"
+              }`} />
+            </Link>
+          ) : (
+            <Link
+              href="/dashboard/chat"
+              onClick={() => setOptimisticHref("/dashboard/chat")}
+              title="Message Center: Team & Partner Comms"
+              className={`relative w-10 h-10 mx-auto rounded-xl flex items-center justify-center cursor-pointer transition-all ${
+                normalizePath(pathname) === "/dashboard/chat"
+                  ? "bg-blue-600 text-white shadow-md shadow-blue-500/20"
+                  : "bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-blue-50 hover:text-blue-600"
+              }`}
+            >
+              <MessagesSquare className="w-4 h-4" />
+              <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-emerald-500 rounded-full ring-2 ring-white dark:ring-slate-900" />
+            </Link>
+          )}
+        */}
       </div>
     </aside>
     </>

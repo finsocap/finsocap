@@ -4,6 +4,7 @@ import { useState, useMemo } from "react";
 import { IndianRupee, Users, ChevronDown, Check } from "lucide-react";
 
 import { useCrmStore } from "@/lib/crmStore";
+import { isDateWithinRange, parseRangeBounds, getCurrentMonthRangeLabel } from "@/lib/dateRangeHelper";
 
 interface DailyPoint {
   day: number;
@@ -19,7 +20,7 @@ interface LeadsRevenueChartProps {
 
 export default function LeadsRevenueChart({
   selectedBranch = "All Branches",
-  dateRange = "01 Sep 2026 - 30 Sep 2026",
+  dateRange = getCurrentMonthRangeLabel(),
 }: LeadsRevenueChartProps) {
   const [activeRange, setActiveRange] = useState<"This Month" | "Last Month" | "This Quarter">("This Month");
   const [isRangeOpen, setIsRangeOpen] = useState(false);
@@ -28,31 +29,38 @@ export default function LeadsRevenueChart({
   const { tasks, services, manualClients } = useCrmStore();
 
   const activeDataset: DailyPoint[] = useMemo(() => {
-    // If no real tasks or clients exist, return flat 0 points
-    const days = [1, 5, 10, 15, 20, 25, 30];
-    const totalLeads = manualClients.length + tasks.length;
-    const completedTasks = tasks.filter(t => t.status === "Completed");
+    const filteredTasks = tasks.filter((t) => {
+      if (dateRange && !isDateWithinRange(t.date || t.due, dateRange)) return false;
+      return true;
+    });
+
+    const totalLeads = filteredTasks.length;
+    const completedTasks = filteredTasks.filter(t => t.status === "Completed");
     const totalRev = completedTasks.reduce((acc, t) => {
       const match = services.find(s => s.name.toLowerCase() === t.service?.toLowerCase());
       return acc + (match?.price || 0);
     }, 0);
 
+    const bounds = parseRangeBounds(dateRange);
+    const monthShort = bounds ? bounds.start.toLocaleDateString("en-GB", { month: "short" }) : "Sep";
+
+    const days = [1, 5, 10, 15, 20, 25, 30];
     if (totalLeads === 0 && totalRev === 0) {
       return days.map(d => ({
         day: d,
-        dateStr: `${d < 10 ? "0" + d : d} Sep`,
+        dateStr: `${d < 10 ? "0" + d : d} ${monthShort}`,
         leads: 0,
         revenue: 0,
       }));
     }
 
-    return days.map((d, i) => ({
+    return days.map((d) => ({
       day: d,
-      dateStr: `${d < 10 ? "0" + d : d} Sep`,
+      dateStr: `${d < 10 ? "0" + d : d} ${monthShort}`,
       leads: Math.round(totalLeads / days.length),
       revenue: Math.round(totalRev / days.length),
     }));
-  }, [tasks, services, manualClients]);
+  }, [tasks, services, dateRange]);
 
   const svgWidth = 560;
   const svgHeight = 185;

@@ -76,5 +76,22 @@ export const serviceCatalogService = {
     formData.append("title", title);
     return apiClient.post<ApiResponse<{ sopUrl: string; title: string }>>(`/services/${id}/sops`, formData);
   },
+
+  /**
+   * POST /api/admin/service-files/upload
+   * Uploads service documentation (PDF file) with purpose STUDY_MATERIAL or SOP.
+   */
+  uploadServiceFile: async (
+    file: File,
+    purpose: "STUDY_MATERIAL" | "SOP" = "STUDY_MATERIAL"
+  ): Promise<ApiResponse<{ fileUrl?: string; url?: string; id?: number; fileName?: string }>> => {
+    const formData = new FormData();
+    formData.append("file", file);
+    formData.append("purpose", purpose);
+    return apiClient.post<ApiResponse<{ fileUrl?: string; url?: string; id?: number; fileName?: string }>>(
+      "/admin/service-files/upload",
+      formData
+    );
+  },
 };
 

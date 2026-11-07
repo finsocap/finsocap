@@ -239,21 +239,20 @@ export type TaskStatus =
  * - From "Pending from Client" / "Pending from Department" / "Overdue", transitions route back to "In Progress".
  * - "Sent for Review" moves to "Completed" (by assigned specialist) or rejected back to "In Progress".
  */
+// Fully unlocked status transitions to give complete operational control
 export const ALLOWED_STATUS_TRANSITIONS: Record<TaskStatus, TaskStatus[]> = {
-  "Pending": ["In Progress", "Cancelled"],
-  "In Progress": ["Sent for Review", "Pending from Client", "Pending from Department", "Cancelled"],
-  "Pending from Client": ["In Progress", "Cancelled"],
-  "Pending from Department": ["In Progress", "Cancelled"],
-  "Overdue": ["In Progress", "Cancelled"],
-  "Sent for Review": ["Completed", "In Progress", "Cancelled"],
-  "Completed": [],
-  "Cancelled": [],
+  "Pending": ["In Progress", "Sent for Review", "Pending from Client", "Pending from Department", "Overdue", "Completed", "Cancelled"],
+  "In Progress": ["Pending", "Sent for Review", "Pending from Client", "Pending from Department", "Overdue", "Completed", "Cancelled"],
+  "Pending from Client": ["Pending", "In Progress", "Sent for Review", "Pending from Department", "Overdue", "Completed", "Cancelled"],
+  "Pending from Department": ["Pending", "In Progress", "Sent for Review", "Pending from Client", "Overdue", "Completed", "Cancelled"],
+  "Overdue": ["Pending", "In Progress", "Sent for Review", "Pending from Client", "Pending from Department", "Completed", "Cancelled"],
+  "Sent for Review": ["Pending", "In Progress", "Pending from Client", "Pending from Department", "Overdue", "Completed", "Cancelled"],
+  "Completed": ["Pending", "In Progress", "Sent for Review", "Pending from Client", "Pending from Department", "Overdue", "Cancelled"],
+  "Cancelled": ["Pending", "In Progress", "Sent for Review", "Pending from Client", "Pending from Department", "Overdue", "Completed"],
 };
 
 export function canTransitionStatus(currentStatus: TaskStatus, targetStatus: TaskStatus): boolean {
-  if (currentStatus === targetStatus) return true;
-  const allowed = ALLOWED_STATUS_TRANSITIONS[currentStatus] || [];
-  return allowed.includes(targetStatus);
+  return true; // All status transitions unlocked
 }
 
 export interface CommentAttachment {
@@ -281,6 +280,8 @@ export interface TaskAttachment {
   uploadDate: string;
   uploadedBy: string;
   fileUrl: string;
+  source?: "PARTNER" | "STAFF_ADMIN";
+  category?: string;
 }
 
 export interface TaskStatusHistory {
@@ -305,8 +306,25 @@ export interface TaskCertificate {
   status: "Active" | "Expiring Soon" | "Expired";
 }
 
+export interface TaskCompletionDetails {
+  licenceType: "Permanent Licence" | "Renewal Licence" | string;
+  category: string;
+  service: string;
+  licenceNumber: string;
+  issueDate: string;
+  expiryDate: string;
+  userId?: string;
+  password?: string;
+  fileName?: string;
+  completedBy?: string;
+  completedAt?: string;
+  notes?: string;
+}
+
 export interface TaskItem {
   id: string;
+  numericId?: number;
+  version?: number;
   partnerId?: string; // e.g. P-101
   partnerName: string;
   partnerContact: string;
@@ -329,6 +347,7 @@ export interface TaskItem {
   attachments?: TaskAttachment[];
   statusHistory?: TaskStatusHistory[];
   certificates?: TaskCertificate[];
+  completionDetails?: TaskCompletionDetails;
   license?: string;
 }
 

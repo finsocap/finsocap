@@ -19,6 +19,7 @@ import ModalHeaderBanner from "@/components/Dashboard/ModalHeaderBanner";
 import { formatName, formatIndianPhoneNumber, normalizePhoneForBackend } from "@/lib/formatters";
 import { PhoneInput } from "@/components/Global/PhoneInput";
 import { NameInput } from "@/components/Global/NameInput";
+import ClientVaultModal from "@/components/Dashboard/ClientVaultModal";
 
 const statuses = [
   "Pending",
@@ -36,21 +37,22 @@ export default function ClientsPage() {
   const { allClients, tasks, addClient, updateClient } = useCrmStore();
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("ALL");
+  const [kpiFilter, setKpiFilter] = useState<"ALL" | "ACTIVE_CASES" | "COMPLETED_SERVICES" | "PARTNER_REFERRED">("ALL");
   const [clientMetrics, setClientMetrics] = useState<ClientMetrics | null>(null);
+  const [userRole, setUserRole] = useState<string>("ADMIN");
+  const [currentUser, setCurrentUser] = useState<any>(null);
 
-  // Role Protection: Staff members cannot view full client database
   useEffect(() => {
     try {
       const stored = localStorage.getItem("finsocap_user_session");
       if (stored) {
         const parsed = JSON.parse(stored);
-        if (parsed.role && parsed.role !== "ADMIN") {
-          toast.warning("Access Restricted", "Client Directory is reserved for administrators.");
-          router.replace("/dashboard/tasks");
-        }
+        const role = (parsed?.user?.role || parsed?.role || "ADMIN").toUpperCase();
+        setUserRole(role);
+        setCurrentUser(parsed?.user || parsed);
       }
     } catch (e) {}
-  }, [router, toast]);
+  }, []);
 
   useEffect(() => {
     async function loadClientMetrics() {
@@ -69,6 +71,7 @@ export default function ClientsPage() {
   // Modals state
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [selectedClientHistory, setSelectedClientHistory] = useState<string | null>(null);
+  const [selectedVaultClient, setSelectedVaultClient] = useState<ClientModel | null>(null);
 
   // New Client Form state
   const [formName, setFormName] = useState("");
@@ -88,16 +91,66 @@ export default function ClientsPage() {
     toast.success(msg, "Success!");
   };
 
+  // Scoped clients for operational roles (Staff, Specialist, Executive)
+  const scopedClients = useMemo(() => {
+    const isOp = ["STAFF", "SPECIALIST", "EXECUTIVE"].includes(userRole);
+    if (!isOp) return allClients;
+
+    const userName = (currentUser?.name || "").toLowerCase().trim();
+    const userEmail = (currentUser?.email || "").toLowerCase().trim();
+
+    const userClientNames = new Set<string>();
+    tasks.forEach((t) => {
+      const taskAssignee = (t.assignee || "").toLowerCase().trim();
+      const isAssigned = (userName && taskAssignee.includes(userName)) ||
+        (userEmail && taskAssignee.includes(userEmail)) ||
+        (userName && userName.includes(taskAssignee));
+      if (isAssigned && t.client) {
+        userClientNames.add(t.client.toLowerCase().trim());
+      }
+    });
+
+    return allClients.filter((c) => {
+      const cName = (c.name || "").toLowerCase().trim();
+      return userClientNames.has(cName);
+    });
+  }, [allClients, tasks, userRole, currentUser]);
+
   // KPIs
-  const totalClients = allClients.length;
+  const totalClients = scopedClients.length;
   const activeCases = tasks.filter((t) => !["Completed", "Cancelled"].includes(t.status)).length;
   const completedServices = tasks.filter((t) => t.status === "Completed").length;
-  const partnerReferred = allClients.filter((c) => c.partner && c.partner.toLowerCase() !== "direct").length;
+  const partnerReferred = scopedClients.filter((c) => c.partner && c.partner.toLowerCase() !== "direct").length;
 
   // Filtered Clients
   const filteredClients = useMemo(() => {
-    return allClients.filter((c) => {
+    // Collect client names having active tasks / completed tasks
+    const activeClientsSet = new Set<string>();
+    const completedClientsSet = new Set<string>();
+
+    tasks.forEach((t) => {
+      const cName = (t.client || "").toLowerCase().trim();
+      if (!cName) return;
+      if (!["Completed", "Cancelled"].includes(t.status)) {
+        activeClientsSet.add(cName);
+      }
+      if (t.status === "Completed") {
+        completedClientsSet.add(cName);
+      }
+    });
+
+    return scopedClients.filter((c) => {
+      const cName = (c.name || "").toLowerCase().trim();
+
+      // KPI Interactive Filter
+      if (kpiFilter === "ACTIVE_CASES" && !activeClientsSet.has(cName)) return false;
+      if (kpiFilter === "COMPLETED_SERVICES" && !completedClientsSet.has(cName)) return false;
+      if (kpiFilter === "PARTNER_REFERRED" && (!c.partner || c.partner.toLowerCase() === "direct")) return false;
+
+      // Status Filter
       if (statusFilter !== "ALL" && c.status !== statusFilter) return false;
+
+      // Search Query
       if (search.trim()) {
         const q = search.toLowerCase();
         return (
@@ -109,7 +162,7 @@ export default function ClientsPage() {
       }
       return true;
     });
-  }, [allClients, search, statusFilter]);
+  }, [scopedClients, tasks, search, statusFilter, kpiFilter]);
 
   // Tasks for selected client history
   const clientHistoryTasks = useMemo(() => {
@@ -203,68 +256,146 @@ export default function ClientsPage() {
         description="Comprehensive customer profiles, compliance portfolios, business entities and engagement history."
         bottomMeta={`${allClients.length} Verified Client Accounts • 100% KYC Compliant`}
         actions={
-          <button
-            onClick={() => setIsAddModalOpen(true)}
-            className="btn-primary-vibrant text-xs py-2.5 px-4 cursor-pointer flex items-center gap-2 shadow-md shadow-blue-500/25"
-          >
-            <UserPlus className="w-4 h-4" />
-            <span>Add Client</span>
-          </button>
+          !["STAFF", "SPECIALIST", "EXECUTIVE"].includes(userRole) ? (
+            <button
+              onClick={() => setIsAddModalOpen(true)}
+              className="btn-primary-vibrant text-xs py-2.5 px-4 cursor-pointer flex items-center gap-2 shadow-md shadow-blue-500/25"
+            >
+              <UserPlus className="w-4 h-4" />
+              <span>Add Client</span>
+            </button>
+          ) : undefined
         }
       />
 
       {/* Client Enterprise Constitution & Retention Infographic */}
       <ClientsInfographic metrics={clientMetrics} clients={allClients} />
 
-      {/* 2. 4 Stat Cards */}
+      {/* 2. 4 Stat Cards (Clickable Interactive KPI Filters with Vibrant Active Colors) */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <div className="card-luxury p-5 flex items-center gap-4">
-          <div className="w-12 h-12 rounded-2xl bg-blue-100 dark:bg-blue-950/60 text-blue-600 dark:text-sky-400 flex items-center justify-center font-bold text-lg shrink-0">
+        {/* Card 1: Total Clients */}
+        <button
+          type="button"
+          onClick={() => setKpiFilter("ALL")}
+          className={`p-5 rounded-2xl flex items-center gap-4 text-left transition-all duration-200 cursor-pointer select-none active:scale-[0.98] ${
+            kpiFilter === "ALL"
+              ? "bg-blue-50/90 dark:bg-blue-950/50 border-2 border-blue-600 shadow-md shadow-blue-500/20"
+              : "bg-white dark:bg-[#0c1427] border border-slate-200/90 dark:border-slate-800 hover:border-slate-300 shadow-xs"
+          }`}
+        >
+          <div className={`w-12 h-12 rounded-2xl flex items-center justify-center font-bold text-lg shrink-0 transition-colors shadow-xs ${
+            kpiFilter === "ALL"
+              ? "bg-blue-600 text-white shadow-md shadow-blue-600/30"
+              : "bg-blue-100 dark:bg-blue-950/60 text-blue-600 dark:text-sky-400"
+          }`}>
             ♟
           </div>
           <div>
-            <p className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Total Clients</p>
-            <p className="text-2xl font-black text-slate-900 dark:text-white mt-0.5">
+            <p className={`text-[11px] font-bold uppercase tracking-wider ${
+              kpiFilter === "ALL" ? "text-blue-700 dark:text-sky-300 font-black" : "text-slate-400"
+            }`}>
+              Total Clients
+            </p>
+            <p className={`text-2xl font-black mt-0.5 ${
+              kpiFilter === "ALL" ? "text-blue-950 dark:text-white" : "text-slate-900 dark:text-white"
+            }`}>
               <AnimatedCounter value={totalClients} />
             </p>
           </div>
-        </div>
+        </button>
 
-        <div className="card-luxury p-5 flex items-center gap-4">
-          <div className="w-12 h-12 rounded-2xl bg-sky-100 dark:bg-sky-950/60 text-sky-600 dark:text-sky-400 flex items-center justify-center font-bold text-lg shrink-0">
+        {/* Card 2: Active Cases */}
+        <button
+          type="button"
+          onClick={() => setKpiFilter(kpiFilter === "ACTIVE_CASES" ? "ALL" : "ACTIVE_CASES")}
+          className={`p-5 rounded-2xl flex items-center gap-4 text-left transition-all duration-200 cursor-pointer select-none active:scale-[0.98] ${
+            kpiFilter === "ACTIVE_CASES"
+              ? "bg-sky-50/90 dark:bg-sky-950/50 border-2 border-sky-500 shadow-md shadow-sky-500/20"
+              : "bg-white dark:bg-[#0c1427] border border-slate-200/90 dark:border-slate-800 hover:border-slate-300 shadow-xs"
+          }`}
+        >
+          <div className={`w-12 h-12 rounded-2xl flex items-center justify-center font-bold text-lg shrink-0 transition-colors shadow-xs ${
+            kpiFilter === "ACTIVE_CASES"
+              ? "bg-sky-500 text-white shadow-md shadow-sky-500/30"
+              : "bg-sky-100 dark:bg-sky-950/60 text-sky-600 dark:text-sky-400"
+          }`}>
             ☑
           </div>
           <div>
-            <p className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Active Cases</p>
-            <p className="text-2xl font-black text-slate-900 dark:text-white mt-0.5">
+            <p className={`text-[11px] font-bold uppercase tracking-wider ${
+              kpiFilter === "ACTIVE_CASES" ? "text-sky-700 dark:text-sky-300 font-black" : "text-slate-400"
+            }`}>
+              Active Cases
+            </p>
+            <p className={`text-2xl font-black mt-0.5 ${
+              kpiFilter === "ACTIVE_CASES" ? "text-sky-950 dark:text-white" : "text-slate-900 dark:text-white"
+            }`}>
               <AnimatedCounter value={activeCases} />
             </p>
           </div>
-        </div>
+        </button>
 
-        <div className="card-luxury p-5 flex items-center gap-4">
-          <div className="w-12 h-12 rounded-2xl bg-emerald-100 dark:bg-emerald-950/60 text-emerald-600 dark:text-emerald-400 flex items-center justify-center font-bold text-lg shrink-0">
+        {/* Card 3: Completed Services */}
+        <button
+          type="button"
+          onClick={() => setKpiFilter(kpiFilter === "COMPLETED_SERVICES" ? "ALL" : "COMPLETED_SERVICES")}
+          className={`p-5 rounded-2xl flex items-center gap-4 text-left transition-all duration-200 cursor-pointer select-none active:scale-[0.98] ${
+            kpiFilter === "COMPLETED_SERVICES"
+              ? "bg-emerald-50/90 dark:bg-emerald-950/50 border-2 border-emerald-500 shadow-md shadow-emerald-500/20"
+              : "bg-white dark:bg-[#0c1427] border border-slate-200/90 dark:border-slate-800 hover:border-slate-300 shadow-xs"
+          }`}
+        >
+          <div className={`w-12 h-12 rounded-2xl flex items-center justify-center font-bold text-lg shrink-0 transition-colors shadow-xs ${
+            kpiFilter === "COMPLETED_SERVICES"
+              ? "bg-emerald-500 text-white shadow-md shadow-emerald-500/30"
+              : "bg-emerald-100 dark:bg-emerald-950/60 text-emerald-600 dark:text-emerald-400"
+          }`}>
             ✓
           </div>
           <div>
-            <p className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Completed Services</p>
-            <p className="text-2xl font-black text-slate-900 dark:text-white mt-0.5">
+            <p className={`text-[11px] font-bold uppercase tracking-wider ${
+              kpiFilter === "COMPLETED_SERVICES" ? "text-emerald-700 dark:text-emerald-300 font-black" : "text-slate-400"
+            }`}>
+              Completed Services
+            </p>
+            <p className={`text-2xl font-black mt-0.5 ${
+              kpiFilter === "COMPLETED_SERVICES" ? "text-emerald-950 dark:text-white" : "text-slate-900 dark:text-white"
+            }`}>
               <AnimatedCounter value={completedServices} />
             </p>
           </div>
-        </div>
+        </button>
 
-        <div className="card-luxury p-5 flex items-center gap-4">
-          <div className="w-12 h-12 rounded-2xl bg-purple-100 dark:bg-purple-950/60 text-purple-600 dark:text-purple-400 flex items-center justify-center font-bold text-lg shrink-0">
+        {/* Card 4: Partner Referred */}
+        <button
+          type="button"
+          onClick={() => setKpiFilter(kpiFilter === "PARTNER_REFERRED" ? "ALL" : "PARTNER_REFERRED")}
+          className={`p-5 rounded-2xl flex items-center gap-4 text-left transition-all duration-200 cursor-pointer select-none active:scale-[0.98] ${
+            kpiFilter === "PARTNER_REFERRED"
+              ? "bg-purple-50/90 dark:bg-purple-950/50 border-2 border-purple-500 shadow-md shadow-purple-500/20"
+              : "bg-white dark:bg-[#0c1427] border border-slate-200/90 dark:border-slate-800 hover:border-slate-300 shadow-xs"
+          }`}
+        >
+          <div className={`w-12 h-12 rounded-2xl flex items-center justify-center font-bold text-lg shrink-0 transition-colors shadow-xs ${
+            kpiFilter === "PARTNER_REFERRED"
+              ? "bg-purple-600 text-white shadow-md shadow-purple-600/30"
+              : "bg-purple-100 dark:bg-purple-950/60 text-purple-600 dark:text-purple-400"
+          }`}>
             ♧
           </div>
           <div>
-            <p className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Partner Referred</p>
-            <p className="text-2xl font-black text-slate-900 dark:text-white mt-0.5">
+            <p className={`text-[11px] font-bold uppercase tracking-wider ${
+              kpiFilter === "PARTNER_REFERRED" ? "text-purple-700 dark:text-purple-300 font-black" : "text-slate-400"
+            }`}>
+              Partner Referred
+            </p>
+            <p className={`text-2xl font-black mt-0.5 ${
+              kpiFilter === "PARTNER_REFERRED" ? "text-purple-950 dark:text-white" : "text-slate-900 dark:text-white"
+            }`}>
               <AnimatedCounter value={partnerReferred} />
             </p>
           </div>
-        </div>
+        </button>
       </div>
 
       {/* 3. Filters Bar */}
@@ -360,12 +491,22 @@ export default function ClientsPage() {
                     <td className="py-3.5 px-5 text-right">
                       <div className="inline-flex items-center gap-1.5">
                         <button
-                          onClick={() => openEditClient(client)}
-                          className="px-2.5 py-1 rounded-lg text-xs font-bold text-slate-600 dark:text-slate-300 bg-slate-50 dark:bg-slate-800/80 hover:bg-blue-50 hover:text-blue-600 dark:hover:bg-blue-950/50 dark:hover:text-sky-400 transition-colors cursor-pointer inline-flex items-center gap-1"
+                          onClick={() => setSelectedVaultClient(client)}
+                          className="px-2.5 py-1 rounded-lg text-xs font-bold text-white bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 transition-all shadow-xs cursor-pointer inline-flex items-center gap-1 active:scale-95"
+                          title="Open Encrypted Client Vault & Documents"
                         >
-                          <Edit3 className="w-3 h-3" />
-                          Edit
+                          <ShieldCheck className="w-3.5 h-3.5" />
+                          <span>Vault & Docs</span>
                         </button>
+                        {!["STAFF", "SPECIALIST", "EXECUTIVE"].includes(userRole) && (
+                          <button
+                            onClick={() => openEditClient(client)}
+                            className="px-2.5 py-1 rounded-lg text-xs font-bold text-slate-600 dark:text-slate-300 bg-slate-50 dark:bg-slate-800/80 hover:bg-blue-50 hover:text-blue-600 dark:hover:bg-blue-950/50 dark:hover:text-sky-400 transition-colors cursor-pointer inline-flex items-center gap-1"
+                          >
+                            <Edit3 className="w-3 h-3" />
+                            Edit
+                          </button>
+                        )}
                         <button
                           onClick={() => setSelectedClientHistory(client.name)}
                           className="px-3 py-1 rounded-lg text-xs font-bold text-blue-600 dark:text-sky-400 bg-blue-50 dark:bg-blue-950/50 hover:bg-blue-100 dark:hover:bg-blue-900/80 transition-colors cursor-pointer"
@@ -384,18 +525,20 @@ export default function ClientsPage() {
 
       {/* Modal: Add Client */}
       {isAddModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-in fade-in">
-          <div className="bg-white dark:bg-[#0c1427] border border-slate-200 dark:border-slate-800 rounded-3xl p-6 w-full max-w-lg shadow-2xl relative space-y-4">
-            <ModalHeaderBanner
-              icon={UserPlus}
-              badge="CRM ONBOARDING"
-              title="Add New Client"
-              description="Register direct or referral client profiles for business registrations and compliance."
-              badgeTag="Client Dossier"
-              onClose={() => setIsAddModalOpen(false)}
-            />
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-in fade-in">
+          <div className="bg-white dark:bg-[#0c1427] border border-slate-200 dark:border-slate-800 rounded-3xl p-6 w-full max-w-2xl shadow-2xl relative max-h-[85vh] flex flex-col space-y-4">
+            <div className="shrink-0">
+              <ModalHeaderBanner
+                icon={UserPlus}
+                badge="CRM ONBOARDING"
+                title="Add New Client"
+                description="Register direct or referral client profiles for business registrations and compliance."
+                badgeTag="Client Dossier"
+                onClose={() => setIsAddModalOpen(false)}
+              />
+            </div>
 
-            <form onSubmit={handleAddClientSubmit} className="space-y-4">
+            <form onSubmit={handleAddClientSubmit} className="flex-1 min-h-0 overflow-y-auto pr-1 space-y-4">
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <NameInput
                   label="Client Name"
@@ -458,18 +601,20 @@ export default function ClientsPage() {
 
       {/* Modal: Client History */}
       {selectedClientHistory && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-in fade-in">
-          <div className="bg-white dark:bg-[#0c1427] border border-slate-200 dark:border-slate-800 rounded-3xl p-6 w-full max-w-2xl shadow-2xl relative space-y-4">
-            <ModalHeaderBanner
-              icon={Clock}
-              badge="SERVICE AUDIT TRAIL"
-              title={`Client History · ${selectedClientHistory}`}
-              description="All statutory service applications, progress history, and milestone logs for this customer."
-              badgeTag="Audit Trail"
-              onClose={() => setSelectedClientHistory(null)}
-            />
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-in fade-in">
+          <div className="bg-white dark:bg-[#0c1427] border border-slate-200 dark:border-slate-800 rounded-3xl p-6 w-full max-w-2xl shadow-2xl relative max-h-[85vh] flex flex-col space-y-4">
+            <div className="shrink-0">
+              <ModalHeaderBanner
+                icon={Clock}
+                badge="SERVICE AUDIT TRAIL"
+                title={`Client History · ${selectedClientHistory}`}
+                description="All statutory service applications, progress history, and milestone logs for this customer."
+                badgeTag="Audit Trail"
+                onClose={() => setSelectedClientHistory(null)}
+              />
+            </div>
 
-            <div className="overflow-x-auto">
+            <div className="flex-1 min-h-0 overflow-y-auto overflow-x-auto pr-1">
               <table className="w-full text-left border-collapse text-xs">
                 <thead>
                   <tr className="border-b border-slate-100 dark:border-slate-800 text-[11px] font-bold text-slate-400 bg-slate-50/60 dark:bg-slate-900/60">
@@ -529,18 +674,20 @@ export default function ClientsPage() {
 
       {/* Modal: Edit Client */}
       {editingClient && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-in fade-in">
-          <div className="bg-white dark:bg-[#0c1427] border border-slate-200 dark:border-slate-800 rounded-3xl p-6 w-full max-w-lg shadow-2xl relative space-y-4">
-            <ModalHeaderBanner
-              icon={Edit3}
-              badge="CLIENT PROFILE"
-              title={`Edit Client · ${editingClient.name}`}
-              description="Modify contact coordinates, registered firm or partner allocation."
-              badgeTag="CRM Sync"
-              onClose={() => setEditingClient(null)}
-            />
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-in fade-in">
+          <div className="bg-white dark:bg-[#0c1427] border border-slate-200 dark:border-slate-800 rounded-3xl p-6 w-full max-w-2xl shadow-2xl relative max-h-[85vh] flex flex-col space-y-4">
+            <div className="shrink-0">
+              <ModalHeaderBanner
+                icon={Edit3}
+                badge="CLIENT PROFILE"
+                title={`Edit Client · ${editingClient.name}`}
+                description="Modify contact coordinates, registered firm or partner allocation."
+                badgeTag="CRM Sync"
+                onClose={() => setEditingClient(null)}
+              />
+            </div>
 
-            <form onSubmit={handleEditClient} className="space-y-4">
+            <form onSubmit={handleEditClient} className="flex-1 min-h-0 overflow-y-auto pr-1 space-y-4">
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <NameInput
                   label="Client Name"
@@ -615,6 +762,14 @@ export default function ClientsPage() {
             </form>
           </div>
         </div>
+      )}
+
+      {/* Modal: Client 360° Digital Master Vault & Documents */}
+      {selectedVaultClient && (
+        <ClientVaultModal
+          client={selectedVaultClient}
+          onClose={() => setSelectedVaultClient(null)}
+        />
       )}
     </div>
   );

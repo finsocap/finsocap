@@ -17,7 +17,7 @@ export default function DashboardLayout({
         <Suspense fallback={<aside className="hidden lg:block w-64 bg-white/80 backdrop-blur-md border-r border-slate-200/80 relative z-50" />}>
           <Sidebar userRole="ADMIN" />
         </Suspense>
-        <div className="flex-1 flex flex-col h-screen overflow-hidden relative z-10">
+        <div className="flex-1 flex flex-col h-screen overflow-hidden relative">
           <Topbar user={session.user} />
           <DashboardMain>
             {children}

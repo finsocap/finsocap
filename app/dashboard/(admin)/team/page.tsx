@@ -51,20 +51,20 @@ export default function TeamPage() {
   const router = useRouter();
   const toast = useToast();
   const { users, tasks, addUser, updateUser, toggleUserStatus } = useCrmStore();
+  const [userRole, setUserRole] = useState<string>("ADMIN");
+  const [currentUser, setCurrentUser] = useState<any>(null);
 
-  // Role Protection: Staff members cannot manage team members
   useEffect(() => {
     try {
       const stored = localStorage.getItem("finsocap_user_session");
       if (stored) {
         const parsed = JSON.parse(stored);
-        if (parsed.role && parsed.role !== "ADMIN") {
-          toast.warning("Access Restricted", "Team Directory & Specialist Management is reserved for administrators.");
-          router.replace("/dashboard/tasks");
-        }
+        const role = (parsed?.user?.role || parsed?.role || "ADMIN").toUpperCase();
+        setUserRole(role);
+        setCurrentUser(parsed?.user || parsed);
       }
     } catch (e) {}
-  }, [router, toast]);
+  }, []);
 
   const [teamMetrics, setTeamMetrics] = useState<TeamMetrics | null>(null);
   const [apiSpecialists, setApiSpecialists] = useState<Specialist[]>([]);
@@ -413,13 +413,15 @@ export default function TeamPage() {
         description="Unified management of CA, CS, legal associates and operational staff credentials, departments, and live task throughput."
         bottomMeta={`${users.length} Registered Specialists • ${users.filter(u => u.status === "Active").length} Active Seats • Zero Open Breaches`}
         actions={
-          <button
-            onClick={() => setIsAddModalOpen(true)}
-            className="btn-primary-vibrant text-xs py-2 px-4 cursor-pointer flex items-center gap-2 shadow-lg shadow-blue-500/25"
-          >
-            <UserPlus className="w-4 h-4" />
-            <span>Enroll Specialist</span>
-          </button>
+          !["STAFF", "SPECIALIST", "EXECUTIVE"].includes(userRole) ? (
+            <button
+              onClick={() => setIsAddModalOpen(true)}
+              className="btn-primary-vibrant text-xs py-2 px-4 cursor-pointer flex items-center gap-2 shadow-lg shadow-blue-500/25"
+            >
+              <UserPlus className="w-4 h-4" />
+              <span>Enroll Specialist</span>
+            </button>
+          ) : undefined
         }
       />
 
@@ -550,13 +552,20 @@ export default function TeamPage() {
             <thead>
               <tr className="border-b border-slate-100 dark:border-slate-800 text-[11px] font-bold text-slate-400 uppercase tracking-wider bg-slate-50/50 dark:bg-slate-900/40">
                 <th className="py-3.5 px-5">Specialist Profile</th>
-                <th className="py-3.5 px-4">Credentials &amp; Login</th>
+                {!["STAFF", "SPECIALIST", "EXECUTIVE"].includes(userRole) && (
+                  <th className="py-3.5 px-4">Credentials &amp; Login</th>
+                )}
                 <th className="py-3.5 px-4">Department &amp; Role</th>
                 <th className="py-3.5 px-4">Certified Competencies</th>
                 <th className="py-3.5 px-3 text-center">Caseload</th>
-                <th className="py-3.5 px-4">Phone</th>
+                <th className="py-3.5 px-3 text-center">Closed Cases</th>
+                {!["STAFF", "SPECIALIST", "EXECUTIVE"].includes(userRole) && (
+                  <th className="py-3.5 px-4">Phone</th>
+                )}
                 <th className="py-3.5 px-3">Status</th>
-                <th className="py-3.5 px-5 text-right">Actions</th>
+                {!["STAFF", "SPECIALIST", "EXECUTIVE"].includes(userRole) && (
+                  <th className="py-3.5 px-5 text-right">Actions</th>
+                )}
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100 dark:divide-slate-800/60 font-medium">
@@ -600,43 +609,45 @@ export default function TeamPage() {
                         </div>
                       </td>
 
-                      {/* Clean Credentials (Email + Concealed Password with Eye toggle) */}
-                      <td className="py-3.5 px-4">
-                        <div className="space-y-1">
-                          <button
-                            onClick={() => copyToClipboard(userEmailDisplay, user.id + "-email")}
-                            className="inline-flex items-center gap-1.5 text-blue-600 dark:text-sky-400 font-semibold hover:underline text-[11px] group/copy"
-                          >
-                            <Mail className="w-3 h-3 text-slate-400 shrink-0" />
-                            <span className="truncate max-w-[150px]">{userEmailDisplay}</span>
-                            {copiedId === user.id + "-email" ? (
-                              <Check className="w-2.5 h-2.5 text-emerald-500" />
-                            ) : (
-                              <Copy className="w-2.5 h-2.5 opacity-0 group-hover/copy:opacity-100 text-slate-400 transition-opacity" />
-                            )}
-                          </button>
-
-                          {/* Concealed Password chip */}
-                          <div className="flex items-center gap-1 text-[11px] font-mono text-slate-500 dark:text-slate-400">
-                            <Lock className="w-2.5 h-2.5 text-slate-400" />
-                            <span className="tracking-wider">
-                              {isPasswordRevealed ? userPassword : "••••••••"}
-                            </span>
+                      {/* Clean Credentials (Email + Concealed Password with Eye toggle) - Admin Only */}
+                      {!["STAFF", "SPECIALIST", "EXECUTIVE"].includes(userRole) && (
+                        <td className="py-3.5 px-4">
+                          <div className="space-y-1">
                             <button
-                              type="button"
-                              onClick={() => toggleUserPasswordReveal(user.id)}
-                              className="text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 p-0.5 cursor-pointer ml-1"
-                              title={isPasswordRevealed ? "Hide password" : "Reveal password"}
+                              onClick={() => copyToClipboard(userEmailDisplay, user.id + "-email")}
+                              className="inline-flex items-center gap-1.5 text-blue-600 dark:text-sky-400 font-semibold hover:underline text-[11px] group/copy"
                             >
-                              {isPasswordRevealed ? (
-                                <EyeOff className="w-3 h-3 text-blue-500" />
+                              <Mail className="w-3 h-3 text-slate-400 shrink-0" />
+                              <span className="truncate max-w-[150px]">{userEmailDisplay}</span>
+                              {copiedId === user.id + "-email" ? (
+                                <Check className="w-2.5 h-2.5 text-emerald-500" />
                               ) : (
-                                <Eye className="w-3 h-3" />
+                                <Copy className="w-2.5 h-2.5 opacity-0 group-hover/copy:opacity-100 text-slate-400 transition-opacity" />
                               )}
                             </button>
+
+                            {/* Concealed Password chip */}
+                            <div className="flex items-center gap-1 text-[11px] font-mono text-slate-500 dark:text-slate-400">
+                              <Lock className="w-2.5 h-2.5 text-slate-400" />
+                              <span className="tracking-wider">
+                                {isPasswordRevealed ? userPassword : "••••••••"}
+                              </span>
+                              <button
+                                type="button"
+                                onClick={() => toggleUserPasswordReveal(user.id)}
+                                className="text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 p-0.5 cursor-pointer ml-1"
+                                title={isPasswordRevealed ? "Hide password" : "Reveal password"}
+                              >
+                                {isPasswordRevealed ? (
+                                  <EyeOff className="w-3 h-3 text-blue-500" />
+                                ) : (
+                                  <Eye className="w-3 h-3" />
+                                )}
+                              </button>
+                            </div>
                           </div>
-                        </div>
-                      </td>
+                        </td>
+                      )}
 
                       {/* Department & Role */}
                       <td className="py-3.5 px-4">
@@ -671,16 +682,25 @@ export default function TeamPage() {
                         </span>
                       </td>
 
-                      {/* Phone with copy */}
-                      <td className="py-3.5 px-4 font-mono text-[11px] text-slate-600 dark:text-slate-300 whitespace-nowrap">
-                        <button
-                          onClick={() => copyToClipboard(user.phone, user.id + "-phone")}
-                          className="flex items-center gap-1 hover:text-blue-600 dark:hover:text-sky-400 cursor-pointer"
-                        >
-                          <Phone className="w-3 h-3 text-slate-400" />
-                          <span>{user.phone}</span>
-                        </button>
+                      {/* Closed Cases (Dynamic from completed tasks) */}
+                      <td className="py-3.5 px-3 text-center">
+                        <span className="inline-block px-2.5 py-0.5 rounded-full font-black text-xs bg-emerald-50 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 border border-emerald-200/50 dark:border-emerald-800">
+                          {tasks.filter(t => (t.assignee && (t.assignee.toLowerCase().includes(user.name.toLowerCase()) || user.name.toLowerCase().includes(t.assignee.toLowerCase()))) && t.status === "Completed").length}
+                        </span>
                       </td>
+
+                      {/* Phone with copy - Admin Only */}
+                      {!["STAFF", "SPECIALIST", "EXECUTIVE"].includes(userRole) && (
+                        <td className="py-3.5 px-4 font-mono text-[11px] text-slate-600 dark:text-slate-300 whitespace-nowrap">
+                          <button
+                            onClick={() => copyToClipboard(user.phone, user.id + "-phone")}
+                            className="flex items-center gap-1 hover:text-blue-600 dark:hover:text-sky-400 cursor-pointer"
+                          >
+                            <Phone className="w-3 h-3 text-slate-400" />
+                            <span>{user.phone}</span>
+                          </button>
+                        </td>
+                      )}
 
                       {/* Status */}
                       <td className="py-3.5 px-3 whitespace-nowrap">
@@ -700,30 +720,32 @@ export default function TeamPage() {
                         </span>
                       </td>
 
-                      {/* Actions */}
-                      <td className="py-3.5 px-5 text-right whitespace-nowrap">
-                        <div className="flex items-center justify-end gap-1.5">
-                          <button
-                            type="button"
-                            onClick={() => openEditUserModal(user)}
-                            className="p-1.5 text-slate-400 hover:text-blue-600 dark:hover:text-sky-400 hover:bg-blue-50 dark:hover:bg-blue-950/60 rounded-lg transition-colors cursor-pointer"
-                            title="Edit Credentials & Profile"
-                          >
-                            <Edit2 className="w-3.5 h-3.5" />
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => handleToggle(user.id, user.name, user.status)}
-                            className={`px-2.5 py-1 rounded-lg text-xs font-bold transition-all cursor-pointer ${
-                              user.status === "Active"
-                                ? "text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/40 border border-rose-200 dark:border-rose-900"
-                                : "text-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-900"
-                            }`}
-                          >
-                            {user.status === "Active" ? "Deactivate" : "Activate"}
-                          </button>
-                        </div>
-                      </td>
+                      {/* Actions: Admin Only */}
+                      {!["STAFF", "SPECIALIST", "EXECUTIVE"].includes(userRole) && (
+                        <td className="py-3.5 px-5 text-right whitespace-nowrap">
+                          <div className="flex items-center justify-end gap-1.5">
+                            <button
+                              type="button"
+                              onClick={() => openEditUserModal(user)}
+                              className="p-1.5 text-slate-400 hover:text-blue-600 dark:hover:text-sky-400 hover:bg-blue-50 dark:hover:bg-blue-950/60 rounded-lg transition-colors cursor-pointer"
+                              title="Edit Credentials & Profile"
+                            >
+                              <Edit2 className="w-3.5 h-3.5" />
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => handleToggle(user.id, user.name, user.status)}
+                              className={`px-2.5 py-1 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                                user.status === "Active"
+                                  ? "text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/40 border border-rose-200 dark:border-rose-900"
+                                  : "text-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-900"
+                              }`}
+                            >
+                              {user.status === "Active" ? "Deactivate" : "Activate"}
+                            </button>
+                          </div>
+                        </td>
+                      )}
 
                     </tr>
                   );
@@ -737,18 +759,20 @@ export default function TeamPage() {
 
       {/* Modal: Add User */}
       {isAddModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-in fade-in">
-          <div className="bg-white dark:bg-[#0c1427] border border-slate-200 dark:border-slate-800 rounded-3xl p-6 w-full max-w-lg shadow-2xl relative space-y-4 animate-in zoom-in-95">
-            <ModalHeaderBanner
-              icon={UserPlus}
-              badge="STAFF ONBOARDING"
-              title="Enroll New Specialist"
-              description="Add a verified internal operations or compliance specialist to the core roster."
-              badgeTag="Personnel"
-              onClose={() => setIsAddModalOpen(false)}
-            />
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-in fade-in">
+          <div className="bg-white dark:bg-[#0c1427] border border-slate-200 dark:border-slate-800 rounded-3xl p-6 w-full max-w-2xl shadow-2xl relative max-h-[85vh] flex flex-col space-y-4 animate-in zoom-in-95">
+            <div className="shrink-0">
+              <ModalHeaderBanner
+                icon={UserPlus}
+                badge="STAFF ONBOARDING"
+                title="Enroll New Specialist"
+                description="Add a verified internal operations or compliance specialist to the core roster."
+                badgeTag="Personnel"
+                onClose={() => setIsAddModalOpen(false)}
+              />
+            </div>
 
-            <form onSubmit={handleAddUserSubmit} className="space-y-3.5">
+            <form onSubmit={handleAddUserSubmit} className="flex-1 min-h-0 overflow-y-auto pr-1 space-y-3.5">
               <NameInput
                 label="Full Legal Name"
                 required
@@ -990,18 +1014,20 @@ export default function TeamPage() {
 
       {/* Modal: Edit User */}
       {isEditModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-in fade-in">
-          <div className="bg-white dark:bg-[#0c1427] border border-slate-200 dark:border-slate-800 rounded-3xl p-6 w-full max-w-lg shadow-2xl relative space-y-4 animate-in zoom-in-95">
-            <ModalHeaderBanner
-              icon={Edit2}
-              badge="STAFF CREDENTIALS"
-              title={`Edit Specialist · ${formName}`}
-              description="Update legal identity, access permissions, department role, or phone contact."
-              badgeTag="Access Sync"
-              onClose={() => setIsEditModalOpen(false)}
-            />
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-in fade-in">
+          <div className="bg-white dark:bg-[#0c1427] border border-slate-200 dark:border-slate-800 rounded-3xl p-6 w-full max-w-2xl shadow-2xl relative max-h-[85vh] flex flex-col space-y-4 animate-in zoom-in-95">
+            <div className="shrink-0">
+              <ModalHeaderBanner
+                icon={Edit2}
+                badge="STAFF CREDENTIALS"
+                title={`Edit Specialist · ${formName}`}
+                description="Update legal identity, access permissions, department role, or phone contact."
+                badgeTag="Access Sync"
+                onClose={() => setIsEditModalOpen(false)}
+              />
+            </div>
 
-            <form onSubmit={handleEditUserSubmit} className="space-y-3.5">
+            <form onSubmit={handleEditUserSubmit} className="flex-1 min-h-0 overflow-y-auto pr-1 space-y-3.5">
               <NameInput
                 label="Full Name"
                 required
