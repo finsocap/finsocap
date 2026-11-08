@@ -131,13 +131,21 @@ export default function DashboardHome() {
     return activeStats.taskSummary;
   }, [activeStats.taskSummary]);
 
-  // Filtered Leads from actual manualClients or tasks
-  const filteredLeads = useMemo(() => {
-    return manualClients.filter(c => {
-      if (selectedPartner === "All Partners") return true;
-      return c.partner?.toLowerCase().includes(selectedPartner.toLowerCase());
-    }).slice(0, 8);
-  }, [manualClients, selectedPartner]);
+  // Filtered Recent Tasks / Service Requests (strictly from real tasks)
+  const filteredRecentTasks = useMemo(() => {
+    return tasks
+      .filter((t) => {
+        const matchPartner =
+          selectedPartner === "All Partners" ||
+          t.partner?.toLowerCase().includes(selectedPartner.toLowerCase());
+        if (!matchPartner) return false;
+        if (dateRange && !isDateWithinRange(t.date || t.due, dateRange)) {
+          return false;
+        }
+        return true;
+      })
+      .slice(0, 8);
+  }, [tasks, selectedPartner, dateRange]);
 
   // Filtered Activities
   const filteredActivities = useMemo(() => {
@@ -460,12 +468,12 @@ export default function DashboardHome() {
       {/* 4. Bottom Row: Recent Leads / Clients (7 cols) & Team Activity (5 cols) */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 items-stretch">
 
-        {/* Left: Recent Leads / Clients Table (7 cols) */}
+        {/* Left: Recent Service Requests / Tasks Table (7 cols) */}
         <div className="lg:col-span-7 bg-white dark:bg-[#0c1427] rounded-2xl border border-slate-200/90 dark:border-slate-800 shadow-sm overflow-hidden flex flex-col justify-between">
           <div className="p-4 sm:p-5 flex items-center justify-between border-b border-slate-100 dark:border-slate-800/80">
             <div className="flex items-center gap-2">
               <h3 className="font-black text-slate-900 dark:text-white text-sm sm:text-base tracking-tight">
-                Recent Leads / Clients
+                Recent Tasks / Service Requests
               </h3>
               {selectedPartner !== "All Partners" && (
                 <span className="text-[10px] font-bold text-blue-600 dark:text-sky-400 px-2 py-0.5 rounded-full bg-blue-50 dark:bg-blue-950/70 border border-blue-200 dark:border-blue-800">
@@ -486,51 +494,69 @@ export default function DashboardHome() {
             <table className="w-full text-left border-collapse text-xs">
               <thead>
                 <tr className="border-b border-slate-100 dark:border-slate-800 text-[11px] font-bold text-slate-400 bg-slate-50/50 dark:bg-slate-900/50">
-                  <th className="py-2.5 px-4">#</th>
-                  <th className="py-2.5 px-4">Name</th>
+                  <th className="py-2.5 px-4">Task ID</th>
+                  <th className="py-2.5 px-4">Client Name</th>
                   <th className="py-2.5 px-4">Service</th>
-                  <th className="py-2.5 px-4">Partner ID &amp; Hub</th>
+                  <th className="py-2.5 px-4">Partner</th>
                   <th className="py-2.5 px-4">Status</th>
                   <th className="py-2.5 px-4 text-right">Date</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100 dark:divide-slate-800/60 font-medium">
-                {filteredLeads.length === 0 ? (
+                {filteredRecentTasks.length === 0 ? (
                   <tr>
                     <td colSpan={6} className="py-8 text-center text-slate-400 font-medium">
-                      No recent leads recorded yet
+                      No service requests recorded yet
                     </td>
                   </tr>
                 ) : (
-                  filteredLeads.map((lead: any, idx: number) => (
-                    <tr
-                      key={lead.id || idx}
-                      className="hover:bg-slate-50/80 dark:hover:bg-slate-800/50 transition-colors"
-                    >
-                      <td className="py-2.5 px-4 font-bold text-blue-600 dark:text-sky-400">
-                        {lead.id || `#${idx + 1}`}
-                      </td>
-                      <td className="py-2.5 px-4 font-bold text-slate-900 dark:text-white">
-                        {lead.name}
-                      </td>
-                      <td className="py-2.5 px-4 text-slate-600 dark:text-slate-300">
-                        {lead.service || lead.business || "-"}
-                      </td>
-                      <td className="py-2.5 px-4">
-                        <span className="text-[10px] font-bold text-amber-700 dark:text-amber-400 bg-amber-500/10 px-2 py-0.5 rounded-md border border-amber-500/20">
-                          {lead.partner || "Direct"}
-                        </span>
-                      </td>
-                      <td className="py-2.5 px-4">
-                        <span className={`inline-flex whitespace-nowrap px-2 py-0.5 rounded-md font-bold text-[10px] ${getStatusBadge(lead.status || "New")}`}>
-                          {lead.status || "New"}
-                        </span>
-                      </td>
-                      <td className="py-2.5 px-4 text-right text-slate-400 font-semibold text-[11px]">
-                        {lead.last || lead.date || "Today"}
-                      </td>
-                    </tr>
-                  ))
+                  filteredRecentTasks.map((t: any, idx: number) => {
+                    const truncatedId = t.id && t.id.length > 12 
+                      ? `${t.id.slice(0, 10)}...` 
+                      : (t.id || `#${idx + 1}`);
+
+                    return (
+                      <tr
+                        key={t.id || idx}
+                        className="hover:bg-slate-50/80 dark:hover:bg-slate-800/50 transition-colors"
+                      >
+                        <td className="py-2.5 px-4 font-bold text-blue-600 dark:text-sky-400">
+                          <Link 
+                            href={`/dashboard/tasks/${t.numericId || t.id}`}
+                            className="hover:underline flex items-center gap-1"
+                          >
+                            <span>{truncatedId}</span>
+                          </Link>
+                        </td>
+                        <td className="py-2.5 px-4">
+                          <span className="font-bold text-slate-900 dark:text-white block">
+                            {t.client || "Client"}
+                          </span>
+                          {t.phone && (
+                            <span className="text-[10px] text-slate-400 dark:text-slate-500 font-medium">
+                              {t.phone}
+                            </span>
+                          )}
+                        </td>
+                        <td className="py-2.5 px-4 text-slate-700 dark:text-slate-300 font-medium">
+                          {t.service || "-"}
+                        </td>
+                        <td className="py-2.5 px-4">
+                          <span className="text-[10px] font-bold text-amber-700 dark:text-amber-400 bg-amber-500/10 px-2 py-0.5 rounded-md border border-amber-500/20">
+                            {t.partner || "HQ"}
+                          </span>
+                        </td>
+                        <td className="py-2.5 px-4">
+                          <span className={`inline-flex whitespace-nowrap px-2 py-0.5 rounded-md font-bold text-[10px] ${getStatusBadge(t.status || "Pending")}`}>
+                            {t.status || "Pending"}
+                          </span>
+                        </td>
+                        <td className="py-2.5 px-4 text-right text-slate-500 dark:text-slate-400 font-semibold text-[11px]">
+                          {t.date || "Today"}
+                        </td>
+                      </tr>
+                    );
+                  })
                 )}
               </tbody>
             </table>

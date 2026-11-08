@@ -107,6 +107,7 @@ async function handleProxy(
       method: request.method,
       headers,
       body,
+      cache: "no-store",
     });
 
     const resContentType = res.headers.get("content-type") || "";
@@ -117,6 +118,9 @@ async function handleProxy(
         status: res.status,
         headers: {
           "Access-Control-Allow-Origin": "*",
+          "Cache-Control": "no-store, no-cache, must-revalidate, proxy-revalidate, max-age=0",
+          "Pragma": "no-cache",
+          "Expires": "0",
         },
       });
     }
@@ -125,6 +129,9 @@ async function handleProxy(
     const responseHeaders: Record<string, string> = {
       "content-type": resContentType || "application/octet-stream",
       "Access-Control-Allow-Origin": "*",
+      "Cache-Control": "no-store, no-cache, must-revalidate, proxy-revalidate, max-age=0",
+      "Pragma": "no-cache",
+      "Expires": "0",
     };
     const contentDisposition = res.headers.get("content-disposition");
     if (contentDisposition) {

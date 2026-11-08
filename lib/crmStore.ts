@@ -146,34 +146,6 @@ interface CrmData {
 }
 
 function loadInitialData(): CrmData {
-  if (typeof window === "undefined") {
-    return {
-      services: [],
-      tasks: [],
-      users: [],
-      licences: [],
-      manualClients: [],
-      partners: [],
-    };
-  }
-
-  try {
-    const raw = localStorage.getItem("finsocap-crm-data");
-    if (raw) {
-      const parsed = JSON.parse(raw);
-      return {
-        services: Array.isArray(parsed.services) ? parsed.services : [],
-        tasks: Array.isArray(parsed.tasks) ? parsed.tasks : [],
-        users: Array.isArray(parsed.users) ? parsed.users : [],
-        licences: Array.isArray(parsed.licences) ? parsed.licences : [],
-        manualClients: Array.isArray(parsed.manualClients) ? parsed.manualClients : [],
-        partners: Array.isArray(parsed.partners) ? parsed.partners : [],
-      };
-    }
-  } catch (e) {
-    console.error("Failed to parse localStorage crm data", e);
-  }
-
   return {
     services: [],
     tasks: [],
@@ -213,13 +185,6 @@ function getServerSnapshot(): CrmData {
 
 function updateStore(updater: (prev: CrmData) => CrmData) {
   memoryStore = updater(memoryStore);
-  if (typeof window !== "undefined") {
-    try {
-      localStorage.setItem("finsocap-crm-data", JSON.stringify(memoryStore));
-    } catch (e) {
-      console.error("Failed to save crm data", e);
-    }
-  }
   listeners.forEach((listener) => listener());
 }
 
@@ -433,15 +398,8 @@ export async function fetchLiveDbData(): Promise<void> {
 }
 
 if (typeof window !== "undefined") {
-  window.addEventListener("storage", (e) => {
-    if (e.key === "finsocap-crm-data") {
-      memoryStore = loadInitialData();
-      listeners.forEach((listener) => listener());
-    }
-  });
-
   // Background trigger initial live sync
-  setTimeout(fetchLiveDbData, 200);
+  setTimeout(fetchLiveDbData, 0);
 }
 
 export function useCrmStore() {
