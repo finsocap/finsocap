@@ -212,6 +212,7 @@ async function request<T = any>(endpoint: string, config: RequestConfig = {}): P
   try {
     const response = await fetch(url, {
       ...fetchOptions,
+      cache: "no-store",
       headers: finalHeaders,
       body: serializedBody,
     });

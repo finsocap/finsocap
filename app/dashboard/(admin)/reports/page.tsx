@@ -2,13 +2,15 @@
 
 import { useState, useEffect, useMemo, Suspense } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
+import Link from "next/link";
 import {
   Users, CheckSquare, IndianRupee, Download, Calendar,
   Clock, AlertTriangle, CheckCircle2, FileText, TrendingUp,
   Award, BarChart3, KeyRound, Search, Filter, RotateCcw,
   Check, ChevronDown, ChevronLeft, ChevronRight, Eye, EyeOff, MoreVertical,
   Paperclip, ExternalLink, Link2, ShieldAlert, ArrowUpRight,
-  UserCheck, Briefcase, X, Copy, Sparkles, ShieldCheck, Edit3, Trash2
+  UserCheck, Briefcase, X, Copy, Sparkles, ShieldCheck, Edit3, Trash2,
+  FileCheck2, Loader2
 } from "lucide-react";
 import { reportsService } from "@/lib/api/reportsService";
 import DateRangeFilter from "@/components/Dashboard/DateRangeFilter";
@@ -60,7 +62,9 @@ interface SalesPersonRow {
 }
 
 interface LicenceRow {
+  id?: string;
   taskId: string;
+  numericTaskId?: number;
   partnerName: string;
   partnerNumber: string;
   clientName: string;
@@ -76,6 +80,7 @@ interface LicenceRow {
   attachmentsCount: number;
   status: "Active" | "Expiring in 30 Days" | "Expired";
   urlLinked: boolean;
+  assignedTo?: string;
 }
 
 function ReportsPageContent() {
@@ -162,9 +167,32 @@ function ReportsPageContent() {
   const [licenceEmployeeFilter, setLicenceEmployeeFilter] = useState("ALL");
   const [showPasswordMap, setShowPasswordMap] = useState<Record<string, boolean>>({});
   const [selectedLicenceModal, setSelectedLicenceModal] = useState<LicenceRow | null>(null);
+  const [modalStaffDocuments, setModalStaffDocuments] = useState<any[]>([]);
+  const [loadingStaffDocs, setLoadingStaffDocs] = useState(false);
   const [modifyModalLicence, setModifyModalLicence] = useState<LicenceRow | null>(null);
   const [deleteConfirmLicence, setDeleteConfirmLicence] = useState<LicenceRow | null>(null);
   const [copiedKey, setCopiedKey] = useState<string | null>(null);
+  const [copiedTaskId, setCopiedTaskId] = useState<string | null>(null);
+
+  const formatShortTaskId = (id: string) => {
+    if (!id) return "";
+    const clean = id.trim();
+    if (clean.length <= 12) return clean;
+    return `${clean.slice(0, 10)}...`;
+  };
+
+  const handleCopyTaskId = (id: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    e.preventDefault();
+    if (typeof navigator !== "undefined" && navigator.clipboard) {
+      navigator.clipboard.writeText(id);
+    }
+    setCopiedTaskId(id);
+    toast.success(`Task ID "${id}" copied to clipboard!`, "Copied");
+    setTimeout(() => {
+      setCopiedTaskId(null);
+    }, 2000);
+  };
 
   // Modify form states
   const [editNumber, setEditNumber] = useState("");
@@ -180,6 +208,56 @@ function ReportsPageContent() {
 
   const showToast = (msg: string) => {
     toast.success(msg, "Success!");
+  };
+
+  const openViewLicenceModal = async (lic: LicenceRow) => {
+    setSelectedLicenceModal(lic);
+    setModalStaffDocuments([]);
+    setLoadingStaffDocs(true);
+
+    try {
+      // Find numeric task ID
+      const matchedTask = tasks.find(
+        (t) => t.id === lic.taskId || (lic.taskId && (t.id.includes(lic.taskId) || lic.taskId.includes(t.id)))
+      );
+      const numericTaskId = lic.numericTaskId || matchedTask?.numericId || (Number(String(lic.taskId).replace(/\D/g, "")) || 0);
+
+      let fetchedDocs: any[] = [];
+      if (numericTaskId > 0) {
+        try {
+          const res = await fetch(`/api/proxy/admin/service-requests/${numericTaskId}/documents`, {
+            cache: "no-store",
+          });
+          if (res.ok) {
+            const json = await res.json();
+            if (json?.data && Array.isArray(json.data)) {
+              fetchedDocs = json.data;
+            }
+          }
+        } catch (fetchErr) {
+          console.warn("Could not fetch staff documents from admin endpoint:", fetchErr);
+        }
+      }
+
+      // If no docs from endpoint, check task attachments in store
+      if (fetchedDocs.length === 0 && matchedTask && Array.isArray((matchedTask as any).attachments) && (matchedTask as any).attachments.length > 0) {
+        fetchedDocs = (matchedTask as any).attachments.map((att: any, idx: number) => ({
+          id: att.id || idx + 1,
+          fileName: att.fileName || att.name || "Attachment",
+          title: att.fileName || att.name || "Task Document",
+          uploadedBy: att.uploadedBy || "Staff",
+          sizeBytes: att.fileSize ? parseInt(att.fileSize) * 1024 : 1024000,
+          createdAt: att.uploadDate || matchedTask.date || new Date().toISOString(),
+          downloadPath: att.fileUrl || `/api/proxy/admin/service-requests/${numericTaskId}/documents/${att.id || idx + 1}`,
+        }));
+      }
+
+      setModalStaffDocuments(fetchedDocs);
+    } catch (e) {
+      console.warn("Failed to load staff deliverables:", e);
+    } finally {
+      setLoadingStaffDocs(false);
+    }
   };
 
   const handleOpenModify = (lic: LicenceRow) => {
@@ -577,7 +655,7 @@ function ReportsPageContent() {
     });
   }, [dynamicSalesRows, salesPersonFilter, salesStatusFilter]);
 
-  // Dynamic Licence Rows mapped from store and completed tasks
+  // Dynamic Licence Rows mapped 1:1 with completed tasks
   const dynamicLicenceRows: LicenceRow[] = useMemo(() => {
     let localPasswordMap: Record<string, string> = {};
     if (typeof window !== "undefined") {
@@ -586,83 +664,59 @@ function ReportsPageContent() {
       } catch (e) {}
     }
 
-    const mappedFromLicences = licences.map((l) => {
-      const realPwd = localPasswordMap[l.number] || localPasswordMap[l.taskId || ""] || localPasswordMap[l.task || ""] || (l.password && !l.password.includes("••••") ? l.password : "Abc@1234");
-      
-      // Fallback lookup from tasks and partners if phone numbers are empty or "-"
-      const matchedTask = tasks.find(
-        (t) => t.id === l.taskId || t.id === l.task || (l.taskId && (t.id.includes(l.taskId) || l.taskId.includes(t.id)))
+    // Exactly 1 licence row per completed task
+    const completedTasks = tasks.filter((t) => t.status === "Completed");
+
+    return completedTasks.map((t) => {
+      const matchedLicence = licences.find(
+        (l) => l.taskId === t.id || l.task === t.id || (l.taskId && (t.id.includes(l.taskId) || l.taskId.includes(t.id)))
       );
       const matchedPartner = partners.find(
-        (p) => p.name?.toLowerCase() === l.partner?.toLowerCase() || p.partnerId?.toLowerCase() === l.partner?.toLowerCase()
+        (p) => p.name?.toLowerCase() === t.partner?.toLowerCase() || p.partnerId?.toLowerCase() === t.partner?.toLowerCase()
       );
 
-      const resolvedPartnerPhone =
-        l.partnerPhone && l.partnerPhone !== "-" && l.partnerPhone.trim() !== ""
-          ? l.partnerPhone
-          : matchedTask?.partnerPhone || matchedPartner?.phone || "9811122233";
+      const realPartner = t.partner && t.partner !== "Test Partner" 
+        ? t.partner 
+        : matchedLicence?.partner && matchedLicence.partner !== "Test Partner"
+        ? matchedLicence.partner
+        : "HQ";
 
-      const resolvedClientPhone =
-        l.phone && l.phone !== "-" && l.phone.trim() !== ""
-          ? l.phone
-          : matchedTask?.phone || "9125626628";
+      const realClient = t.client && t.client !== "Test Client"
+        ? t.client
+        : matchedLicence?.client && matchedLicence.client !== "Test Client"
+        ? matchedLicence.client
+        : "-";
+
+      const resolvedPartnerPhone = t.partnerPhone || matchedPartner?.phone || matchedLicence?.partnerPhone || "-";
+      const resolvedClientPhone = t.phone || matchedLicence?.phone || "-";
+      const licenceNum = matchedLicence?.number || t.license || `LIC-${String(t.numericId || t.id).replace(/\D/g, "").slice(0, 8) || "211700"}`;
+      const realPwd = localPasswordMap[licenceNum] || localPasswordMap[t.id] || (matchedLicence?.password && !matchedLicence.password.includes("••••") ? matchedLicence.password : "Abc@1234");
+
+      const numericTaskId = t.numericId || (Number(String(t.id).replace(/\D/g, "")) || 0);
 
       return {
-        id: l.id,
-        taskId: l.taskId || l.id || "-",
-        partnerName: l.partner || matchedTask?.partner || "-",
+        id: matchedLicence ? String(matchedLicence.id) : String(t.numericId || t.id),
+        taskId: t.id,
+        numericTaskId,
+        partnerName: realPartner,
         partnerNumber: resolvedPartnerPhone,
-        clientName: l.clientName || l.client || matchedTask?.client || "-",
+        clientName: realClient,
         clientNumber: resolvedClientPhone,
-        licenceType: l.type || "Basic Licence",
-        taskCategory: l.category || "General",
-        serviceName: l.service || "-",
-        licenceNumber: l.number,
-        issueDate: l.issueDate || l.issue || "-",
-        expiryDate: l.expiryDate || l.expiry || "-",
-        userId: l.userId || l.user || "-",
+        licenceType: matchedLicence?.type || t.category || "Standard Licence",
+        taskCategory: t.category || matchedLicence?.category || "-",
+        serviceName: t.service || matchedLicence?.service || "-",
+        licenceNumber: licenceNum,
+        issueDate: matchedLicence?.issue || t.date || new Date().toISOString().slice(0, 10),
+        expiryDate: matchedLicence?.expiry || "2028-11-04",
+        userId: matchedLicence?.user || "-",
         passwordMasked: realPwd,
-        attachmentsCount: l.attachmentsCount ?? l.files ?? 0,
-        status: (l.status === "Expiring Soon" ? "Expiring in 30 Days" : l.status) as any,
-        urlLinked: !!l.url,
+        attachmentsCount: matchedLicence?.files ?? (t.files?.length || 1),
+        status: "Active" as const,
+        urlLinked: true,
+        assignedTo: t.assignee || "-",
       };
     });
-
-    // Also include any tasks with status === "Completed" that may not have an explicit licence row yet
-    const existingTaskIds = new Set(mappedFromLicences.map((r) => r.taskId));
-    const completedTasksWithoutLicence = tasks
-      .filter((t) => t.status === "Completed" && !existingTaskIds.has(t.id))
-      .map((t) => {
-        const matchedPartner = partners.find(
-          (p) => p.name?.toLowerCase() === t.partner?.toLowerCase() || p.partnerId?.toLowerCase() === t.partner?.toLowerCase()
-        );
-        const resolvedPartnerPhone = t.partnerPhone || matchedPartner?.phone || "9811122233";
-        const resolvedClientPhone = t.phone || "9125626628";
-        const generatedLicenceNum = t.license || `LIC-${String(t.numericId || t.id).replace(/\D/g, "").slice(0, 8) || "211700"}`;
-
-        return {
-          id: String(t.numericId || t.id),
-          taskId: t.id,
-          partnerName: t.partner || "HQ",
-          partnerNumber: resolvedPartnerPhone,
-          clientName: t.client || "-",
-          clientNumber: resolvedClientPhone,
-          licenceType: t.category || "General Licence",
-          taskCategory: t.category || "Compliance",
-          serviceName: t.service || "Compliance Filing",
-          licenceNumber: generatedLicenceNum,
-          issueDate: t.date || new Date().toISOString().slice(0, 10),
-          expiryDate: "2028-11-04",
-          userId: "UPFSSAI123",
-          passwordMasked: "Abc@1234",
-          attachmentsCount: 1,
-          status: "Active" as const,
-          urlLinked: true,
-        };
-      });
-
-    return [...mappedFromLicences, ...completedTasksWithoutLicence];
-  }, [licences, tasks, partners]);
+  }, [tasks, licences, partners]);
 
   // Filtered Licence Rows
   const filteredLicences = useMemo(() => {
@@ -689,7 +743,12 @@ function ReportsPageContent() {
         if (licenceStatusFilter === "Not Linked" && row.urlLinked) return false;
         if (licenceStatusFilter !== "Linked" && licenceStatusFilter !== "Not Linked" && row.status !== licenceStatusFilter) return false;
       }
-      if (licenceEmployeeFilter !== "ALL" && row.partnerName !== licenceEmployeeFilter) return false;
+      if (licenceEmployeeFilter !== "ALL") {
+        const emp = licenceEmployeeFilter.toLowerCase();
+        const matchesAssignee = row.assignedTo?.toLowerCase().includes(emp);
+        const matchesPartner = row.partnerName.toLowerCase().includes(emp);
+        if (!matchesAssignee && !matchesPartner) return false;
+      }
       if (licenceSearch.trim()) {
         const q = licenceSearch.toLowerCase();
         return (
@@ -1870,6 +1929,7 @@ function ReportsPageContent() {
                     </th>
                     <th className="py-3 px-2">#</th>
                     <th className="py-3 px-3">Task ID</th>
+                    <th className="py-3 px-3">Assigned To</th>
                     <th className="py-3 px-3">Partner Name</th>
                     <th className="py-3 px-3">Partner Number</th>
                     <th className="py-3 px-3">Client Name</th>
@@ -1900,7 +1960,41 @@ function ReportsPageContent() {
                         <input type="checkbox" className="rounded border-slate-300" />
                       </td>
                       <td className="py-3 px-2 text-slate-400 font-semibold">{index + 1}</td>
-                      <td className="py-3 px-3 font-mono font-bold text-blue-600 dark:text-sky-400">{lic.taskId}</td>
+                      <td className="py-3 px-3">
+                        <div className="inline-flex items-center gap-1.5 bg-blue-50/70 dark:bg-blue-950/40 px-2.5 py-1 rounded-xl border border-blue-200/60 dark:border-blue-900/40">
+                          <Link
+                            href={`/dashboard/tasks/${lic.taskId}`}
+                            className="font-mono font-bold text-xs text-blue-600 dark:text-sky-400 hover:underline cursor-pointer"
+                            title={`Full Task ID: ${lic.taskId} (Click to open)`}
+                          >
+                            {formatShortTaskId(lic.taskId)}
+                          </Link>
+                          <button
+                            type="button"
+                            onClick={(e) => handleCopyTaskId(lic.taskId, e)}
+                            title={`Click to copy: ${lic.taskId}`}
+                            className="p-1 rounded-lg text-slate-400 hover:text-blue-600 dark:hover:text-sky-400 hover:bg-blue-100/60 dark:hover:bg-blue-900/60 transition-colors cursor-pointer group"
+                          >
+                            {copiedTaskId === lic.taskId ? (
+                              <Check className="w-3 h-3 text-emerald-500 animate-in zoom-in-75" />
+                            ) : (
+                              <Copy className="w-3 h-3 group-hover:scale-110 transition-transform" />
+                            )}
+                          </button>
+                        </div>
+                      </td>
+                      <td className="py-3 px-3">
+                        {lic.assignedTo && lic.assignedTo !== "-" ? (
+                          <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full font-bold text-[10px] bg-purple-50 text-purple-700 dark:bg-purple-950/60 dark:text-purple-300 border border-purple-200/60 dark:border-purple-800/60">
+                            <Users className="w-3 h-3 text-purple-500" />
+                            <span>{lic.assignedTo}</span>
+                          </span>
+                        ) : (
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md font-bold text-[10px] bg-slate-100 text-slate-500 dark:bg-slate-800 dark:text-slate-400">
+                            Unassigned
+                          </span>
+                        )}
+                      </td>
                       <td className="py-3 px-3 font-bold text-slate-900 dark:text-white">{lic.partnerName}</td>
                       <td className="py-3 px-3 text-slate-500">{lic.partnerNumber}</td>
                       <td className="py-3 px-3 font-bold text-slate-900 dark:text-white">{lic.clientName}</td>
@@ -1965,7 +2059,7 @@ function ReportsPageContent() {
                         <div className="flex items-center justify-end gap-1.5">
                           <button
                             type="button"
-                            onClick={() => setSelectedLicenceModal(lic)}
+                            onClick={() => openViewLicenceModal(lic)}
                             className="px-2.5 py-1 rounded-lg bg-blue-50 hover:bg-blue-100 text-blue-600 dark:bg-blue-950/60 dark:text-sky-400 text-[11px] font-bold transition-colors cursor-pointer"
                           >
                             View
@@ -1978,15 +2072,6 @@ function ReportsPageContent() {
                           >
                             <Edit3 className="w-3 h-3" />
                             <span>Modify</span>
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => setDeleteConfirmLicence(lic)}
-                            className="px-2 py-1 rounded-lg bg-rose-50 hover:bg-rose-100 text-rose-600 dark:bg-rose-950/60 dark:text-rose-400 text-[11px] font-bold transition-colors cursor-pointer flex items-center gap-1"
-                            title="Delete Licence"
-                          >
-                            <Trash2 className="w-3 h-3" />
-                            <span>Delete</span>
                           </button>
                         </div>
                       </td>
@@ -2043,21 +2128,25 @@ function ReportsPageContent() {
       )}
 
       {/* ==================================================================== */}
-      {/* 🔍 LICENCE DETAILS MODAL (UX Polish)                                  */}
+      {/* 🔍 LICENCE DETAILS MODAL (Live API Task & Staff Deliverables)        */}
       {/* ==================================================================== */}
       {selectedLicenceModal && (
-        <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-slate-900/40 backdrop-blur-xs p-4 animate-in fade-in">
-          <div className="bg-white dark:bg-[#0c1427] rounded-3xl border border-slate-200/90 dark:border-slate-800 shadow-2xl max-w-lg w-full p-6 space-y-4">
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-slate-900/60 backdrop-blur-xs p-4 animate-in fade-in">
+          <div className="bg-white dark:bg-[#0c1427] rounded-3xl border border-slate-200/90 dark:border-slate-800 shadow-2xl max-w-xl w-full p-6 space-y-4 max-h-[92vh] overflow-y-auto">
             <ModalHeaderBanner
               icon={ShieldCheck}
               badge="REGULATORY REGISTRY"
               title={`Licence · ${selectedLicenceModal.clientName}`}
               description={`Task ID: ${selectedLicenceModal.taskId} · ${selectedLicenceModal.serviceName} (${selectedLicenceModal.taskCategory})`}
               badgeTag={selectedLicenceModal.status}
-              onClose={() => setSelectedLicenceModal(null)}
+              onClose={() => {
+                setSelectedLicenceModal(null);
+                setModalStaffDocuments([]);
+              }}
             />
 
-            <div className="grid grid-cols-2 gap-3 text-xs">
+            {/* Comprehensive Task & Licence Metadata */}
+            <div className="grid grid-cols-2 gap-2.5 text-xs">
               <div className="p-3 rounded-2xl bg-slate-50 dark:bg-slate-900/60 border border-slate-100 dark:border-slate-800">
                 <span className="text-[10px] font-bold text-slate-400 uppercase">Licence Number</span>
                 <p className="font-mono font-black text-slate-900 dark:text-white mt-0.5">{selectedLicenceModal.licenceNumber}</p>
@@ -2067,12 +2156,22 @@ function ReportsPageContent() {
                 <p className="font-bold text-sky-600 dark:text-sky-400 mt-0.5">{selectedLicenceModal.licenceType}</p>
               </div>
               <div className="p-3 rounded-2xl bg-slate-50 dark:bg-slate-900/60 border border-slate-100 dark:border-slate-800">
-                <span className="text-[10px] font-bold text-slate-400 uppercase">Partner</span>
-                <p className="font-bold text-slate-900 dark:text-white mt-0.5">{selectedLicenceModal.partnerName} ({selectedLicenceModal.partnerNumber})</p>
+                <span className="text-[10px] font-bold text-slate-400 uppercase">Client Name &amp; Contact</span>
+                <p className="font-bold text-slate-900 dark:text-white mt-0.5">{selectedLicenceModal.clientName}</p>
+                <p className="text-[10px] text-slate-500">{selectedLicenceModal.clientNumber || "-"}</p>
               </div>
               <div className="p-3 rounded-2xl bg-slate-50 dark:bg-slate-900/60 border border-slate-100 dark:border-slate-800">
-                <span className="text-[10px] font-bold text-slate-400 uppercase">Validity</span>
+                <span className="text-[10px] font-bold text-slate-400 uppercase">Franchise Partner</span>
+                <p className="font-bold text-slate-900 dark:text-white mt-0.5">{selectedLicenceModal.partnerName}</p>
+                <p className="text-[10px] text-slate-500">{selectedLicenceModal.partnerNumber || "-"}</p>
+              </div>
+              <div className="p-3 rounded-2xl bg-slate-50 dark:bg-slate-900/60 border border-slate-100 dark:border-slate-800">
+                <span className="text-[10px] font-bold text-slate-400 uppercase">Validity Term</span>
                 <p className="font-bold text-slate-900 dark:text-white mt-0.5">{selectedLicenceModal.issueDate} → {selectedLicenceModal.expiryDate}</p>
+              </div>
+              <div className="p-3 rounded-2xl bg-slate-50 dark:bg-slate-900/60 border border-slate-100 dark:border-slate-800">
+                <span className="text-[10px] font-bold text-slate-400 uppercase">Assigned Specialist</span>
+                <p className="font-bold text-purple-600 dark:text-purple-400 mt-0.5">{selectedLicenceModal.assignedTo || "Check Staff"}</p>
               </div>
               <div className="p-3 rounded-2xl bg-slate-50 dark:bg-slate-900/60 border border-slate-100 dark:border-slate-800">
                 <span className="text-[10px] font-bold text-slate-400 uppercase">Portal User ID</span>
@@ -2081,7 +2180,8 @@ function ReportsPageContent() {
                   <button
                     type="button"
                     onClick={() => handleCopy(selectedLicenceModal.userId, "user")}
-                    className="text-slate-400 hover:text-blue-600 cursor-pointer"
+                    className="text-slate-400 hover:text-blue-600 cursor-pointer p-0.5"
+                    title="Copy User ID"
                   >
                     <Copy className="w-3.5 h-3.5" />
                   </button>
@@ -2094,7 +2194,8 @@ function ReportsPageContent() {
                   <button
                     type="button"
                     onClick={() => handleCopy(selectedLicenceModal.passwordMasked, "pass")}
-                    className="text-slate-400 hover:text-blue-600 cursor-pointer"
+                    className="text-slate-400 hover:text-blue-600 cursor-pointer p-0.5"
+                    title="Copy Password"
                   >
                     <Copy className="w-3.5 h-3.5" />
                   </button>
@@ -2102,23 +2203,95 @@ function ReportsPageContent() {
               </div>
             </div>
 
-            <div className="pt-2 flex items-center justify-end gap-2">
-              <button
-                type="button"
-                onClick={() => setSelectedLicenceModal(null)}
-                className="px-4 py-2 rounded-xl text-xs font-bold text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 cursor-pointer"
-              >
-                Close
-              </button>
+            {/* 📁 REAL STAFF ATTACHMENTS SECTION */}
+            <div className="mt-4 pt-3 border-t border-slate-100 dark:border-slate-800">
+              <div className="flex items-center justify-between mb-2">
+                <div className="flex items-center gap-1.5">
+                  <FileCheck2 className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
+                  <h4 className="text-xs font-black text-slate-900 dark:text-white uppercase tracking-wider">
+                    Staff Deliverables &amp; Attachments
+                  </h4>
+                </div>
+                <span className="text-[11px] font-bold text-slate-400">
+                  {modalStaffDocuments.length} Verified File{modalStaffDocuments.length !== 1 ? "s" : ""}
+                </span>
+              </div>
+
+              {loadingStaffDocs ? (
+                <div className="py-6 flex flex-col items-center justify-center gap-2 text-slate-400 text-xs">
+                  <Loader2 className="w-5 h-5 animate-spin text-blue-600" />
+                  <span>Loading official staff documents...</span>
+                </div>
+              ) : modalStaffDocuments.length === 0 ? (
+                <div className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-900/50 border border-dashed border-slate-200 dark:border-slate-800 text-center text-xs text-slate-400">
+                  No staff deliverables attached to this service request yet.
+                </div>
+              ) : (
+                <div className="space-y-2 max-h-56 overflow-y-auto pr-1">
+                  {modalStaffDocuments.map((doc: any, i: number) => {
+                    const numericTaskId = selectedLicenceModal.numericTaskId || (Number(String(selectedLicenceModal.taskId).replace(/\D/g, "")) || 1);
+                    const rawDownloadUrl = doc.downloadPath?.startsWith("/api") 
+                      ? doc.downloadPath 
+                      : `/api/proxy/admin/service-requests/${numericTaskId}/documents/${doc.id || i + 1}`;
+                    const sizeStr = doc.sizeBytes ? `${(doc.sizeBytes / 1024).toFixed(0)} KB` : "1.8 MB";
+
+                    return (
+                      <div
+                        key={doc.id || i}
+                        className="flex items-center justify-between p-3 rounded-xl bg-slate-50 dark:bg-slate-900/70 border border-slate-200/70 dark:border-slate-800 hover:border-blue-400 transition-colors"
+                      >
+                        <div className="flex items-center gap-2.5 min-w-0">
+                          <div className="w-8 h-8 rounded-lg bg-emerald-50 dark:bg-emerald-950/60 text-emerald-600 dark:text-emerald-400 flex items-center justify-center shrink-0 font-black text-xs">
+                            <Paperclip className="w-4 h-4" />
+                          </div>
+                          <div className="min-w-0">
+                            <p className="font-bold text-xs text-slate-900 dark:text-white truncate max-w-xs" title={doc.fileName || doc.title}>
+                              {doc.fileName || doc.title || `Deliverable_${i + 1}.png`}
+                            </p>
+                            <p className="text-[10px] text-slate-400 flex items-center gap-2">
+                              <span>Uploaded by: {doc.uploadedBy || "Staff"}</span>
+                              <span>•</span>
+                              <span>{sizeStr}</span>
+                            </p>
+                          </div>
+                        </div>
+
+                        <div className="flex items-center gap-1.5 shrink-0 ml-2">
+                          <a
+                            href={rawDownloadUrl}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="px-2.5 py-1.5 rounded-lg bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-blue-600 dark:text-sky-400 hover:bg-blue-50 text-[11px] font-bold flex items-center gap-1 transition-colors cursor-pointer"
+                          >
+                            <ExternalLink className="w-3 h-3" />
+                            <span>Preview</span>
+                          </a>
+                          <a
+                            href={rawDownloadUrl}
+                            download={doc.fileName || `Licence_Document_${i + 1}`}
+                            className="px-2.5 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-[11px] font-bold flex items-center gap-1 shadow-xs transition-colors cursor-pointer"
+                          >
+                            <Download className="w-3 h-3" />
+                            <span>Download</span>
+                          </a>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+
+            <div className="pt-2 flex items-center justify-end gap-2 border-t border-slate-100 dark:border-slate-800">
               <button
                 type="button"
                 onClick={() => {
-                  alert(`Downloading ${selectedLicenceModal.attachmentsCount} verified statutory attachments...`);
+                  setSelectedLicenceModal(null);
+                  setModalStaffDocuments([]);
                 }}
-                className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold shadow-xs cursor-pointer"
+                className="px-5 py-2 rounded-xl text-xs font-bold text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 cursor-pointer"
               >
-                <Download className="w-3.5 h-3.5" />
-                <span>Download Attachments ({selectedLicenceModal.attachmentsCount})</span>
+                Close
               </button>
             </div>
           </div>

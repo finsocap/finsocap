@@ -121,13 +121,19 @@ async function handleProxy(
       });
     }
 
-    const text = await res.text();
-    return new NextResponse(text, {
+    const arrayBuffer = await res.arrayBuffer();
+    const responseHeaders: Record<string, string> = {
+      "content-type": resContentType || "application/octet-stream",
+      "Access-Control-Allow-Origin": "*",
+    };
+    const contentDisposition = res.headers.get("content-disposition");
+    if (contentDisposition) {
+      responseHeaders["content-disposition"] = contentDisposition;
+    }
+
+    return new NextResponse(arrayBuffer, {
       status: res.status,
-      headers: {
-        "content-type": resContentType || "text/plain",
-        "Access-Control-Allow-Origin": "*",
-      },
+      headers: responseHeaders,
     });
   } catch (err: any) {
     console.error(`[API Proxy Error] -> ${targetUrl}:`, err);
