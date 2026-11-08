@@ -67,7 +67,26 @@ export async function POST(request: NextRequest) {
       return NextResponse.json(adminData);
     }
 
-    // 3. Fallback to Staff Login if not admin
+    // 3. Fallback to Partner Login (Op 03: POST /api/partners/login)
+    try {
+      const partnerRes = await fetch(`${API_ROOT.replace(/\/+$/, "")}/partners/login`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email, password }),
+        cache: "no-store",
+      });
+      const partnerData = await partnerRes.json();
+      if (partnerRes.ok && partnerData?.success) {
+        return NextResponse.json(partnerData);
+      }
+      if (partnerData?.message?.toLowerCase().includes("pending") || partnerData?.status === "PENDING") {
+        return NextResponse.json(partnerData, { status: 403 });
+      }
+    } catch (e) {
+      console.warn("[Auth API] Partner login attempt:", e);
+    }
+
+    // 4. Fallback to Staff Login
     if (adminRes.status === 403 || adminData?.message?.includes("not an Administrator")) {
       const staffRes = await fetch(`${API_ROOT.replace(/\/+$/, "")}/staff/login`, {
         method: "POST",

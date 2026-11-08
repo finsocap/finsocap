@@ -17,6 +17,7 @@ import DateRangeFilter from "@/components/Dashboard/DateRangeFilter";
 import PartnerFilter from "@/components/Dashboard/PartnerFilter";
 import PageBanner from "@/components/Dashboard/PageBanner";
 import RoleDashboardView from "@/components/Dashboard/RoleDashboardView";
+import PartnerRequestsDashboard from "@/components/Dashboard/PartnerRequestsDashboard";
 import WeatherWidgetCard from "@/components/Dashboard/WeatherWidgetCard";
 import { useCrmStore, fetchLiveDbData } from "@/lib/crmStore";
 import { isDateWithinRange, getCurrentMonthRangeLabel } from "@/lib/dateRangeHelper";
@@ -188,6 +189,11 @@ export default function DashboardHome() {
         return "bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300";
     }
   };
+
+  // For partner role: Render full Partner Requests & Lifecycle Dashboard
+  if (activeRole === "PARTNER") {
+    return <PartnerRequestsDashboard />;
+  }
 
   // For operational roles (STAFF, SPECIALIST, EXECUTIVE): Render completely isolated role view
   if (["STAFF", "SPECIALIST", "EXECUTIVE"].includes(activeRole)) {

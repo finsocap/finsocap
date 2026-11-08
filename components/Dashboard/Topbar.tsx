@@ -15,6 +15,8 @@ import { soundEffects } from "@/lib/soundEffects";
 import { useTheme } from "@/components/Providers/ThemeProvider";
 import { useCrmStore } from "@/lib/crmStore";
 import BusinessCalculatorModal from "@/components/Dashboard/BusinessCalculatorModal";
+import PartnerProfileModal from "@/components/Dashboard/PartnerProfileModal";
+import { partnerPortalService, PartnerProfileData } from "@/lib/api/partnerPortalService";
 
 type NotificationItem = {
   id: string;
@@ -39,6 +41,8 @@ export default function Topbar({ user }: { user?: any }) {
   const [isNotifOpen, setIsNotifOpen] = useState(false);
   const [isProfileOpen, setIsProfileOpen] = useState(false);
   const [isCalculatorOpen, setIsCalculatorOpen] = useState(false);
+  const [partnerProfileData, setPartnerProfileData] = useState<PartnerProfileData | null>(null);
+  const [isPartnerProfileOpen, setIsPartnerProfileOpen] = useState(false);
   const [notifFilter, setNotifFilter] = useState<"all" | "unread">("all");
 
   // Notifications state
@@ -688,16 +692,39 @@ export default function Topbar({ user }: { user?: any }) {
 
               {/* Navigation Links */}
               <div className="p-2 text-xs font-bold text-slate-700 dark:text-slate-300 space-y-0.5">
-                <Link
-                  href="/dashboard/settings"
-                  onClick={() => setIsProfileOpen(false)}
-                  className="flex items-center justify-between px-3.5 py-2.5 rounded-2xl hover:bg-slate-100 dark:hover:bg-slate-800 hover:text-blue-600 dark:hover:text-sky-400 transition-colors"
-                >
-                  <span className="flex items-center gap-2.5">
-                    <User className="w-4 h-4 text-blue-500" /> My Profile & Security
-                  </span>
-                  <ChevronRight className="w-3.5 h-3.5 text-slate-400" />
-                </Link>
+                {userRole === "PARTNER" ? (
+                  <button
+                    onClick={async () => {
+                      setIsProfileOpen(false);
+                      try {
+                        const res = await partnerPortalService.auth.getProfile();
+                        if (res?.success && res.data) {
+                          setPartnerProfileData(res.data);
+                          setIsPartnerProfileOpen(true);
+                        }
+                      } catch (e) {
+                        router.push("/dashboard/settings");
+                      }
+                    }}
+                    className="w-full flex items-center justify-between px-3.5 py-2.5 rounded-2xl hover:bg-slate-100 dark:hover:bg-slate-800 hover:text-blue-600 dark:hover:text-sky-400 transition-colors text-left"
+                  >
+                    <span className="flex items-center gap-2.5">
+                      <User className="w-4 h-4 text-blue-500" /> Partner Profile & KYC (Op 04)
+                    </span>
+                    <ChevronRight className="w-3.5 h-3.5 text-slate-400" />
+                  </button>
+                ) : (
+                  <Link
+                    href="/dashboard/settings"
+                    onClick={() => setIsProfileOpen(false)}
+                    className="flex items-center justify-between px-3.5 py-2.5 rounded-2xl hover:bg-slate-100 dark:hover:bg-slate-800 hover:text-blue-600 dark:hover:text-sky-400 transition-colors"
+                  >
+                    <span className="flex items-center gap-2.5">
+                      <User className="w-4 h-4 text-blue-500" /> My Profile & Security
+                    </span>
+                    <ChevronRight className="w-3.5 h-3.5 text-slate-400" />
+                  </Link>
+                )}
 
                 <Link
                   href="/dashboard/tasks"
@@ -739,6 +766,14 @@ export default function Topbar({ user }: { user?: any }) {
         isOpen={isCalculatorOpen}
         onClose={() => setIsCalculatorOpen(false)}
       />
+
+      {/* Partner Profile & KYC Modal (Op 04) */}
+      {isPartnerProfileOpen && partnerProfileData && (
+        <PartnerProfileModal
+          profile={partnerProfileData}
+          onClose={() => setIsPartnerProfileOpen(false)}
+        />
+      )}
     </header>
   );
 }

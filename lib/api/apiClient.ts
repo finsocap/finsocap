@@ -9,12 +9,22 @@ export const BASE_API_URL = "https://finsocap.cloud/api";
 export class ApiError extends Error {
   status: number;
   data: any;
+  validationErrors?: Record<string, string>;
 
   constructor(message: string, status: number, data?: any) {
     super(message);
     this.name = "ApiError";
     this.status = status;
     this.data = data;
+
+    // Extract field-to-message validation map if present
+    if (data && typeof data === "object") {
+      if (data.errors && typeof data.errors === "object" && !Array.isArray(data.errors)) {
+        this.validationErrors = data.errors;
+      } else if (data.data && typeof data.data === "object" && !Array.isArray(data.data)) {
+        this.validationErrors = data.data;
+      }
+    }
   }
 }
 
@@ -224,11 +234,33 @@ async function request<T = any>(endpoint: string, config: RequestConfig = {}): P
     }
 
     if (!response.ok) {
-      const errorMessage =
+      // 401 Unauthorized: clear session and redirect to login
+      if (response.status === 401 && typeof window !== "undefined") {
+        clearAuthToken();
+        const path = window.location.pathname;
+        if (!path.includes("/login") && !path.includes("/register")) {
+          window.location.href = "/dashboard/login?session_expired=true";
+        }
+      }
+
+      let errorMessage =
         json?.message ||
-        (json?.data && typeof json.data === "string" ? json.data : null) ||
-        response.statusText ||
-        `Request failed with status ${response.status}`;
+        (json?.data && typeof json.data === "string" ? json.data : null);
+
+      if (!errorMessage) {
+        if (response.status === 403) {
+          errorMessage = "Access denied: Account is inactive or lacks permission.";
+        } else if (response.status === 404) {
+          errorMessage = "The requested resource could not be found.";
+        } else if (response.status === 409) {
+          errorMessage = "Conflict: Record has changed or document is already attached. Please reload.";
+        } else if (response.status === 413) {
+          errorMessage = "File too large: Please upload a file within the maximum allowed size (max 10 MB).";
+        } else {
+          errorMessage = response.statusText || `Request failed with status ${response.status}`;
+        }
+      }
+
       throw new ApiError(errorMessage, response.status, json);
     }
 
@@ -257,6 +289,33 @@ export const apiClient = {
 
   delete: <T = any>(endpoint: string, headers?: Record<string, string>) =>
     request<T>(endpoint, { method: "DELETE", headers }),
+
+  /**
+   * Protected Binary File Fetcher (for ops 22 & 24)
+   * Fetches binary PDF/images with Authorization Bearer header, creates a safe Object URL.
+   */
+  fetchBlob: async (endpoint: string, inline: boolean = true): Promise<{ blob: Blob; objectUrl: string; contentType: string }> => {
+    const url = resolveUrl(endpoint, inline ? { inline: "true" } : undefined);
+    const token = getAuthToken();
+    const headers: Record<string, string> = {};
+    if (token) {
+      headers["Authorization"] = `Bearer ${token}`;
+    }
+
+    const response = await fetch(url, { headers });
+    if (!response.ok) {
+      if (response.status === 401 && typeof window !== "undefined") {
+        clearAuthToken();
+        window.location.href = "/dashboard/login?session_expired=true";
+      }
+      throw new ApiError(`Failed to fetch file (HTTP ${response.status})`, response.status);
+    }
+
+    const blob = await response.blob();
+    const contentType = response.headers.get("content-type") || blob.type || "application/octet-stream";
+    const objectUrl = typeof window !== "undefined" ? window.URL.createObjectURL(blob) : "";
+    return { blob, objectUrl, contentType };
+  },
 
   getBaseUrl: () => BASE_API_URL,
 };

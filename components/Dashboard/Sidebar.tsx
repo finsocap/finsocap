@@ -205,7 +205,16 @@ export default function Sidebar({ userRole = "ADMIN" }: { userRole?: string }) {
     );
   };
 
-  const coreNavItems = isOperational
+  const isPartner = (activeRole || "").toUpperCase().trim() === "PARTNER";
+
+  const coreNavItems = isPartner
+    ? [
+        { label: "Dashboard", href: "/dashboard", icon: Home },
+        { label: "Products / Services", href: "/dashboard/services", icon: Boxes },
+        { label: "Tasks & Filings", href: "/dashboard/tasks", icon: ClipboardList, badge: openTasksCount > 0 ? `${openTasksCount}` : undefined },
+        { label: "Clients", href: "/dashboard/clients", icon: Users },
+      ]
+    : isOperational
     ? [
         { label: "Dashboard", href: "/dashboard", icon: Home },
         { label: "My Assigned Tasks", href: "/dashboard/tasks", icon: ClipboardList, badge: openTasksCount > 0 ? `${openTasksCount}` : undefined },
@@ -224,7 +233,11 @@ export default function Sidebar({ userRole = "ADMIN" }: { userRole?: string }) {
         { label: "Team", href: "/dashboard/team", icon: ShieldCheck },
       ];
 
-  const reportNavItems = isOperational
+  const reportNavItems = isPartner
+    ? [
+        { label: "Licence Report", href: "/dashboard/reports?tab=licence", icon: KeyRound },
+      ]
+    : isOperational
     ? [
         { label: "Service Team Report", href: "/dashboard/reports?tab=service", icon: Award },
       ]

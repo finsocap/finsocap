@@ -27,6 +27,7 @@ import { formatName, formatIndianPhoneNumber, normalizePhoneForBackend, mapBacke
 import { PhoneInput } from "@/components/Global/PhoneInput";
 import { NameInput } from "@/components/Global/NameInput";
 import { isDateWithinRange, getCurrentMonthRangeLabel, calculateOverdueDays } from "@/lib/dateRangeHelper";
+import PartnerRequestsDashboard from "@/components/Dashboard/PartnerRequestsDashboard";
 
 const allStatuses: { status: TaskStatus; label: string; count: number; color: string; bg: string; icon: any }[] = [
   { status: "Pending", label: "Pending", count: 47, color: "text-blue-500", bg: "bg-blue-500/10 border-blue-500/20", icon: Clock },
@@ -510,6 +511,10 @@ export default function TasksPage() {
         return "bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300";
     }
   };
+
+  if (userRole === "PARTNER") {
+    return <PartnerRequestsDashboard />;
+  }
 
   return (
     <div className="space-y-6 pb-20">
