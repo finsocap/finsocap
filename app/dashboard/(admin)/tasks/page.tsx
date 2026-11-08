@@ -156,6 +156,8 @@ export default function TasksPage() {
           if (staffTasksRes?.success && staffTasksRes.data?.items && staffTasksRes.data.items.length > 0) {
             const mappedStaffTasks: TaskItem[] = staffTasksRes.data.items.map((it: any) => ({
               id: it.requestCode || `T-${it.id}`,
+              numericId: typeof it.id === "number" ? it.id : Number(it.id) || undefined,
+              version: typeof it.version === "number" ? it.version : 0,
               partnerId: it.partnerId ? `P-${it.partnerId}` : "P-101",
               partnerName: it.partnerName || "HQ",
               partnerContact: it.partnerContact || "",
@@ -191,6 +193,8 @@ export default function TasksPage() {
         if (tasksRes.status === "fulfilled" && tasksRes.value?.success && Array.isArray(tasksRes.value.data) && tasksRes.value.data.length > 0) {
           const mappedTasks: TaskItem[] = tasksRes.value.data.map((bt) => ({
             id: bt.taskId || `T-${bt.id}`,
+            numericId: typeof bt.id === "number" ? bt.id : Number(bt.id) || undefined,
+            version: typeof (bt as any).version === "number" ? (bt as any).version : 0,
             partnerId: bt.partnerId || "P-101",
             partnerName: bt.partnerName || "HQ",
             partnerContact: bt.partnerContact || "",
@@ -392,43 +396,45 @@ export default function TasksPage() {
     const backendStatus = statusMap[editStatus];
 
     // Backend sync for dueDate & status update
-    try {
-      const numericTaskId = editingTask.numericId || (Number(editingTask.id.replace(/\D/g, "")) || 0);
-      if (numericTaskId > 0) {
-        // Direct fast Core Task entity update with both dueDate and status
-        fetch(`/api/proxy/tasks/${numericTaskId}`, {
-          method: "PUT",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            status: backendStatus || editingTask.status,
-            dueDate: editDue || null,
-            version: typeof editingTask.version === "number" ? editingTask.version + 1 : 1,
-          }),
-        }).catch((err) => console.warn("Direct PUT task entity warning:", err));
-      }
-    } catch (e) {}
-
-    // Backend sync for status update if status changed
-    if (statusChanged) {
+    if (statusChanged || editDue !== editingTask.dueDate) {
       try {
-        const numericTaskId = editingTask.numericId || (Number(editingTask.id.replace(/\D/g, "")) || 0);
-        if (numericTaskId > 0) {
-          if (backendStatus) {
-            const isStaff = ["STAFF", "SPECIALIST", "EXECUTIVE"].includes(userRole.toUpperCase());
+        let numericTaskId = editingTask.numericId;
+        if (!numericTaskId && editingTask.id) {
+          if (/^\d+$/.test(editingTask.id)) {
+            numericTaskId = Number(editingTask.id);
+          } else if (editingTask.id.startsWith("T-") && /^\d+$/.test(editingTask.id.slice(2))) {
+            numericTaskId = Number(editingTask.id.slice(2));
+          }
+        }
 
-            // 1. Direct fast Core Task entity status update
-            fetch(`/api/proxy/tasks/${numericTaskId}`, {
-              method: "PUT",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({
-                status: backendStatus,
-                version: typeof editingTask.version === "number" ? editingTask.version + 1 : 1,
-              }),
-            }).catch((err) => console.warn("Direct PUT task entity warning:", err));
+        if (numericTaskId && numericTaskId > 0) {
+          const isStaff = ["STAFF", "SPECIALIST", "EXECUTIVE"].includes(userRole.toUpperCase());
 
-            // 2. Status transition workflow endpoint
+          // 1. Fetch live version from server to prevent 409 stale version conflict
+          let currentLiveVersion = typeof editingTask.version === "number" ? editingTask.version : 0;
+          try {
+            const verRes = await fetch(`/api/proxy/tasks/${numericTaskId}`, { cache: "no-store" });
+            if (verRes.ok) {
+              const verJson = await verRes.json();
+              if (typeof verJson?.data?.version === "number") currentLiveVersion = verJson.data.version;
+            }
+          } catch (e) {}
+
+          // 2. Direct core task PUT update
+          await fetch(`/api/proxy/tasks/${numericTaskId}`, {
+            method: "PUT",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              status: backendStatus || editingTask.status,
+              dueDate: editDue || null,
+              version: currentLiveVersion,
+            }),
+          }).catch((err) => console.warn("Direct PUT task entity warning:", err));
+
+          // 3. Status transition workflow endpoint
+          if (statusChanged && backendStatus) {
             if (isStaff) {
-              taskCollaborationService.updateTaskStatus(
+              await taskCollaborationService.updateTaskStatus(
                 numericTaskId,
                 {
                   status: backendStatus,
@@ -437,30 +443,15 @@ export default function TasksPage() {
                 "STAFF"
               ).catch((err) => console.warn("Staff status transition warning:", err));
             } else {
-              (async () => {
-                try {
-                  let currentLiveVersion = typeof editingTask.version === "number" ? editingTask.version : 0;
-                  try {
-                    const verRes = await fetch(`/api/proxy/tasks/${numericTaskId}`, { cache: "no-store" });
-                    if (verRes.ok) {
-                      const verJson = await verRes.json();
-                      if (typeof verJson?.data?.version === "number") currentLiveVersion = verJson.data.version;
-                    }
-                  } catch (e) {}
-
-                  await taskCollaborationService.updateTaskStatus(
-                    numericTaskId,
-                    {
-                      status: backendStatus,
-                      note: `Status updated to ${editStatus} from Task Editor`,
-                      expectedVersion: currentLiveVersion,
-                    },
-                    "ADMIN"
-                  );
-                } catch (patchErr) {
-                  console.warn("Admin status transition warning:", patchErr);
-                }
-              })();
+              await taskCollaborationService.updateTaskStatus(
+                numericTaskId,
+                {
+                  status: backendStatus,
+                  note: `Status updated to ${editStatus} from Task Editor`,
+                  expectedVersion: currentLiveVersion,
+                },
+                "ADMIN"
+              ).catch((patchErr) => console.warn("Admin status transition warning:", patchErr));
             }
           }
         }

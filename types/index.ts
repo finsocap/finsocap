@@ -239,20 +239,31 @@ export type TaskStatus =
  * - From "Pending from Client" / "Pending from Department" / "Overdue", transitions route back to "In Progress".
  * - "Sent for Review" moves to "Completed" (by assigned specialist) or rejected back to "In Progress".
  */
-// Fully unlocked status transitions to give complete operational control
+/**
+ * Accurate Backend-Enforced Status State Machine
+ * Live backend rule:
+ * - PENDING -> IN_PROGRESS, CANCELLED
+ * - IN_PROGRESS -> SENT_FOR_REVIEW, PENDING_FROM_CLIENT, PENDING_FROM_DEPARTMENT, COMPLETED, CANCELLED
+ * - PENDING_FROM_CLIENT -> IN_PROGRESS, CANCELLED
+ * - PENDING_FROM_DEPARTMENT -> IN_PROGRESS, CANCELLED
+ * - SENT_FOR_REVIEW -> IN_PROGRESS (Revision), COMPLETED, CANCELLED
+ * - COMPLETED / CANCELLED: Closed (Terminal - no further transitions)
+ */
 export const ALLOWED_STATUS_TRANSITIONS: Record<TaskStatus, TaskStatus[]> = {
-  "Pending": ["In Progress", "Sent for Review", "Pending from Client", "Pending from Department", "Overdue", "Completed", "Cancelled"],
-  "In Progress": ["Pending", "Sent for Review", "Pending from Client", "Pending from Department", "Overdue", "Completed", "Cancelled"],
-  "Pending from Client": ["Pending", "In Progress", "Sent for Review", "Pending from Department", "Overdue", "Completed", "Cancelled"],
-  "Pending from Department": ["Pending", "In Progress", "Sent for Review", "Pending from Client", "Overdue", "Completed", "Cancelled"],
-  "Overdue": ["Pending", "In Progress", "Sent for Review", "Pending from Client", "Pending from Department", "Completed", "Cancelled"],
-  "Sent for Review": ["Pending", "In Progress", "Pending from Client", "Pending from Department", "Overdue", "Completed", "Cancelled"],
-  "Completed": ["Pending", "In Progress", "Sent for Review", "Pending from Client", "Pending from Department", "Overdue", "Cancelled"],
-  "Cancelled": ["Pending", "In Progress", "Sent for Review", "Pending from Client", "Pending from Department", "Overdue", "Completed"],
+  "Pending": ["In Progress", "Cancelled"],
+  "In Progress": ["Sent for Review", "Pending from Client", "Pending from Department", "Completed", "Cancelled"],
+  "Pending from Client": ["In Progress", "Cancelled"],
+  "Pending from Department": ["In Progress", "Cancelled"],
+  "Overdue": ["In Progress", "Pending from Client", "Cancelled"],
+  "Sent for Review": ["In Progress", "Completed", "Cancelled"],
+  "Completed": [],
+  "Cancelled": [],
 };
 
 export function canTransitionStatus(currentStatus: TaskStatus, targetStatus: TaskStatus): boolean {
-  return true; // All status transitions unlocked
+  if (currentStatus === targetStatus) return true;
+  const allowed = ALLOWED_STATUS_TRANSITIONS[currentStatus];
+  return Array.isArray(allowed) ? allowed.includes(targetStatus) : false;
 }
 
 export interface CommentAttachment {

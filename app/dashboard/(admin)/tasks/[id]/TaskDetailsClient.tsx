@@ -356,8 +356,16 @@ export default function TaskDetailsClient({ id }: { id: string }) {
 
     // 2. Live Backend Dual-Sync: Immediate, Fast & Reliable
     try {
-      const numericTaskId = task.numericId || (Number(task.id.replace(/\D/g, "")) || 0);
-      if (numericTaskId > 0) {
+      let numericTaskId = task.numericId;
+      if (!numericTaskId && task.id) {
+        if (/^\d+$/.test(task.id)) {
+          numericTaskId = Number(task.id);
+        } else if (task.id.startsWith("T-") && /^\d+$/.test(task.id.slice(2))) {
+          numericTaskId = Number(task.id.slice(2));
+        }
+      }
+
+      if (numericTaskId && numericTaskId > 0) {
         const statusMap: Record<string, any> = {
           "Pending": "PENDING",
           "In Progress": "IN_PROGRESS",
@@ -372,19 +380,30 @@ export default function TaskDetailsClient({ id }: { id: string }) {
         if (backendStatus) {
           const isStaffRole = ["STAFF", "SPECIALIST", "EXECUTIVE"].includes(userRole.toUpperCase());
 
-          // 2A. Instant Core Task Entity Update (takes ~50-100ms, directly preserves assignedTo and updates status)
-          fetch(`/api/proxy/tasks/${numericTaskId}`, {
+          // 2A. Fetch live version to avoid 409 stale version conflict
+          let currentLiveVersion = typeof task.version === "number" ? task.version : 0;
+          try {
+            const verRes = await fetch(`/api/proxy/tasks/${numericTaskId}`, { cache: "no-store" });
+            if (verRes.ok) {
+              const verJson = await verRes.json();
+              if (typeof verJson?.data?.version === "number") {
+                currentLiveVersion = verJson.data.version;
+              }
+            }
+          } catch (e) {}
+
+          // 2B. Direct PUT task entity update
+          await fetch(`/api/proxy/tasks/${numericTaskId}`, {
             method: "PUT",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
               status: backendStatus,
-              version: typeof task.version === "number" ? task.version + 1 : 1,
+              version: currentLiveVersion,
             }),
           }).catch((err) => console.warn("Direct PUT task entity warning:", err));
 
-          // 2B. Status transition workflow endpoint
+          // 2C. Status transition workflow endpoint
           if (isStaffRole) {
-            // Specialist status API ignores expectedVersion and checks against locked current task
             await taskCollaborationService.updateTaskStatus(
               numericTaskId,
               {
@@ -394,31 +413,18 @@ export default function TaskDetailsClient({ id }: { id: string }) {
               "STAFF"
             ).catch((err) => console.warn("Staff status transition warning:", err));
           } else {
-            // Admin workflow status endpoint with version handling
-            try {
-              let currentLiveVersion = typeof task.version === "number" ? task.version : 0;
-              try {
-                const verRes = await fetch(`/api/proxy/tasks/${numericTaskId}`, { cache: "no-store" });
-                if (verRes.ok) {
-                  const verJson = await verRes.json();
-                  if (typeof verJson?.data?.version === "number") {
-                    currentLiveVersion = verJson.data.version;
-                  }
-                }
-              } catch (e) {}
-
-              await taskCollaborationService.updateTaskStatus(
-                numericTaskId,
-                {
-                  status: backendStatus,
-                  note: `Status updated to ${newStatus} by ${currentUser?.name || "Operations Team"}`,
-                  expectedVersion: currentLiveVersion,
-                },
-                "ADMIN"
-              );
-            } catch (patchErr) {
+            await taskCollaborationService.updateTaskStatus(
+              numericTaskId,
+              {
+                status: backendStatus,
+                note: `Status updated to ${newStatus} by ${currentUser?.name || "Operations Team"}`,
+                expectedVersion: currentLiveVersion,
+              },
+              "ADMIN"
+            ).catch((patchErr) => {
               console.warn("Admin PATCH service-request status warning:", patchErr);
-            }
+              toast.error(patchErr?.message || "Status change rejected by server transition rules", "Status Error");
+            });
           }
         }
       }
