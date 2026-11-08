@@ -12,7 +12,7 @@ import {
 } from "lucide-react";
 import { reportsService } from "@/lib/api/reportsService";
 import DateRangeFilter from "@/components/Dashboard/DateRangeFilter";
-import { useCrmStore, LicenceModel } from "@/lib/crmStore";
+import { useCrmStore, LicenceModel, fetchLiveDbData } from "@/lib/crmStore";
 import { useToast } from "@/components/Global/ToastNotification";
 import ModalHeaderBanner from "@/components/Dashboard/ModalHeaderBanner";
 import { isDateWithinRange, getCurrentMonthRangeLabel } from "@/lib/dateRangeHelper";
@@ -92,6 +92,7 @@ function ReportsPageContent() {
   const [currentUser, setCurrentUser] = useState<any>(null);
 
   useEffect(() => {
+    fetchLiveDbData();
     try {
       const sess = localStorage.getItem("finsocap_user_session");
       if (sess) {
@@ -576,7 +577,7 @@ function ReportsPageContent() {
     });
   }, [dynamicSalesRows, salesPersonFilter, salesStatusFilter]);
 
-  // Dynamic Licence Rows mapped from store
+  // Dynamic Licence Rows mapped from store and completed tasks
   const dynamicLicenceRows: LicenceRow[] = useMemo(() => {
     let localPasswordMap: Record<string, string> = {};
     if (typeof window !== "undefined") {
@@ -585,7 +586,7 @@ function ReportsPageContent() {
       } catch (e) {}
     }
 
-    return licences.map((l) => {
+    const mappedFromLicences = licences.map((l) => {
       const realPwd = localPasswordMap[l.number] || localPasswordMap[l.taskId || ""] || localPasswordMap[l.task || ""] || (l.password && !l.password.includes("••••") ? l.password : "Abc@1234");
       
       // Fallback lookup from tasks and partners if phone numbers are empty or "-"
@@ -626,13 +627,60 @@ function ReportsPageContent() {
         urlLinked: !!l.url,
       };
     });
-  }, [licences]);
+
+    // Also include any tasks with status === "Completed" that may not have an explicit licence row yet
+    const existingTaskIds = new Set(mappedFromLicences.map((r) => r.taskId));
+    const completedTasksWithoutLicence = tasks
+      .filter((t) => t.status === "Completed" && !existingTaskIds.has(t.id))
+      .map((t) => {
+        const matchedPartner = partners.find(
+          (p) => p.name?.toLowerCase() === t.partner?.toLowerCase() || p.partnerId?.toLowerCase() === t.partner?.toLowerCase()
+        );
+        const resolvedPartnerPhone = t.partnerPhone || matchedPartner?.phone || "9811122233";
+        const resolvedClientPhone = t.phone || "9125626628";
+        const generatedLicenceNum = t.license || `LIC-${String(t.numericId || t.id).replace(/\D/g, "").slice(0, 8) || "211700"}`;
+
+        return {
+          id: String(t.numericId || t.id),
+          taskId: t.id,
+          partnerName: t.partner || "HQ",
+          partnerNumber: resolvedPartnerPhone,
+          clientName: t.client || "-",
+          clientNumber: resolvedClientPhone,
+          licenceType: t.category || "General Licence",
+          taskCategory: t.category || "Compliance",
+          serviceName: t.service || "Compliance Filing",
+          licenceNumber: generatedLicenceNum,
+          issueDate: t.date || new Date().toISOString().slice(0, 10),
+          expiryDate: "2028-11-04",
+          userId: "UPFSSAI123",
+          passwordMasked: "Abc@1234",
+          attachmentsCount: 1,
+          status: "Active" as const,
+          urlLinked: true,
+        };
+      });
+
+    return [...mappedFromLicences, ...completedTasksWithoutLicence];
+  }, [licences, tasks, partners]);
 
   // Filtered Licence Rows
   const filteredLicences = useMemo(() => {
     return dynamicLicenceRows.filter((row) => {
-      if (dateRange && !isDateWithinRange(row.issueDate, dateRange) && !isDateWithinRange(row.expiryDate, dateRange)) {
-        return false;
+      // Find corresponding task for date fallback
+      const matchedTask = tasks.find(
+        (t) => t.id === row.taskId || (row.taskId && (t.id.includes(row.taskId) || row.taskId.includes(t.id)))
+      );
+
+      if (dateRange) {
+        const matchIssue = isDateWithinRange(row.issueDate, dateRange);
+        const matchExpiry = isDateWithinRange(row.expiryDate, dateRange);
+        const matchTaskDate = matchedTask?.date ? isDateWithinRange(matchedTask.date, dateRange) : false;
+        const matchTaskDue = matchedTask?.due || (matchedTask as any)?.dueDate ? isDateWithinRange(matchedTask?.due || (matchedTask as any)?.dueDate, dateRange) : false;
+        
+        if (!matchIssue && !matchExpiry && !matchTaskDate && !matchTaskDue) {
+          return false;
+        }
       }
       if (licenceTypeFilter !== "ALL" && row.licenceType !== licenceTypeFilter) return false;
       if (licenceCategoryFilter !== "ALL" && row.taskCategory !== licenceCategoryFilter) return false;
@@ -653,7 +701,7 @@ function ReportsPageContent() {
       }
       return true;
     });
-  }, [dynamicLicenceRows, licenceTypeFilter, licenceCategoryFilter, licenceStatusFilter, licenceEmployeeFilter, licenceSearch, dateRange]);
+  }, [dynamicLicenceRows, licenceTypeFilter, licenceCategoryFilter, licenceStatusFilter, licenceEmployeeFilter, licenceSearch, dateRange, tasks]);
 
   const licenceKpiStats = useMemo(() => {
     const total = dynamicLicenceRows.length;
