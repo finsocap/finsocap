@@ -194,6 +194,18 @@ function updateStore(updater: (prev: CrmData) => CrmData) {
 export async function fetchLiveDbData(): Promise<void> {
   if (typeof window === "undefined") return;
 
+  // For non-admin roles (STAFF, SPECIALIST, EXECUTIVE, PARTNER, CLIENT), do not attempt admin-only batch fetch
+  try {
+    const sessStr = localStorage.getItem("finsocap_user_session");
+    if (sessStr) {
+      const sess = JSON.parse(sessStr);
+      const role = (sess?.user?.role || sess?.role || "ADMIN").toUpperCase();
+      if (["STAFF", "SPECIALIST", "EXECUTIVE", "PARTNER", "CLIENT"].includes(role)) {
+        return;
+      }
+    }
+  } catch (e) {}
+
   try {
     const [tasksRes, partnersRes, clientsRes, specialistsRes, servicesRes, licencesRes] = await Promise.allSettled([
       apiClient.get<ApiResponse<BackendTask[]>>("/tasks"),

@@ -1338,53 +1338,61 @@ export default function ServicesPage() {
               </div>
             )}
 
-            {/* 5. Two-Column Cards: Content / Detailed Information (Left) vs Documents & Checklist (Right) */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {/* 5. Stacked Full-Width Sections: Content / Detailed Information (Top) & Documents & Checklist (Bottom) */}
+            <div className="space-y-4">
               
-              {/* Content / Detailed Information (Left) */}
+              {/* Content / Detailed Information (Full Width with elegant scroll & clear typography) */}
               <div className="p-4 sm:p-5 rounded-2xl bg-white dark:bg-slate-900/90 border border-slate-200/80 dark:border-slate-800 shadow-2xs space-y-3">
-                <div className="flex items-center justify-between">
+                <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800/80 pb-2.5">
                   <div className="flex items-center gap-2 text-blue-900 dark:text-sky-300 font-black text-xs uppercase tracking-wider">
                     <FileText className="w-4 h-4 text-blue-600 dark:text-sky-400" />
                     <span>Content / Detailed Information</span>
                   </div>
-                  <ChevronDown className="w-4 h-4 text-slate-400" />
+                  <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">
+                    Scroll to read
+                  </span>
                 </div>
-                <div className="flex items-center justify-between p-3 rounded-xl bg-slate-50/80 dark:bg-slate-800/60 border border-slate-200/60 dark:border-slate-700 text-xs">
-                  <div className="flex items-center gap-2.5">
-                    <FileText className="w-4 h-4 text-blue-500 shrink-0" />
-                    <span className="font-semibold text-slate-800 dark:text-slate-200">
-                      {viewingService.contentDetails || "Standard statutory corporate compliance filing and service overview."}
-                    </span>
+                
+                <div className="p-4 rounded-xl bg-slate-50/80 dark:bg-slate-800/60 border border-slate-200/60 dark:border-slate-700 max-h-56 overflow-y-auto overscroll-contain pr-3 scrollbar-thin scrollbar-thumb-slate-300 dark:scrollbar-thumb-slate-600">
+                  <div className="flex items-start gap-3">
+                    <FileText className="w-4 h-4 text-blue-500 shrink-0 mt-0.5" />
+                    {viewingService.contentDetails && /<[a-z][\s\S]*>/i.test(viewingService.contentDetails) ? (
+                      <div 
+                        className="prose prose-sm dark:prose-invert max-w-none text-xs sm:text-sm text-slate-700 dark:text-slate-300 font-medium leading-relaxed overflow-hidden break-words [&>p]:mb-2 [&>p]:text-xs sm:[&>p]:text-sm [&>p]:text-slate-700 dark:[&>p]:text-slate-300 [&>p]:leading-relaxed [&>ul]:list-disc [&>ul]:pl-5 [&>ul]:mb-2 [&>ol]:list-decimal [&>ol]:pl-5 [&>ol]:mb-2 [&>li]:mb-1 [&>li]:text-xs sm:[&>li]:text-sm [&>li]:text-slate-700 dark:[&>li]:text-slate-300"
+                        dangerouslySetInnerHTML={{ __html: viewingService.contentDetails }}
+                      />
+                    ) : (
+                      <span className="text-xs sm:text-sm text-slate-700 dark:text-slate-300 font-medium leading-relaxed whitespace-pre-wrap">
+                        {viewingService.contentDetails || "Standard statutory corporate compliance filing and service overview."}
+                      </span>
+                    )}
                   </div>
-                  <ChevronRight className="w-4 h-4 text-slate-400 shrink-0" />
                 </div>
               </div>
 
-              {/* Documents & Checklist (Right) */}
+              {/* Documents & Checklist (Full Width Grid) */}
               <div className="p-4 sm:p-5 rounded-2xl bg-white dark:bg-slate-900/90 border border-slate-200/80 dark:border-slate-800 shadow-2xs space-y-3">
-                <div className="flex items-center justify-between">
+                <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800/80 pb-2.5">
                   <div className="flex items-center gap-2 text-emerald-900 dark:text-emerald-300 font-black text-xs uppercase tracking-wider">
                     <CheckCircle2 className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
                     <span>Documents &amp; Checklist</span>
                   </div>
-                  <ChevronDown className="w-4 h-4 text-slate-400" />
                 </div>
-                <div className="space-y-2">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
                   {viewingService.requiredDocuments && viewingService.requiredDocuments.length > 0 ? (
                     viewingService.requiredDocuments.map((doc: any, idx: number) => (
                       <div key={idx} className="flex items-center justify-between p-3 rounded-xl bg-slate-50/80 dark:bg-slate-800/60 border border-slate-200/60 dark:border-slate-700 text-xs">
-                        <div className="flex items-center gap-2.5">
+                        <div className="flex items-center gap-2.5 min-w-0 pr-2">
                           <span className="w-2 h-2 rounded-full bg-emerald-500 shrink-0" />
-                          <span className="font-semibold text-slate-800 dark:text-slate-200">
+                          <span className="font-semibold text-slate-800 dark:text-slate-200 truncate">
                             {typeof doc === "string" ? doc : doc.name}
                           </span>
                         </div>
-                        <Download className="w-4 h-4 text-slate-400 hover:text-slate-700 cursor-pointer" />
+                        <CheckCircle2 className="w-4 h-4 text-emerald-600 dark:text-emerald-400 shrink-0 opacity-80" />
                       </div>
                     ))
                   ) : (
-                    <div className="p-3 rounded-xl bg-slate-50/80 dark:bg-slate-800/60 border border-slate-200/60 dark:border-slate-700 text-xs text-slate-400 italic">
+                    <div className="col-span-2 p-3 rounded-xl bg-slate-50/80 dark:bg-slate-800/60 border border-slate-200/60 dark:border-slate-700 text-xs text-slate-400 italic">
                       No specific documents attached.
                     </div>
                   )}
@@ -1402,8 +1410,17 @@ export default function ServicesPage() {
                 </div>
                 <div className="space-y-2">
                   {viewingService.faqs.map((faqItem: any, idx: number) => {
-                    const q = typeof faqItem === "object" ? faqItem.question : faqItem;
-                    const a = typeof faqItem === "object" ? faqItem.answer : "";
+                    let q = typeof faqItem === "object" ? faqItem.question : faqItem;
+                    let a = typeof faqItem === "object" ? faqItem.answer : "";
+                    
+                    // Strip duplicate leading "Q." or "Q:" if user/backend added it
+                    if (typeof q === "string") {
+                      q = q.replace(/^Q[\.\:\s]+/i, "").trim();
+                    }
+                    if (typeof a === "string") {
+                      a = a.replace(/^A[\.\:\s]+/i, "").trim();
+                    }
+
                     return (
                       <div key={idx} className="flex items-start justify-between p-3.5 rounded-xl bg-slate-50/80 dark:bg-slate-800/60 border border-slate-200/60 dark:border-slate-700 text-xs">
                         <div className="space-y-1">
@@ -1485,27 +1502,15 @@ export default function ServicesPage() {
                           </div>
                           <div className="flex items-center gap-2 shrink-0">
                             {fileUrl && fileUrl !== "#" && (
-                              <>
-                                <button
-                                  type="button"
-                                  onClick={() => setPreviewDocState({
-                                    isOpen: true,
-                                    title: title,
-                                    docName: title.endsWith(".pdf") ? title : `${title}.pdf`,
-                                    fileUrl: fileUrl,
-                                  })}
-                                  className="px-3 py-1 rounded-lg bg-blue-100 dark:bg-blue-950 text-blue-600 dark:text-sky-300 font-bold text-xs hover:bg-blue-600 hover:text-white transition-colors cursor-pointer"
-                                >
-                                  View
-                                </button>
-                                <button
-                                  type="button"
-                                  onClick={() => downloadFile(fileUrl, title.endsWith(".pdf") ? title : `${title}.pdf`)}
-                                  className="text-slate-400 hover:text-slate-700 cursor-pointer"
-                                >
-                                  <Download className="w-4 h-4" />
-                                </button>
-                              </>
+                              <button
+                                type="button"
+                                onClick={() => downloadFile(fileUrl, title.endsWith(".pdf") ? title : `${title}.pdf`)}
+                                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs shadow-xs transition-colors cursor-pointer"
+                                title="Download PDF"
+                              >
+                                <Download className="w-3.5 h-3.5" />
+                                <span>Download</span>
+                              </button>
                             )}
                           </div>
                         </div>

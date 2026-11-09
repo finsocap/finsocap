@@ -152,33 +152,40 @@ export default function TasksPage() {
 
         if (isOpUser) {
           // Dedicated staff/specialist/executive assigned tasks from live API: GET /api/staff/tasks
-          const staffTasksRes = await staffWorkflowService.getAssignedTasks();
-          if (staffTasksRes?.success && staffTasksRes.data?.items && staffTasksRes.data.items.length > 0) {
-            const mappedStaffTasks: TaskItem[] = staffTasksRes.data.items.map((it: any) => ({
-              id: it.requestCode || `T-${it.id}`,
-              numericId: typeof it.id === "number" ? it.id : Number(it.id) || undefined,
-              version: typeof it.version === "number" ? it.version : 0,
-              partnerId: it.partnerId ? `P-${it.partnerId}` : "P-101",
-              partnerName: it.partnerName || "HQ",
-              partnerContact: it.partnerContact || "",
-              clientName: it.customerName || it.clientName || "Client",
-              clientContact: it.contactNumber || "",
-              nameOfBusiness: it.nameOfBusiness || it.customerName || "—",
-              taskCategory: it.taskCategory || "Compliance",
-              serviceName: it.serviceName || "Service",
-              status: mapBackendTaskStatus(it.status) as TaskStatus,
-              taskDate: it.createdAt ? new Date(it.createdAt).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" }) : "Today",
-              dueDate: it.dueDate || "",
-              overdueDays: typeof it.overdueDays === "number" && it.overdueDays > 0
-                ? it.overdueDays
-                : calculateOverdueDays(it.dueDate, it.status),
-              assignedTo: it.assignedTo?.name ? { id: String(it.assignedTo.id), name: it.assignedTo.name, role: "Specialist" } : undefined,
-              comments: it.instructions ? [{ id: "c1", userName: "Admin", userRole: "ADMIN", timestamp: "Recent", text: it.instructions }] : [],
-            }));
-            setTasks(mappedStaffTasks);
-            setLoading(false);
-            return;
+          try {
+            const staffTasksRes = await staffWorkflowService.getAssignedTasks();
+            if (staffTasksRes?.success && staffTasksRes.data?.items && Array.isArray(staffTasksRes.data.items)) {
+              const mappedStaffTasks: TaskItem[] = staffTasksRes.data.items.map((it: any) => ({
+                id: it.requestCode || `T-${it.id}`,
+                numericId: typeof it.id === "number" ? it.id : Number(it.id) || undefined,
+                version: typeof it.version === "number" ? it.version : 0,
+                partnerId: it.partnerId ? `P-${it.partnerId}` : "P-101",
+                partnerName: it.partnerName || "HQ",
+                partnerContact: it.partnerContact || "",
+                clientName: it.customerName || it.clientName || "Client",
+                clientContact: it.contactNumber || "",
+                nameOfBusiness: it.nameOfBusiness || it.customerName || "—",
+                taskCategory: it.taskCategory || "Compliance",
+                serviceName: it.serviceName || "Service",
+                status: mapBackendTaskStatus(it.status) as TaskStatus,
+                taskDate: it.createdAt ? new Date(it.createdAt).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" }) : "Today",
+                dueDate: it.dueDate || "",
+                overdueDays: typeof it.overdueDays === "number" && it.overdueDays > 0
+                  ? it.overdueDays
+                  : calculateOverdueDays(it.dueDate, it.status),
+                assignedTo: it.assignedTo?.name ? { id: String(it.assignedTo.id), name: it.assignedTo.name, role: "Specialist" } : undefined,
+                comments: it.instructions ? [{ id: "c1", userName: "Admin", userRole: "ADMIN", timestamp: "Recent", text: it.instructions }] : [],
+              }));
+              setTasks(mappedStaffTasks);
+            } else {
+              setTasks([]);
+            }
+          } catch (staffErr) {
+            console.warn("Could not load staff tasks:", staffErr);
+            setTasks([]);
           }
+          setLoading(false);
+          return;
         }
 
         const [metricsRes, tasksRes] = await Promise.allSettled([
@@ -717,8 +724,14 @@ export default function TasksPage() {
                 <tr>
                   <td colSpan={14} className="py-12 text-center text-slate-400">
                     <ClipboardList className="w-8 h-8 mx-auto text-slate-300 dark:text-slate-600 mb-2" />
-                    <p className="text-xs font-bold text-slate-600 dark:text-slate-400">No tasks found matching criteria</p>
-                    <p className="text-[11px] text-slate-400 mt-0.5">Tasks will appear here dynamically as partners submit requests</p>
+                    <p className="text-xs font-bold text-slate-600 dark:text-slate-400">
+                      {["STAFF", "SPECIALIST", "EXECUTIVE"].includes(userRole.toUpperCase()) ? "No Tasks Assigned" : "No tasks found matching criteria"}
+                    </p>
+                    <p className="text-[11px] text-slate-400 mt-0.5">
+                      {["STAFF", "SPECIALIST", "EXECUTIVE"].includes(userRole.toUpperCase()) 
+                        ? "You do not have any tasks assigned to you right now. As soon as admin assigns a task, it will appear here." 
+                        : "Tasks will appear here dynamically as partners submit requests"}
+                    </p>
                   </td>
                 </tr>
               ) : (

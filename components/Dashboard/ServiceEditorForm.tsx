@@ -29,7 +29,7 @@ export default function ServiceEditorForm({ initialData, isEditMode = false }: S
 
   // Form State
   const [name, setName] = useState(initialData?.name || "");
-  const [category, setCategory] = useState(initialData?.category ? normalizeServiceCategory(initialData.category) : "LICENSES");
+  const [category, setCategory] = useState(initialData?.category || "LICENSES");
   const [selectedCategoryId, setSelectedCategoryId] = useState<number | undefined>(
     (initialData as any)?.categoryId ? Number((initialData as any).categoryId) : undefined
   );
@@ -49,16 +49,14 @@ export default function ServiceEditorForm({ initialData, isEditMode = false }: S
         const list = Array.isArray(res?.data) ? res.data : [];
         if (isMounted && list.length > 0) {
           setApiCategories(list);
-          // If no selectedCategoryId, match by name or pick first
           if (!selectedCategoryId) {
-            const currentNorm = normalizeServiceCategory(category);
-            const matched = list.find((c) => normalizeServiceCategory(c.name) === currentNorm || c.name.toLowerCase() === category.toLowerCase());
+            const matched = list.find((c) => c.name.toLowerCase() === category.toLowerCase() || c.id === Number(category));
             if (matched) {
               setSelectedCategoryId(matched.id);
-              setCategory(normalizeServiceCategory(matched.name));
+              setCategory(matched.name);
             } else if (list[0]) {
               setSelectedCategoryId(list[0].id);
-              setCategory(normalizeServiceCategory(list[0].name));
+              setCategory(list[0].name);
             }
           }
         }
@@ -84,13 +82,12 @@ export default function ServiceEditorForm({ initialData, isEditMode = false }: S
       if (created && created.id) {
         setApiCategories((prev) => [...prev, created]);
         setSelectedCategoryId(created.id);
-        setCategory(normalizeServiceCategory(created.name));
+        setCategory(created.name);
       } else {
-        // Fallback local addition if api returns non-standard
         const fakeItem = { id: Date.now(), name: trimmed };
         setApiCategories((prev) => [...prev, fakeItem]);
         setSelectedCategoryId(fakeItem.id);
-        setCategory(normalizeServiceCategory(trimmed));
+        setCategory(trimmed);
       }
       setNewCategoryName("");
       setIsAddingNewCategory(false);
@@ -364,7 +361,7 @@ export default function ServiceEditorForm({ initialData, isEditMode = false }: S
 
       const apiPayload: CreateServicePayload = {
         name: name.trim(),
-        category: normalizeServiceCategory(category),
+        category: category.trim(),
         categoryId: selectedCategoryId,
         subtitle: description.trim(),
         badges: ["Popular"],
@@ -609,7 +606,7 @@ export default function ServiceEditorForm({ initialData, isEditMode = false }: S
                   </div>
                 ) : (
                   <select
-                    value={selectedCategoryId ?? category}
+                    value={selectedCategoryId ?? ""}
                     onChange={(e) => {
                       const val = e.target.value;
                       if (val === "__ADD_NEW__") {
@@ -621,34 +618,20 @@ export default function ServiceEditorForm({ initialData, isEditMode = false }: S
                           setSelectedCategoryId(numId);
                           const matched = apiCategories.find((c) => c.id === numId);
                           if (matched) {
-                            setCategory(normalizeServiceCategory(matched.name));
+                            setCategory(matched.name);
                           }
-                        } else {
-                          setCategory(normalizeServiceCategory(val));
                         }
                       }
                     }}
                     className="w-full px-3.5 py-2.5 bg-slate-50 dark:bg-slate-900/60 border border-slate-200 dark:border-slate-700/80 rounded-xl text-sm text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 cursor-pointer"
                   >
-                    {apiCategories.length > 0 ? (
-                      apiCategories.map((c) => (
-                        <option key={c.id} value={c.id}>
-                          {c.name}
-                        </option>
-                      ))
-                    ) : (
-                      [
-                        { value: "LICENSES", label: "Licenses & Permits (LICENSES)" },
-                        { value: "FOOD_BEVERAGE", label: "Food & Beverage / FSSAI (FOOD_BEVERAGE)" },
-                        { value: "LEGAL_IP", label: "Legal & IP (LEGAL_IP)" },
-                        { value: "TAXATION", label: "Taxation & Accounting (TAXATION)" },
-                        { value: "COMPANY_REG", label: "Company Registration (COMPANY_REG)" },
-                      ].map((c) => (
-                        <option key={c.value} value={c.value}>{c.label}</option>
-                      ))
-                    )}
+                    {apiCategories.map((c) => (
+                      <option key={c.id} value={c.id}>
+                        {c.name}
+                      </option>
+                    ))}
                     <option value="__ADD_NEW__" className="text-blue-600 dark:text-sky-400 font-bold">
-                      Add New Category...
+                      + Add New Category...
                     </option>
                   </select>
                 )}

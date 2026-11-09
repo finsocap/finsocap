@@ -91,21 +91,32 @@ export default function ClientsPage() {
     toast.success(msg, "Success!");
   };
 
+  // Scoped tasks for operational roles (Staff, Specialist, Executive)
+  const scopedTasks = useMemo(() => {
+    const isOp = ["STAFF", "SPECIALIST", "EXECUTIVE"].includes(userRole);
+    if (!isOp) return tasks;
+
+    const userName = (currentUser?.name || "").toLowerCase().trim();
+    const userEmail = (currentUser?.email || "").toLowerCase().trim();
+
+    return tasks.filter((t) => {
+      const taskAssignee = (t.assignee || "").toLowerCase().trim();
+      return (
+        (userName && taskAssignee.includes(userName)) ||
+        (userEmail && taskAssignee.includes(userEmail)) ||
+        (userName && userName.includes(taskAssignee))
+      );
+    });
+  }, [tasks, userRole, currentUser]);
+
   // Scoped clients for operational roles (Staff, Specialist, Executive)
   const scopedClients = useMemo(() => {
     const isOp = ["STAFF", "SPECIALIST", "EXECUTIVE"].includes(userRole);
     if (!isOp) return allClients;
 
-    const userName = (currentUser?.name || "").toLowerCase().trim();
-    const userEmail = (currentUser?.email || "").toLowerCase().trim();
-
     const userClientNames = new Set<string>();
-    tasks.forEach((t) => {
-      const taskAssignee = (t.assignee || "").toLowerCase().trim();
-      const isAssigned = (userName && taskAssignee.includes(userName)) ||
-        (userEmail && taskAssignee.includes(userEmail)) ||
-        (userName && userName.includes(taskAssignee));
-      if (isAssigned && t.client) {
+    scopedTasks.forEach((t) => {
+      if (t.client) {
         userClientNames.add(t.client.toLowerCase().trim());
       }
     });
@@ -114,12 +125,12 @@ export default function ClientsPage() {
       const cName = (c.name || "").toLowerCase().trim();
       return userClientNames.has(cName);
     });
-  }, [allClients, tasks, userRole, currentUser]);
+  }, [allClients, scopedTasks, userRole]);
 
-  // KPIs
+  // KPIs - Strictly calculated on scopedTasks / scopedClients for current staff user
   const totalClients = scopedClients.length;
-  const activeCases = tasks.filter((t) => !["Completed", "Cancelled"].includes(t.status)).length;
-  const completedServices = tasks.filter((t) => t.status === "Completed").length;
+  const activeCases = scopedTasks.filter((t) => !["Completed", "Cancelled"].includes(t.status)).length;
+  const completedServices = scopedTasks.filter((t) => t.status === "Completed").length;
   const partnerReferred = scopedClients.filter((c) => c.partner && c.partner.toLowerCase() !== "direct").length;
 
   // Filtered Clients
@@ -128,7 +139,7 @@ export default function ClientsPage() {
     const activeClientsSet = new Set<string>();
     const completedClientsSet = new Set<string>();
 
-    tasks.forEach((t) => {
+    scopedTasks.forEach((t) => {
       const cName = (t.client || "").toLowerCase().trim();
       if (!cName) return;
       if (!["Completed", "Cancelled"].includes(t.status)) {
@@ -162,7 +173,7 @@ export default function ClientsPage() {
       }
       return true;
     });
-  }, [scopedClients, tasks, search, statusFilter, kpiFilter]);
+  }, [scopedClients, scopedTasks, search, statusFilter, kpiFilter]);
 
   // Tasks for selected client history
   const clientHistoryTasks = useMemo(() => {
@@ -269,7 +280,10 @@ export default function ClientsPage() {
       />
 
       {/* Client Enterprise Constitution & Retention Infographic */}
-      <ClientsInfographic metrics={clientMetrics} clients={allClients} />
+      <ClientsInfographic 
+        metrics={["STAFF", "SPECIALIST", "EXECUTIVE"].includes(userRole) ? null : clientMetrics} 
+        clients={scopedClients} 
+      />
 
       {/* 2. 4 Stat Cards (Clickable Interactive KPI Filters with Vibrant Active Colors) */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">

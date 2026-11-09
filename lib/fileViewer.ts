@@ -5,8 +5,40 @@
 export function downloadFile(urlOrContent?: string, fileName: string = "document.pdf", customBodyText?: string) {
   if (typeof window === "undefined") return;
 
-  // 1. If it is a real URL (starts with /api, http, blob:)
-  if (urlOrContent && (urlOrContent.startsWith("http") || urlOrContent.startsWith("/api") || urlOrContent.startsWith("blob:"))) {
+  // 1. Handle base64 Data URLs (e.g. data:application/pdf;base64,...)
+  if (urlOrContent && urlOrContent.startsWith("data:")) {
+    try {
+      const parts = urlOrContent.split(",");
+      const mimeMatch = parts[0].match(/:(.*?);/);
+      const mime = mimeMatch ? mimeMatch[1] : "application/pdf";
+      const bstr = atob(parts[1]);
+      let n = bstr.length;
+      const u8arr = new Uint8Array(n);
+      while (n--) {
+        u8arr[n] = bstr.charCodeAt(n);
+      }
+      const blob = new Blob([u8arr], { type: mime });
+      const blobUrl = URL.createObjectURL(blob);
+
+      const link = document.createElement("a");
+      link.href = blobUrl;
+      link.download = fileName;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      setTimeout(() => URL.revokeObjectURL(blobUrl), 1000);
+      return;
+    } catch (e) {
+      console.error("[downloadFile] Failed to decode base64 data URL, falling back to direct anchor:", e);
+    }
+  }
+
+  // 2. If it is a real URL (starts with /api, http, blob:)
+  if (urlOrContent && (
+    urlOrContent.startsWith("http") || 
+    urlOrContent.startsWith("/api") || 
+    urlOrContent.startsWith("blob:")
+  )) {
     const link = document.createElement("a");
     link.href = urlOrContent;
     link.download = fileName;
