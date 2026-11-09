@@ -3,28 +3,15 @@ import { initialTasks } from "@/lib/tasksData";
 import { calculateOverdueDays } from "@/lib/dateRangeHelper";
 import { mapBackendTaskStatus } from "@/lib/formatters";
 
-const STORAGE_KEY = "finsocap_tasks_operations_v2";
+// In-memory tasks cache (strictly live / no localStorage quota overflow)
+let memoryTasks: TaskItem[] = [];
 
 function getStoredTasks(): TaskItem[] {
-  if (typeof window === "undefined") return [];
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    if (!raw) {
-      return [];
-    }
-    return JSON.parse(raw);
-  } catch (e) {
-    return [];
-  }
+  return memoryTasks;
 }
 
 function setStoredTasks(tasks: TaskItem[]): void {
-  if (typeof window === "undefined") return;
-  try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(tasks));
-  } catch (e) {
-    console.error("[taskService] Failed to persist tasks:", e);
-  }
+  memoryTasks = tasks;
 }
 
 export const taskService = {

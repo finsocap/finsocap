@@ -253,28 +253,6 @@ export default function TaskDetailsClient({ id }: { id: string }) {
     async function loadTask() {
       setLoading(true);
       // Clean up any stale dummy attachments from localStorage cache so live API is authoritative
-      if (typeof window !== "undefined") {
-        try {
-          const raw = localStorage.getItem("finsocap_tasks_operations_v2");
-          if (raw) {
-            const parsed = JSON.parse(raw);
-            if (Array.isArray(parsed)) {
-              let changed = false;
-              const sanitized = parsed.map((item: any) => {
-                if (item.attachments && item.attachments.some((a: any) => a.fileName === "HHH" || a.id?.startsWith("att-"))) {
-                  changed = true;
-                  return { ...item, attachments: [] };
-                }
-                return item;
-              });
-              if (changed) {
-                localStorage.setItem("finsocap_tasks_operations_v2", JSON.stringify(sanitized));
-              }
-            }
-          }
-        } catch (e) {}
-      }
-
       const data = await taskService.getById(id);
       setTask(data);
       if (data) {

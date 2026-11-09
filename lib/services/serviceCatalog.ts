@@ -1,28 +1,15 @@
 import { ServiceItem } from "@/types";
 import { initialServices } from "@/lib/servicesData";
 
-const STORAGE_KEY = "finsocap_services_catalog_v1";
+// In-memory catalog cache (strictly live / no localStorage quota overflow)
+let memoryServices: ServiceItem[] = [];
 
 function getStoredServices(): ServiceItem[] {
-  if (typeof window === "undefined") return [];
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    if (!raw) {
-      return [];
-    }
-    return JSON.parse(raw);
-  } catch (e) {
-    return [];
-  }
+  return memoryServices;
 }
 
 function setStoredServices(services: ServiceItem[]): void {
-  if (typeof window === "undefined") return;
-  try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(services));
-  } catch (e) {
-    console.error("[serviceCatalog] Failed to persist services:", e);
-  }
+  memoryServices = services;
 }
 
 export const serviceCatalog = {
