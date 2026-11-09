@@ -270,7 +270,12 @@ async function request<T = any>(endpoint: string, config: RequestConfig = {}): P
     if (err instanceof ApiError) {
       throw err;
     }
-    console.error(`[apiClient] Request error to ${url}:`, err);
+    // Suppress intrusive browser error overlay when network drops or revalidates in background
+    if (typeof window !== "undefined") {
+      console.warn(`[apiClient] Network request warning to ${url}:`, err?.message || err);
+    } else {
+      console.error(`[apiClient] Request error to ${url}:`, err);
+    }
     throw new ApiError(err.message || "Network request failed", 0);
   }
 }

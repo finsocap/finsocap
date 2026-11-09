@@ -207,11 +207,88 @@ export default function ServiceEditorForm({ initialData, isEditMode = false }: S
   const [isUploadingFile, setIsUploadingFile] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
-  // Submit Handler
+  // Submit Handler with strict validations for all required fields
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+
+    // 1. Service Name Validation
     if (!name.trim()) {
-      setErrorMsg("Please enter a service name.");
+      setErrorMsg("Service Name is mandatory. Please enter a service name.");
+      window.scrollTo({ top: 0, behavior: "smooth" });
+      return;
+    }
+
+    // 2. Category Validation
+    if (!category.trim()) {
+      setErrorMsg("Category is mandatory. Please select or create a category.");
+      window.scrollTo({ top: 0, behavior: "smooth" });
+      return;
+    }
+
+    // 3. Description / Subtitle Validation
+    if (!description.trim()) {
+      setErrorMsg("Service Description is mandatory. Please enter a brief summary.");
+      window.scrollTo({ top: 0, behavior: "smooth" });
+      return;
+    }
+
+    // 4. Processing Time (SLA) Validation
+    if (!processingTime.trim()) {
+      setErrorMsg("Processing Time (SLA) is mandatory. Please select or enter the turnaround time.");
+      window.scrollTo({ top: 0, behavior: "smooth" });
+      return;
+    }
+
+    // 5. Client Price Validation (> 0)
+    if (!price || Number(price) <= 0) {
+      setErrorMsg("Client Price is mandatory and must be greater than ₹0.");
+      window.scrollTo({ top: 0, behavior: "smooth" });
+      return;
+    }
+
+    // 6. Partner Profit Validation (> 0)
+    if (partnerProfit === undefined || partnerProfit === null || Number(partnerProfit) < 0) {
+      setErrorMsg("Partner Profit is mandatory. Please specify partner profit amount.");
+      window.scrollTo({ top: 0, behavior: "smooth" });
+      return;
+    }
+
+    // 7. Content / Detailed Information Validation
+    const cleanContent = content.replace(/<[^>]*>/g, "").trim();
+    if (!cleanContent && !content.trim()) {
+      setErrorMsg("Content / Detailed Information is mandatory. Please provide service details or application instructions.");
+      window.scrollTo({ top: 300, behavior: "smooth" });
+      return;
+    }
+
+    // 8. Key Features / Highlights Validation (At least 1 required)
+    const validHighlights = highlights.filter((h) => h.trim() !== "");
+    if (validHighlights.length === 0) {
+      setErrorMsg("At least 1 Key Feature / Highlight is required. Please click 'Add Feature' and enter details.");
+      window.scrollTo({ top: 450, behavior: "smooth" });
+      return;
+    }
+
+    // 9. Service Steps / Workflow Validation (At least 1 required)
+    const validSteps = steps.filter((s) => s.trim() !== "");
+    if (validSteps.length === 0) {
+      setErrorMsg("At least 1 Service Step / Workflow step is required. Please click 'Add Step' and describe the process.");
+      window.scrollTo({ top: 550, behavior: "smooth" });
+      return;
+    }
+
+    // 10. Eligibility Validation
+    if (!eligibility.trim()) {
+      setErrorMsg("Eligibility & Requirements is mandatory. Please specify who can apply for this service.");
+      window.scrollTo({ top: 650, behavior: "smooth" });
+      return;
+    }
+
+    // 11. Required Client Documents Validation (At least 1 document required)
+    const validDocs = documents.filter((d) => d.name && d.name.trim() !== "");
+    if (validDocs.length === 0) {
+      setErrorMsg("At least 1 Required Client Document is required. Please click 'Add Document' and add required paperwork.");
+      window.scrollTo({ top: 450, behavior: "smooth" });
       return;
     }
 
@@ -891,7 +968,7 @@ export default function ServiceEditorForm({ initialData, isEditMode = false }: S
             >
               <h3 className="font-black text-slate-900 dark:text-white text-base tracking-tight flex items-center gap-2.5">
                 <span className="w-7 h-7 rounded-xl bg-gradient-to-tr from-blue-600 to-indigo-600 text-white flex items-center justify-center text-xs font-black shadow-xs">2</span>
-                <span>Content / Detailed Information</span>
+                <span>Content / Detailed Information <span className="text-rose-500">*</span></span>
               </h3>
               <button
                 type="button"
@@ -923,7 +1000,7 @@ export default function ServiceEditorForm({ initialData, isEditMode = false }: S
             <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800/80 pb-3">
               <h3 className="font-black text-slate-900 dark:text-white text-base tracking-tight flex items-center gap-2.5">
                 <span className="w-7 h-7 rounded-xl bg-gradient-to-tr from-blue-600 to-indigo-600 text-white flex items-center justify-center text-xs font-black shadow-xs">3</span>
-                <span>Key Features / Highlights</span>
+                <span>Key Features / Highlights <span className="text-rose-500">*</span></span>
               </h3>
             </div>
 
@@ -969,7 +1046,7 @@ export default function ServiceEditorForm({ initialData, isEditMode = false }: S
           <div className="card-luxury p-6 space-y-4">
             <h3 className="font-black text-slate-900 dark:text-white text-base tracking-tight flex items-center gap-2.5 border-b border-slate-100 dark:border-slate-800/80 pb-3">
               <span className="w-7 h-7 rounded-xl bg-gradient-to-tr from-blue-600 to-indigo-600 text-white flex items-center justify-center text-xs font-black shadow-xs">4</span>
-              <span>Service Steps / Workflow</span>
+              <span>Service Steps / Workflow <span className="text-rose-500">*</span></span>
             </h3>
 
             <div className="space-y-3">
@@ -1014,7 +1091,7 @@ export default function ServiceEditorForm({ initialData, isEditMode = false }: S
           <div className="card-luxury p-6 space-y-4">
             <h3 className="font-black text-slate-900 dark:text-white text-base tracking-tight flex items-center gap-2.5 border-b border-slate-100 dark:border-slate-800/80 pb-3">
               <span className="w-7 h-7 rounded-xl bg-gradient-to-tr from-blue-600 to-indigo-600 text-white flex items-center justify-center text-xs font-black shadow-xs">5</span>
-              <span>Eligibility & Requirements</span>
+              <span>Eligibility & Requirements <span className="text-rose-500">*</span></span>
             </h3>
 
             <textarea
@@ -1036,7 +1113,7 @@ export default function ServiceEditorForm({ initialData, isEditMode = false }: S
             <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800/80 pb-3">
               <h3 className="font-black text-slate-900 dark:text-white text-base tracking-tight flex items-center gap-2.5">
                 <span className="w-7 h-7 rounded-xl bg-gradient-to-tr from-blue-600 to-indigo-600 text-white flex items-center justify-center text-xs font-black shadow-xs">6</span>
-                <span>Documents & Checklist</span>
+                <span>Documents & Checklist <span className="text-rose-500">*</span></span>
               </h3>
               <button
                 type="button"
