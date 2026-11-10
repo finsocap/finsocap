@@ -188,11 +188,16 @@ function updateStore(updater: (prev: CrmData) => CrmData) {
   listeners.forEach((listener) => listener());
 }
 
+let isSyncInProgress = false;
+
 /**
  * Live Background Synchronization from FinSoCap REST API
  */
 export async function fetchLiveDbData(): Promise<void> {
   if (typeof window === "undefined") return;
+
+  // Prevent multiple concurrent in-flight batch requests from overlapping
+  if (isSyncInProgress) return;
 
   // For non-admin roles (STAFF, SPECIALIST, EXECUTIVE, PARTNER, CLIENT), do not attempt admin-only batch fetch
   try {
@@ -206,6 +211,7 @@ export async function fetchLiveDbData(): Promise<void> {
     }
   } catch (e) {}
 
+  isSyncInProgress = true;
   try {
     const [tasksRes, partnersRes, clientsRes, specialistsRes, servicesRes, licencesRes] = await Promise.allSettled([
       apiClient.get<ApiResponse<BackendTask[]>>("/tasks"),
@@ -406,6 +412,8 @@ export async function fetchLiveDbData(): Promise<void> {
     });
   } catch (err) {
     console.warn("[CRM Store] Live sync error:", err);
+  } finally {
+    isSyncInProgress = false;
   }
 }
 
@@ -414,6 +422,9 @@ if (typeof window !== "undefined") {
   setTimeout(fetchLiveDbData, 0);
 }
 
+// Module-level single interval for background sync to prevent every mounted component creating duplicate intervals
+let crmStoreIntervalStarted = false;
+
 export function useCrmStore() {
   const data = useSyncExternalStore(subscribe, getSnapshot, getServerSnapshot);
 
@@ -421,9 +432,11 @@ export function useCrmStore() {
     // Initial fetch on component mount
     fetchLiveDbData();
 
-    // Auto background poll every 10 seconds so data stays 100% in sync anytime
-    const interval = setInterval(fetchLiveDbData, 10000);
-    return () => clearInterval(interval);
+    if (!crmStoreIntervalStarted) {
+      crmStoreIntervalStarted = true;
+      // Auto background poll every 15 seconds so data stays 100% in sync without throttling the UI
+      setInterval(fetchLiveDbData, 15000);
+    }
   }, []);
 
   // Actions
