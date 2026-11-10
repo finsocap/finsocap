@@ -91,6 +91,7 @@ export interface BackendTask {
   nameOfBusiness?: string;
   taskCategory?: string;
   serviceName: string;
+  serviceId?: number;
   status: BackendTaskStatus | string;
   priority?: "NORMAL" | "HIGH" | "URGENT" | string;
   taskDate?: string;

@@ -12,20 +12,26 @@ import {
   Loader2, 
   ShieldCheck, 
   ExternalLink,
-  Hash
+  Hash,
+  Lock,
+  CreditCard
 } from "lucide-react";
 import ModalHeaderBanner from "@/components/Dashboard/ModalHeaderBanner";
 import { partnerPortalService, PartnerTaskCompletion } from "@/lib/api/partnerPortalService";
+import { paymentWorkflowService } from "@/lib/api/paymentWorkflowService";
+import PartnerPaymentModal from "@/components/Dashboard/PartnerPaymentModal";
 import { useToast } from "@/components/Global/ToastNotification";
 
 interface TaskCompletionModalProps {
   taskId: string | number;
+  requestCode?: string;
   serviceName?: string;
   onClose: () => void;
 }
 
 export default function TaskCompletionModal({
   taskId,
+  requestCode,
   serviceName,
   onClose
 }: TaskCompletionModalProps) {
@@ -33,29 +39,42 @@ export default function TaskCompletionModal({
   const [loading, setLoading] = useState(true);
   const [completion, setCompletion] = useState<PartnerTaskCompletion | null>(null);
   const [attachments, setAttachments] = useState<Array<{ id: number; fileName: string; downloadUrl: string }>>([]);
+  const [paymentStatus, setPaymentStatus] = useState<any>(null);
+  const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false);
 
   // Op 30: Read task completion details & certificate URLs
-  useEffect(() => {
-    async function loadCompletion() {
-      try {
-        setLoading(true);
-        const res = await partnerPortalService.completion.getDetails(taskId);
-        if (res?.success && res.data) {
-          setCompletion(res.data.completion);
-          if (Array.isArray(res.data.completionAttachments)) {
-            setAttachments(res.data.completionAttachments);
-          }
-        } else {
-          setCompletion(null);
+  const loadCompletion = async () => {
+    try {
+      setLoading(true);
+      const [compRes, payRes] = await Promise.allSettled([
+        partnerPortalService.completion.getDetails(taskId),
+        paymentWorkflowService.getTaskPaymentStatus(taskId)
+      ]);
+
+      if (compRes.status === "fulfilled" && compRes.value?.success && compRes.value.data) {
+        setCompletion(compRes.value.data.completion);
+        if (Array.isArray(compRes.value.data.completionAttachments)) {
+          setAttachments(compRes.value.data.completionAttachments);
         }
-      } catch (err: any) {
+      } else {
         setCompletion(null);
-      } finally {
-        setLoading(false);
       }
+
+      if (payRes.status === "fulfilled" && payRes.value?.success && payRes.value.data) {
+        setPaymentStatus(payRes.value.data);
+      }
+    } catch (err: any) {
+      setCompletion(null);
+    } finally {
+      setLoading(false);
     }
+  };
+
+  useEffect(() => {
     loadCompletion();
   }, [taskId]);
+
+  const isCertificateReleased = paymentStatus?.status === "PAYMENT_RECEIVED" || paymentStatus?.certificateReleased;
 
   return (
     <div className="fixed inset-0 z-[9999] flex items-center justify-center p-3 sm:p-5 bg-slate-900/60 backdrop-blur-xs animate-in fade-in duration-200">
@@ -151,13 +170,60 @@ export default function TaskCompletionModal({
                 </div>
               </div>
 
-              {/* Certificate Download Links */}
-              <div className="space-y-2">
-                <h5 className="font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider text-[10px]">
-                  Output Documents & Certificates
-                </h5>
+              {/* Certificate Download Links or Payment Gate */}
+              <div className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <h5 className="font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider text-[10px]">
+                    Output Documents & Certificates
+                  </h5>
+                  {!isCertificateReleased && (
+                    <span className="inline-flex items-center gap-1 text-[10px] font-bold text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/40 px-2 py-0.5 rounded-md border border-amber-200 dark:border-amber-800">
+                      <Lock className="w-3 h-3" />
+                      Payment Verification Required
+                    </span>
+                  )}
+                </div>
 
-                {attachments.length > 0 ? (
+                {!isCertificateReleased ? (
+                  /* Locked Payment Card */
+                  <div className="p-4 rounded-2xl bg-amber-50/70 dark:bg-amber-950/30 border border-amber-200/80 dark:border-amber-900/60 space-y-3">
+                    <div className="flex items-start gap-3">
+                      <div className="w-9 h-9 rounded-xl bg-amber-100 dark:bg-amber-900/60 text-amber-700 dark:text-amber-300 flex items-center justify-center shrink-0">
+                        <Lock className="w-4 h-4" />
+                      </div>
+                      <div className="space-y-1">
+                        <span className="font-bold text-amber-900 dark:text-amber-200 text-xs block">
+                          Certificate Release Locked
+                        </span>
+                        <p className="text-[11px] text-amber-700 dark:text-amber-300 leading-relaxed">
+                          Staff has completed the filing. To unlock the final FSSAI certificate and credit your <strong>₹600</strong> partner commission, please complete the payment of <strong>₹1,149</strong>.
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="pt-2 border-t border-amber-200/60 dark:border-amber-900/40 flex items-center justify-between">
+                      <span className="text-[11px] font-bold text-amber-900 dark:text-amber-200">
+                        {paymentStatus?.status === "VERIFICATION_PENDING"
+                          ? "Verification Pending with Admin"
+                          : paymentStatus?.status === "REJECTED"
+                          ? "Payment Rejected • Please Re-submit"
+                          : "Status: Payment Required"}
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => setIsPaymentModalOpen(true)}
+                        className="btn-primary-vibrant text-xs py-2 px-4 cursor-pointer inline-flex items-center gap-1.5 shadow-sm"
+                      >
+                        <CreditCard className="w-3.5 h-3.5" />
+                        <span>
+                          {paymentStatus?.status === "VERIFICATION_PENDING"
+                            ? "View Payment Details"
+                            : "Pay ₹1,149 & Unlock"}
+                        </span>
+                      </button>
+                    </div>
+                  </div>
+                ) : attachments.length > 0 ? (
                   <div className="space-y-2">
                     {attachments.map((att) => (
                       <div
@@ -170,7 +236,9 @@ export default function TaskCompletionModal({
                             <p className="font-bold text-slate-900 dark:text-white truncate">
                               {att.fileName || "Government Issued Certificate.pdf"}
                             </p>
-                            <p className="text-[10px] text-slate-400">Official verified statutory certificate</p>
+                            <p className="text-[10px] text-emerald-600 dark:text-emerald-400 font-semibold">
+                              Verified by Admin • Ready for download
+                            </p>
                           </div>
                         </div>
                         <a
@@ -180,7 +248,7 @@ export default function TaskCompletionModal({
                           className="px-3.5 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs flex items-center gap-1.5 shrink-0 transition-colors shadow-sm"
                         >
                           <Download className="w-3.5 h-3.5" />
-                          <span>Download</span>
+                          <span>Download Certificate</span>
                         </a>
                       </div>
                     ))}
@@ -197,13 +265,31 @@ export default function TaskCompletionModal({
         <div className="p-4 border-t border-slate-100 dark:border-slate-800 bg-slate-50/70 dark:bg-slate-900/60 flex items-center justify-end shrink-0">
           <button
             onClick={onClose}
-            className="px-5 py-2 rounded-xl text-xs font-bold bg-slate-900 hover:bg-black text-white dark:bg-white dark:text-slate-900 transition-colors shadow-sm"
+            className="px-5 py-2 rounded-xl text-xs font-bold bg-slate-900 hover:bg-black text-white dark:bg-white dark:text-slate-900 transition-colors shadow-sm cursor-pointer"
           >
             Close
           </button>
         </div>
 
       </div>
+
+      {/* Partner Payment Modal Integration */}
+      {isPaymentModalOpen && (
+        <PartnerPaymentModal
+          taskId={taskId}
+          requestCode={requestCode || `FSSAI-${taskId}`}
+          serviceName={serviceName || "FSSAI Registration"}
+          payableAmount={paymentStatus?.partnerPaymentAmount || 1149}
+          partnerEarning={paymentStatus?.partnerEarning || 600}
+          initialUtr={paymentStatus?.submittedUtr || ""}
+          currentStatus={paymentStatus?.status || "PAYMENT_REQUIRED"}
+          rejectionReason={paymentStatus?.rejectionReason}
+          onClose={() => setIsPaymentModalOpen(false)}
+          onPaymentSubmitted={() => {
+            loadCompletion();
+          }}
+        />
+      )}
     </div>
   );
 }

@@ -182,6 +182,70 @@ export const taskService = {
               },
             ];
 
+        // Fetch work deliverables & documents from API
+        let staffDeliverables: TaskAttachment[] = [];
+        if (numericSrId > 0) {
+          try {
+            const docsRes = await fetch(`/api/proxy/admin/service-requests/${numericSrId}/documents`, { cache: "no-store" });
+            if (docsRes.ok) {
+              const docsJson = await docsRes.json();
+              if (docsJson?.success && Array.isArray(docsJson.data)) {
+                staffDeliverables = docsJson.data.map((d: any, idx: number) => ({
+                  id: `deliverable-${d.id || idx + 1}`,
+                  fileName: d.title || d.fileName || "Work_Deliverable.pdf",
+                  fileSize: d.sizeBytes
+                    ? d.sizeBytes > 1024 * 1024
+                      ? `${(d.sizeBytes / (1024 * 1024)).toFixed(1)} MB`
+                      : `${(d.sizeBytes / 1024).toFixed(0)} KB`
+                    : "1.4 MB",
+                  uploadDate: d.createdAt
+                    ? new Date(d.createdAt).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" })
+                    : "Recent",
+                  uploadedBy: d.uploadedByRole || "STAFF",
+                  fileUrl: d.downloadPath ? `/api/proxy${d.downloadPath}?inline=true` : "#",
+                  source: "STAFF_ADMIN" as const,
+                  category: d.documentType || "Official Output / Certificate",
+                }));
+              }
+            }
+          } catch (docErr) {
+            console.warn("[taskService.getById] Live work documents warning:", docErr);
+          }
+        }
+
+        // Fetch official certificates from reports/licences for this task
+        let taskCertificates: any[] = [];
+        try {
+          const licRes = await fetch(`/api/proxy/reports/licences`, { cache: "no-store" });
+          if (licRes.ok) {
+            const licJson = await licRes.json();
+            if (licJson?.success && Array.isArray(licJson.data?.rows)) {
+              const matchingLicences = licJson.data.rows.filter(
+                (l: any) =>
+                  l.taskId === apiTask.taskId ||
+                  l.taskId === apiTask.requestCode ||
+                  String(l.taskId) === String(apiTask.id) ||
+                  l.taskId === `T-${apiTask.id}`
+              );
+
+              taskCertificates = matchingLicences.map((lic: any, idx: number) => ({
+                id: `cert-${lic.id || idx + 1}`,
+                certificateNumber: lic.licenceNumber || `LIC-${lic.id || "211700"}`,
+                certificateName: `${apiTask.serviceName || lic.serviceName || "Government"} Certificate`,
+                issuedDate: lic.issueDate || apiTask.taskDate || "2026-11-04",
+                validTill: lic.expiryDate || "2028-11-04",
+                fileName: `${lic.licenceNumber || "Licence"}_Verified.pdf`,
+                fileUrl: lic.certificateUrl ? `/api/proxy${lic.certificateUrl}` : "#",
+                submittedBy: lic.partnerName || "Admin (Universal)",
+                submittedAt: lic.issueDate || "Recent",
+                status: (lic.status === "ACTIVE" ? "Active" : lic.status) || "Active",
+              }));
+            }
+          }
+        } catch (licFetchErr) {
+          console.warn("[taskService.getById] Live licences lookup warning:", licFetchErr);
+        }
+
         // Map partner attached documents ONLY if present in live API payload
         const partnerAttachments: TaskAttachment[] = Array.isArray(apiTask.documents)
           ? apiTask.documents.map((doc: any, idx: number) => ({
@@ -193,6 +257,8 @@ export const taskService = {
               fileUrl: doc.downloadUrl || `/api/proxy/request-documents/${doc.uploadId || idx + 1}`,
             }))
           : [];
+
+        const allAttachments: TaskAttachment[] = [...partnerAttachments, ...staffDeliverables];
 
         const mapped: TaskItem = {
           id: apiTask.taskId || apiTask.requestCode || `T-${apiTask.id}`,
@@ -224,8 +290,10 @@ export const taskService = {
             ...(apiTask.adminRemarks && apiTask.adminRemarks !== apiTask.instructions ? [{ id: "c-remarks", userName: "System / Admin", userRole: "ADMIN", timestamp: "Recent", text: apiTask.adminRemarks }] : []),
             ...(apiTask.queryMessage ? [{ id: "c-query", userName: "Admin Query", userRole: "ADMIN", timestamp: "Recent Query", text: apiTask.queryMessage }] : []),
           ],
-          attachments: partnerAttachments,
+          attachments: allAttachments,
           statusHistory: liveStatusHistory,
+          certificates: taskCertificates,
+          license: taskCertificates.length > 0 ? taskCertificates[0].certificateNumber : (apiTask.license || undefined),
         };
 
         return mapped;

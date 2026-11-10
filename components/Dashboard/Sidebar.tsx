@@ -32,7 +32,8 @@ import {
   Database,
   Lock,
   X,
-  LogOut
+  LogOut,
+  CreditCard
 } from "lucide-react";
 import DeveloperProfileModal from "../Global/DeveloperProfileModal";
 import WeatherWidgetCard from "./WeatherWidgetCard";
@@ -245,6 +246,7 @@ export default function Sidebar({ userRole = "ADMIN" }: { userRole?: string }) {
         { label: "Service Team Report", href: "/dashboard/reports?tab=service", icon: Award },
         { label: "Franchise Partner Report", href: "/dashboard/reports?tab=sales", icon: TrendingUp },
         { label: "Licence Report", href: "/dashboard/reports?tab=licence", icon: KeyRound },
+        { label: "Payment Verification", href: "/dashboard/payments", icon: CreditCard },
       ];
 
   return (

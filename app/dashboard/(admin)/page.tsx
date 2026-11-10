@@ -339,15 +339,15 @@ export default function DashboardHome() {
               Task Summary
             </h3>
 
-            {/* Functional Task Summary Timeframe Filter */}
+            {/* Functional Task Summary Timeframe Filter (Uniform pill matching reference) */}
             <div className="relative">
               <button
                 type="button"
                 onClick={() => setIsTaskFilterOpen(!isTaskFilterOpen)}
-                className="flex items-center gap-1 px-2.5 py-1 rounded-xl bg-slate-100 dark:bg-slate-800 text-[11px] font-bold text-slate-600 dark:text-slate-300 hover:bg-slate-200/70 dark:hover:bg-slate-700/70 transition-colors cursor-pointer"
+                className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-slate-100/80 dark:bg-slate-800 text-[11px] font-bold text-slate-700 dark:text-slate-300 hover:bg-slate-200/70 dark:hover:bg-slate-700/70 transition-colors cursor-pointer"
               >
                 <span>{taskSummaryFilter}</span>
-                <ChevronDown className="w-3 h-3 text-slate-400" />
+                <ChevronDown className="w-3.5 h-3.5 text-slate-500" />
               </button>
 
               {isTaskFilterOpen && (

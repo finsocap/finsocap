@@ -142,10 +142,10 @@ export default function LeadsRevenueChart({
             <button
               type="button"
               onClick={() => setIsRangeOpen(!isRangeOpen)}
-              className="flex items-center gap-1 px-2.5 py-1 rounded-xl bg-slate-100 dark:bg-slate-800 text-[11px] font-bold text-slate-700 dark:text-slate-200 cursor-pointer hover:bg-slate-200/70 dark:hover:bg-slate-700/70 transition-colors"
+              className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-slate-100/80 dark:bg-slate-800 text-[11px] font-bold text-slate-700 dark:text-slate-300 hover:bg-slate-200/70 dark:hover:bg-slate-700/70 transition-colors cursor-pointer"
             >
               <span>{activeRange}</span>
-              <ChevronDown className="w-3 h-3 text-slate-400" />
+              <ChevronDown className="w-3.5 h-3.5 text-slate-500" />
             </button>
 
             {isRangeOpen && (

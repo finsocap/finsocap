@@ -66,42 +66,19 @@ export default function BusinessCalculatorModal({
   const [pctFrom, setPctFrom] = useState<string>("1000");
   const [pctTo, setPctTo] = useState<string>("1500");
 
-  // Load history from localStorage
+  // Clean up any legacy localStorage on mount
   useEffect(() => {
     try {
-      const saved = localStorage.getItem("finsocap_calc_history");
-      if (saved) {
-        setHistory(JSON.parse(saved));
-      } else {
-        // Sample realistic initial history matching screenshot
-        const initialSamples: HistoryItem[] = [
-          { id: "1", expression: "12,000 × 18%", result: "2,160", type: "GST", timestamp: "Just now" },
-          { id: "2", expression: "12,000 + 2,160", result: "14,160", type: "Basic", timestamp: "Today" },
-          { id: "3", expression: "45,000 ÷ 12", result: "3,750", type: "Basic", timestamp: "Today" },
-          { id: "4", expression: "3,750 × 6", result: "22,500", type: "Basic", timestamp: "Today" },
-        ];
-        setHistory(initialSamples);
-      }
-    } catch {
-      // ignore
-    }
+      localStorage.removeItem("finsocap_calc_history");
+    } catch {}
   }, []);
 
   const saveHistory = (item: HistoryItem) => {
-    setHistory((prev) => {
-      const next = [item, ...prev].slice(0, 25);
-      try {
-        localStorage.setItem("finsocap_calc_history", JSON.stringify(next));
-      } catch {}
-      return next;
-    });
+    setHistory((prev) => [item, ...prev].slice(0, 25));
   };
 
   const clearHistory = () => {
     setHistory([]);
-    try {
-      localStorage.removeItem("finsocap_calc_history");
-    } catch {}
   };
 
   const copyToClipboard = (val: string, id: string) => {

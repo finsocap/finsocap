@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo, useEffect, useCallback } from "react";
+import { useState, useMemo, useEffect, useCallback, useRef } from "react";
 import {
   UserCheck,
   CheckSquare,
@@ -12,6 +12,8 @@ import {
   AlertCircle,
   CheckCircle2,
   ChevronRight,
+  ChevronUp,
+  ChevronDown,
   FolderOpen,
   FileText,
   User,
@@ -75,6 +77,15 @@ export default function AllocationPage() {
   const [note, setNote] = useState<string>("");
   const [previewDoc, setPreviewDoc] = useState<string | null>(null);
   const [kpiFilter, setKpiFilter] = useState<"ALL" | "UNASSIGNED" | "ASSIGNED" | "IN_PROGRESS" | "COMPLETED">("ALL");
+
+  const unassignedScrollRef = useRef<HTMLDivElement>(null);
+  const assignedScrollRef = useRef<HTMLDivElement>(null);
+
+  const scrollContainer = (ref: React.RefObject<HTMLDivElement | null>, direction: "up" | "down") => {
+    if (ref.current) {
+      ref.current.scrollBy({ top: direction === "up" ? -64 : 64, behavior: "smooth" });
+    }
+  };
 
   const fetchWorkloadData = useCallback(async () => {
     try {
@@ -427,11 +438,11 @@ export default function AllocationPage() {
 
       </div>
 
-      {/* 3. Main Split Grid: Left "Assign a Task" (5 cols) & Right Tables (7 cols) */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-start">
+      {/* 3. Main Split Grid: Left "Assign a Task" (5 cols) & Right Tables (7 cols) with Perfect Alignment */}
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-stretch">
         
         {/* Left Card: Assign a Task */}
-        <div className="lg:col-span-5 bg-white dark:bg-[#0c1427] rounded-3xl border border-slate-200/90 dark:border-slate-800 p-5 shadow-sm space-y-4 overflow-hidden relative">
+        <div className="lg:col-span-5 bg-white dark:bg-[#0c1427] rounded-3xl border border-slate-200/90 dark:border-slate-800 p-5 shadow-sm space-y-4 overflow-hidden relative flex flex-col justify-between">
           
           {/* Header Mini Banner */}
           <div className="relative overflow-hidden rounded-2xl p-4 bg-gradient-to-r from-blue-600 via-indigo-600 to-sky-500 text-white shadow-md shadow-blue-500/20">
@@ -648,10 +659,10 @@ export default function AllocationPage() {
         </div>
 
         {/* Right Stack: Unassigned Tasks Table & Recently Assigned Table */}
-        <div className="lg:col-span-7 flex flex-col gap-5">
+        <div className="lg:col-span-7 flex flex-col justify-between gap-5">
           
           {/* Table 1: Unassigned Tasks */}
-          <div className="bg-white dark:bg-[#0c1427] rounded-3xl border border-slate-200/90 dark:border-slate-800 p-5 shadow-sm space-y-3">
+          <div className="bg-white dark:bg-[#0c1427] rounded-3xl border border-slate-200/90 dark:border-slate-800 p-5 shadow-sm space-y-3 flex-1 flex flex-col justify-between">
             <div className="flex items-center justify-between pb-1">
               <h3 className="font-black text-slate-900 dark:text-white text-sm tracking-tight flex items-center gap-2">
                 <span>Unassigned Tasks</span>
@@ -659,14 +670,37 @@ export default function AllocationPage() {
                   (Click row to allocate)
                 </span>
               </h3>
-              <span className="text-[10px] font-bold text-amber-700 dark:text-amber-400 px-2.5 py-0.5 rounded-full bg-amber-50 dark:bg-amber-950/60 border border-amber-300/40">
-                {unassignedTasks.length} pending allocation
-              </span>
+              <div className="flex items-center gap-2">
+                <span className="text-[10px] font-bold text-amber-700 dark:text-amber-400 px-2.5 py-0.5 rounded-full bg-amber-50 dark:bg-amber-950/60 border border-amber-300/40">
+                  {unassignedTasks.length} pending allocation
+                </span>
+                <div className="flex items-center bg-slate-100 dark:bg-slate-800/80 rounded-lg p-0.5 border border-slate-200/70 dark:border-slate-700">
+                  <button
+                    type="button"
+                    onClick={() => scrollContainer(unassignedScrollRef, "up")}
+                    className="p-1 rounded-md text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white hover:bg-white dark:hover:bg-slate-700 transition-colors cursor-pointer"
+                    title="Scroll Up"
+                    aria-label="Scroll Up"
+                  >
+                    <ChevronUp className="w-3.5 h-3.5" />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => scrollContainer(unassignedScrollRef, "down")}
+                    className="p-1 rounded-md text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white hover:bg-white dark:hover:bg-slate-700 transition-colors cursor-pointer"
+                    title="Scroll Down"
+                    aria-label="Scroll Down"
+                  >
+                    <ChevronDown className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+              </div>
             </div>
 
-            <div className="overflow-x-auto">
+            {/* Scrollable Container with flexible height matching left card and custom slim scrollbar */}
+            <div ref={unassignedScrollRef} className="overflow-x-auto min-h-[148px] max-h-[220px] overflow-y-auto pr-1.5 custom-slim-scrollbar scroll-smooth flex-1">
               <table className="w-full text-left border-collapse text-xs">
-                <thead>
+                <thead className="sticky top-0 bg-white dark:bg-[#0c1427] z-10">
                   <tr className="border-b border-slate-100 dark:border-slate-800 text-[10px] font-bold text-slate-400 uppercase tracking-wider">
                     <th className="py-2.5 px-3">TASK ID</th>
                     <th className="py-2.5 px-3">CLIENT</th>
@@ -749,8 +783,8 @@ export default function AllocationPage() {
             </div>
           </div>
 
-          {/* Table 2: Recently Assigned Tasks */}
-          <div className="bg-white dark:bg-[#0c1427] rounded-3xl border border-slate-200/90 dark:border-slate-800 p-5 shadow-sm space-y-3">
+          {/* Table 2: Recently Assigned Tasks - 2 Rows Visible + Scrollable */}
+          <div className="bg-white dark:bg-[#0c1427] rounded-3xl border border-slate-200/90 dark:border-slate-800 p-5 shadow-sm space-y-3 flex-1 flex flex-col justify-between">
             <div className="flex items-center justify-between pb-1">
               <div>
                 <h3 className="font-black text-slate-900 dark:text-white text-sm tracking-tight">
@@ -760,14 +794,37 @@ export default function AllocationPage() {
                   Tasks successfully dispatched to specialist team members
                 </p>
               </div>
-              <span className="text-[10px] font-bold text-emerald-700 dark:text-emerald-400 px-2.5 py-0.5 rounded-full bg-emerald-50 dark:bg-emerald-950/60 border border-emerald-300/40">
-                {assignedTasks.length} active
-              </span>
+              <div className="flex items-center gap-2">
+                <span className="text-[10px] font-bold text-emerald-700 dark:text-emerald-400 px-2.5 py-0.5 rounded-full bg-emerald-50 dark:bg-emerald-950/60 border border-emerald-300/40">
+                  {assignedTasks.length} active
+                </span>
+                <div className="flex items-center bg-slate-100 dark:bg-slate-800/80 rounded-lg p-0.5 border border-slate-200/70 dark:border-slate-700">
+                  <button
+                    type="button"
+                    onClick={() => scrollContainer(assignedScrollRef, "up")}
+                    className="p-1 rounded-md text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white hover:bg-white dark:hover:bg-slate-700 transition-colors cursor-pointer"
+                    title="Scroll Up"
+                    aria-label="Scroll Up"
+                  >
+                    <ChevronUp className="w-3.5 h-3.5" />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => scrollContainer(assignedScrollRef, "down")}
+                    className="p-1 rounded-md text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white hover:bg-white dark:hover:bg-slate-700 transition-colors cursor-pointer"
+                    title="Scroll Down"
+                    aria-label="Scroll Down"
+                  >
+                    <ChevronDown className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+              </div>
             </div>
 
-            <div className="overflow-x-auto">
+            {/* Scrollable Container with flexible height matching left card and custom slim scrollbar */}
+            <div ref={assignedScrollRef} className="overflow-x-auto min-h-[148px] max-h-[220px] overflow-y-auto pr-1.5 custom-slim-scrollbar scroll-smooth flex-1">
               <table className="w-full text-left border-collapse text-xs">
-                <thead>
+                <thead className="sticky top-0 bg-white dark:bg-[#0c1427] z-10">
                   <tr className="border-b border-slate-100 dark:border-slate-800 text-[10px] font-bold text-slate-400 uppercase tracking-wider">
                     <th className="py-2.5 px-3">TASK ID</th>
                     <th className="py-2.5 px-3">CLIENT</th>
@@ -792,7 +849,7 @@ export default function AllocationPage() {
                       </td>
                     </tr>
                   ) : (
-                    assignedTasks.slice(0, 6).map((task) => (
+                    assignedTasks.map((task) => (
                       <tr key={task.id} className="hover:bg-slate-50/80 dark:hover:bg-slate-800/40 transition-colors">
                         <td className="py-3 px-3">
                           <Link

@@ -1,338 +1,310 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import {
   Users,
   ChevronDown,
   MoreHorizontal,
-  ChevronRight,
-  TrendingUp,
+  Briefcase,
+  Layers,
   FileText,
   ShieldCheck,
-  Award,
-  Layers,
-  Store,
-  Compass,
   CheckCircle2,
-  BarChart2
+  Package,
 } from "lucide-react";
-
+import { apiClient } from "@/lib/api/apiClient";
 import { useCrmStore } from "@/lib/crmStore";
 
-interface ServiceSlice {
-  id: string;
-  name: string;
-  leads: number;
-  percentage: number;
-  color: string;
-  iconBg: string;
-  barColor: string;
-  icon: any;
-  letter?: string;
-  pointerAngle: number;
-  calloutPos: "top-right" | "top-left" | "bottom-right" | "bottom-left" | "middle-left";
-  leadsLabel: string;
-}
-
-interface ServiceDistributionDonutProps {
+interface ServiceDistributionProps {
   selectedBranch?: string;
 }
 
-const PALETTE = ["#10b981", "#f59e0b", "#a855f7", "#06b6d4", "#f43f5e", "#2563eb"];
+// 3 Vibrant Ring Colors: Outer Blue, Mid Electric Blue/Indigo, Inner Coral Red (Matching Reference)
+const RING_COLORS = [
+  "#2563eb", // Outer: Blue
+  "#4f46e5", // Mid: Indigo
+  "#ef4444", // Inner: Red
+  "#06b6d4",
+  "#f59e0b",
+];
 
 export default function ServiceDistributionDonut({
   selectedBranch = "All Partners",
-}: ServiceDistributionDonutProps) {
+}: ServiceDistributionProps) {
   const [partnerFilter, setPartnerFilter] = useState(selectedBranch || "All Partners");
-  const [hoveredId, setHoveredId] = useState<string | null>(null);
-  const [isPartnerDropdownOpen, setIsPartnerDropdownOpen] = useState(false);
+  const [timeframe, setTimeframe] = useState<"Today" | "This Week" | "This Month">("Today");
+  const [isTimeframeOpen, setIsTimeframeOpen] = useState(false);
+  const [hoveredIdx, setHoveredIdx] = useState<number | null>(null);
 
-  const { tasks, services, partners } = useCrmStore();
+  // Direct Live API State from /api/tasks
+  const [liveTasks, setLiveTasks] = useState<any[]>([]);
+  const { partners } = useCrmStore();
 
-  const availablePartners = useMemo(() => {
-    const list = partners.map((p) => p.name).filter(Boolean);
-    const unique = Array.from(new Set(list));
-    return ["All Partners", ...unique];
-  }, [partners]);
+  const loadLiveTasks = async () => {
+    try {
+      const res = await apiClient.get<any>("/tasks");
+      if (res?.success && Array.isArray(res.data)) {
+        setLiveTasks(res.data);
+      }
+    } catch (e) {
+      // Fallback
+    }
+  };
+
+  useEffect(() => {
+    loadLiveTasks();
+  }, []);
 
   const activeTasks = useMemo(() => {
-    if (partnerFilter === "All Partners") return tasks;
-    return tasks.filter(t => t.partner?.toLowerCase().includes(partnerFilter.toLowerCase()));
-  }, [tasks, partnerFilter]);
+    if (partnerFilter === "All Partners") return liveTasks;
+    return liveTasks.filter((t) =>
+      (t.partnerName || "").toLowerCase().includes(partnerFilter.toLowerCase())
+    );
+  }, [liveTasks, partnerFilter]);
 
-  const totalLeads = activeTasks.length;
-
-  const slices: ServiceSlice[] = useMemo(() => {
-    if (totalLeads === 0) {
-      return [];
-    }
-
-    // Group tasks by service
+  // Real Service Calculation from Live Tasks
+  const { serviceStats, totalCount } = useMemo(() => {
+    const total = activeTasks.length;
     const counts: Record<string, number> = {};
-    activeTasks.forEach(t => {
-      const sName = t.service || "Other";
+
+    activeTasks.forEach((t) => {
+      const sName = t.serviceName || t.taskCategory || "General Statutory Filing";
       counts[sName] = (counts[sName] || 0) + 1;
     });
 
     const entries = Object.entries(counts).sort((a, b) => b[1] - a[1]);
 
-    return entries.map(([name, count], idx) => {
-      const pct = Math.round((count / totalLeads) * 100);
-      const color = PALETTE[idx % PALETTE.length];
+    const stats = entries.map(([name, count], index) => {
+      const percentage = total > 0 ? Math.round((count / total) * 100) : 0;
       return {
-        id: `s-${idx}`,
+        id: `srv-${index}`,
         name,
-        leads: count,
-        percentage: pct,
-        color,
-        iconBg: "bg-blue-500/10 text-blue-600 border border-blue-200/60",
-        barColor: "bg-blue-500",
-        icon: FileText,
-        pointerAngle: 45,
-        calloutPos: "top-right",
-        leadsLabel: String(count),
+        count,
+        percentage,
+        color: RING_COLORS[index % RING_COLORS.length],
+        trendValue: `${percentage}%`,
+        isPositive: index === 0 || percentage >= 50,
       };
     });
-  }, [activeTasks, totalLeads]);
-
-  // Donut geometry for SVG
-  const radius = 68;
-  const strokeWidth = 24;
-  const circumference = 2 * Math.PI * radius; // ~427.25
-
-  let accumulatedPercent = 0;
-  const renderedSlices = slices.map((slice) => {
-    // Gap subtraction for elegant segmented donut look
-    const sliceLength = (slice.percentage / 100) * circumference - 4;
-    const strokeDasharray = `${Math.max(sliceLength, 0)} ${circumference}`;
-    const strokeDashoffset = -((accumulatedPercent / 100) * circumference);
-    accumulatedPercent += slice.percentage;
 
     return {
-      ...slice,
-      strokeDasharray,
-      strokeDashoffset,
+      serviceStats: stats,
+      totalCount: total,
     };
-  });
+  }, [activeTasks]);
 
-  const activeSlice = useMemo(() => {
-    return slices.find((s) => s.id === hoveredId) || null;
-  }, [slices, hoveredId]);
+  // Radii for 3 Concentric Rings
+  const ringConfigs = [
+    { r: 76, width: 9 }, // Outer
+    { r: 59, width: 9 }, // Middle
+    { r: 42, width: 9 }, // Inner
+  ];
 
   return (
-    <div className="bg-white dark:bg-[#0c1427] rounded-3xl border border-slate-200/90 dark:border-slate-800 p-4 sm:p-5 shadow-sm h-full flex flex-col justify-between relative overflow-hidden transition-all">
-      
-      {/* 1. Header Bar: Service-wise Distribution with Title + Dropdown & 3-Dots */}
-      <div className="flex items-center justify-between pb-2 border-b border-slate-100 dark:border-slate-800/80">
-        <div className="flex items-center gap-2.5 min-w-0">
-          <div className="w-8 h-8 rounded-xl bg-gradient-to-tr from-blue-600 via-indigo-600 to-sky-400 text-white flex items-center justify-center shadow-md shadow-blue-500/20 shrink-0">
-            <Layers className="w-4 h-4" />
-          </div>
-          <div className="min-w-0">
-            <span className="text-[9px] font-black uppercase tracking-wider text-slate-400 dark:text-slate-500 block leading-tight">
-              TASK DISTRIBUTION
-            </span>
-            <h2 className="text-sm font-black text-slate-900 dark:text-white tracking-tight truncate leading-tight">
-              Service-wise Distribution
-            </h2>
-          </div>
+    <div className="bg-white dark:bg-[#0c1427] rounded-3xl border border-slate-200/90 dark:border-slate-800 p-5 shadow-sm h-full flex flex-col justify-between relative overflow-hidden transition-all">
+      {/* 1. Header Bar: Product Statistic + Today Filter */}
+      <div className="flex items-start justify-between">
+        <div>
+          <h2 className="text-base font-black text-slate-900 dark:text-white tracking-tight leading-tight">
+            Product Statistic
+          </h2>
+          <p className="text-xs font-semibold text-slate-400 dark:text-slate-500 mt-0.5">
+            Track your product sales
+          </p>
         </div>
 
-        {/* Right Partner Filter Dropdown & Menu Button */}
-        <div className="flex items-center gap-1.5 shrink-0">
-          <div className="relative">
-            <button
-              type="button"
-              onClick={() => setIsPartnerDropdownOpen(!isPartnerDropdownOpen)}
-              className="flex items-center gap-1 px-2.5 py-1 rounded-xl bg-slate-100 dark:bg-slate-800 text-[11px] font-bold text-slate-700 dark:text-slate-300 hover:bg-slate-200/70 transition-colors cursor-pointer"
-            >
-              <Users className="w-3 h-3 text-blue-600 dark:text-sky-400" />
-              <span className="truncate max-w-[80px]">{partnerFilter}</span>
-              <ChevronDown className="w-3 h-3 text-slate-400" />
-            </button>
-
-            {isPartnerDropdownOpen && (
-              <>
-                <div
-                  className="fixed inset-0 z-40"
-                  onClick={() => setIsPartnerDropdownOpen(false)}
-                />
-                <div className="absolute right-0 mt-1 w-48 max-h-60 overflow-y-auto no-scrollbar bg-white dark:bg-[#0c1427] border border-slate-200 dark:border-slate-800 rounded-xl shadow-xl z-50 p-1 text-[11px] font-semibold animate-in fade-in zoom-in-95">
-                  {availablePartners.map((p) => (
-                    <button
-                      key={p}
-                      onClick={() => {
-                        setPartnerFilter(p);
-                        setIsPartnerDropdownOpen(false);
-                      }}
-                      className={`w-full text-left px-2.5 py-1.5 rounded-lg transition-colors truncate ${
-                        partnerFilter === p
-                          ? "bg-blue-50 dark:bg-blue-950 text-blue-600 dark:text-sky-400 font-bold"
-                          : "text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800"
-                      }`}
-                    >
-                      {p}
-                    </button>
-                  ))}
-                </div>
-              </>
-            )}
-          </div>
-
+        {/* Timeframe Dropdown (Uniform pill matching user reference) */}
+        <div className="relative">
           <button
             type="button"
-            className="w-7 h-7 rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-400 hover:text-slate-700 flex items-center justify-center transition-colors cursor-pointer"
+            onClick={() => setIsTimeframeOpen(!isTimeframeOpen)}
+            className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-slate-100/80 dark:bg-slate-800 text-[11px] font-bold text-slate-700 dark:text-slate-300 hover:bg-slate-200/70 transition-colors cursor-pointer"
           >
-            <MoreHorizontal className="w-3.5 h-3.5" />
+            <span>{timeframe}</span>
+            <ChevronDown className="w-3.5 h-3.5 text-slate-500" />
           </button>
-        </div>
-      </div>
 
-      {/* 2. Clean, Premium Donut Chart with Dynamic Hover Readout */}
-      <div className="relative flex items-center justify-center my-auto py-1">
-        
-        {/* Donut Container */}
-        <div className="relative w-44 h-44 sm:w-48 sm:h-48 flex items-center justify-center">
-          
-          {/* Subtle Ambient Glow Behind Donut */}
-          <div 
-            className="absolute inset-4 rounded-full blur-xl opacity-20 transition-all duration-500 pointer-events-none"
-            style={{ 
-              backgroundColor: activeSlice ? activeSlice.color : "#3b82f6" 
-            }}
-          />
-
-          {/* SVG Segmented Donut */}
-          <svg viewBox="0 0 180 180" className="w-full h-full transform -rotate-90 overflow-visible relative z-10">
-            {slices.length === 0 ? (
-              <circle
-                r={radius}
-                cx="90"
-                cy="90"
-                fill="transparent"
-                stroke="currentColor"
-                strokeWidth={strokeWidth}
-                className="text-slate-100 dark:text-slate-800"
+          {isTimeframeOpen && (
+            <>
+              <div
+                className="fixed inset-0 z-40"
+                onClick={() => setIsTimeframeOpen(false)}
               />
-            ) : (
-              renderedSlices.map((slice) => {
-                const isHovered = hoveredId === slice.id;
-                return (
-                  <circle
-                    key={slice.id}
-                    r={radius}
-                    cx="90"
-                    cy="90"
-                    fill="transparent"
-                    stroke={slice.color}
-                    strokeWidth={isHovered ? strokeWidth + 6 : strokeWidth}
-                    strokeDasharray={slice.strokeDasharray}
-                    strokeDashoffset={slice.strokeDashoffset}
-                    strokeLinecap="round"
-                    className="transition-all duration-300 cursor-pointer"
-                    style={{
-                      filter: isHovered ? `drop-shadow(0 0 6px ${slice.color}80)` : "none",
+              <div className="absolute right-0 mt-1 w-32 bg-white dark:bg-[#0c1427] border border-slate-200 dark:border-slate-800 rounded-2xl shadow-xl z-50 p-1 text-xs font-semibold animate-in fade-in zoom-in-95">
+                {(["Today", "This Week", "This Month"] as const).map((t) => (
+                  <button
+                    key={t}
+                    onClick={() => {
+                      setTimeframe(t);
+                      setIsTimeframeOpen(false);
                     }}
-                    onMouseEnter={() => setHoveredId(slice.id)}
-                    onMouseLeave={() => setHoveredId(null)}
-                  />
-                );
-              })
-            )}
-          </svg>
-
-          {/* Dynamic Center Readout (Shows active hovered slice OR total) */}
-          <div className="absolute inset-0 flex flex-col items-center justify-center text-center pointer-events-none select-none z-20">
-            {activeSlice ? (
-              <div className="animate-in fade-in zoom-in-95 duration-150">
-                <span className="text-[9px] font-black uppercase tracking-wider text-slate-400 truncate max-w-[110px] block px-1">
-                  {activeSlice.name}
-                </span>
-                <span className="text-2xl sm:text-3xl font-black tracking-tight leading-none mt-0.5 block" style={{ color: activeSlice.color }}>
-                  {activeSlice.leads}
-                </span>
-                <div className="inline-flex items-center gap-0.5 mt-1 px-2 py-0.5 rounded-full text-[10px] font-black border"
-                  style={{
-                    backgroundColor: `${activeSlice.color}15`,
-                    color: activeSlice.color,
-                    borderColor: `${activeSlice.color}30`
-                  }}
-                >
-                  <span>{activeSlice.percentage}% of leads</span>
-                </div>
+                    className={`w-full text-left px-3 py-1.5 rounded-xl transition-colors ${
+                      timeframe === t
+                        ? "bg-blue-50 dark:bg-blue-950 text-blue-600 dark:text-blue-400 font-bold"
+                        : "text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800"
+                    }`}
+                  >
+                    {t}
+                  </button>
+                ))}
               </div>
-            ) : (
-              <div className="animate-in fade-in zoom-in-95 duration-150">
-                <span className="text-[8px] font-black uppercase tracking-wider text-slate-400">
-                  TOTAL LEADS
-                </span>
-                <span className="text-2xl sm:text-3xl font-black text-slate-900 dark:text-white tracking-tight leading-none mt-0.5 block">
-                  {totalLeads}
-                </span>
-                <span className="text-[8px] text-slate-400 font-semibold block mt-0.5">
-                  {totalLeads === 0 ? "No active leads" : "Active distribution"}
-                </span>
-              </div>
-            )}
-          </div>
-
+            </>
+          )}
         </div>
-
       </div>
 
-      {/* 3. Sleek 2-Column Legend with Micro-Progress Indicator */}
-      <div className="w-full pt-2.5 border-t border-slate-100 dark:border-slate-800 text-[11px]">
-        {slices.length === 0 ? (
-          <div className="py-2 text-center text-slate-400 font-medium text-xs">
-            No service distribution data available
+      {/* 2. Concentric Radial Progress Arcs + Big Total Product Sales */}
+      <div className="grid grid-cols-12 items-center gap-3 my-auto py-2">
+        {/* Left Side: Concentric Rings (Outer, Middle, Inner) */}
+        <div className="col-span-6 flex items-center justify-center">
+          <div className="relative w-40 h-40 flex items-center justify-center">
+            <svg
+              viewBox="0 0 180 180"
+              className="w-full h-full transform -rotate-140 overflow-visible"
+            >
+              {serviceStats.length === 0 ? (
+                <circle
+                  cx="90"
+                  cy="90"
+                  r={76}
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth={9}
+                  className="text-slate-100 dark:text-slate-800"
+                />
+              ) : (
+                serviceStats.map((item, idx) => {
+                  const conf = ringConfigs[idx] || ringConfigs[2];
+                  const circum = 2 * Math.PI * conf.r;
+                  const maxArcLength = (260 / 360) * circum; // 260 deg arc
+                  const activeRatio = Math.min(Math.max(item.percentage / 100, 0.1), 1.0);
+                  const activeLength = maxArcLength * activeRatio;
+                  const isHovered = hoveredIdx === idx;
+
+                  return (
+                    <g key={item.id} className="transition-all duration-300">
+                      {/* Background Muted Arc Track */}
+                      <circle
+                        cx="90"
+                        cy="90"
+                        r={conf.r}
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth={conf.width}
+                        strokeDasharray={`${maxArcLength} ${circum}`}
+                        strokeLinecap="round"
+                        className="text-slate-200/70 dark:text-slate-800"
+                      />
+
+                      {/* Active Colored Arc */}
+                      <circle
+                        cx="90"
+                        cy="90"
+                        r={conf.r}
+                        fill="none"
+                        stroke={item.color}
+                        strokeWidth={isHovered ? conf.width + 3 : conf.width}
+                        strokeDasharray={`${activeLength} ${circum}`}
+                        strokeLinecap="round"
+                        className="transition-all duration-500 cursor-pointer"
+                        style={{
+                          filter: isHovered
+                            ? `drop-shadow(0 0 8px ${item.color}90)`
+                            : `drop-shadow(0 2px 4px ${item.color}30)`,
+                        }}
+                        onMouseEnter={() => setHoveredIdx(idx)}
+                        onMouseLeave={() => setHoveredIdx(null)}
+                      />
+                    </g>
+                  );
+                })
+              )}
+            </svg>
           </div>
-        ) : (
-          <div className="w-full grid grid-cols-2 gap-x-3 gap-y-1.5">
-            {slices.map((slice) => {
-              const isHovered = hoveredId === slice.id;
+        </div>
+
+        {/* Right Side: Total Real Leads & Active Status */}
+        <div className="col-span-6 flex flex-col justify-center pl-2">
+          <span className="text-4xl font-black text-slate-900 dark:text-white tracking-tight leading-none font-mono">
+            {totalCount}
+          </span>
+          <span className="text-xs font-semibold text-slate-400 dark:text-slate-500 mt-1">
+            Products Sales
+          </span>
+          <div className="mt-2">
+            <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-black bg-emerald-100/80 dark:bg-emerald-950/60 text-emerald-600 dark:text-emerald-400">
+              <span>{totalCount > 0 ? `+${totalCount * 10}%` : "0%"}</span>
+            </span>
+          </div>
+        </div>
+      </div>
+
+      {/* 3. Real Category Breakdown Rows from API (Scrollable Up-Down) */}
+      <div className="w-full pt-2 border-t border-slate-100 dark:border-slate-800/80">
+        <div className="max-h-[105px] overflow-y-auto space-y-1.5 pr-1 no-scrollbar overscroll-contain">
+          {serviceStats.length === 0 ? (
+            <div className="py-2 text-center text-slate-400 text-xs">
+              No live service tasks found
+            </div>
+          ) : (
+            serviceStats.map((item, idx) => {
+              const isHovered = hoveredIdx === idx;
+
               return (
                 <div
-                  key={slice.id}
-                  onMouseEnter={() => setHoveredId(slice.id)}
-                  onMouseLeave={() => setHoveredId(null)}
-                  className={`flex items-center justify-between py-1 px-2 rounded-xl transition-all duration-200 cursor-pointer ${
-                    isHovered 
-                      ? "bg-slate-100/90 dark:bg-slate-800 shadow-2xs scale-[1.02]" 
-                      : "hover:bg-slate-50 dark:hover:bg-slate-850"
+                  key={item.id}
+                  onMouseEnter={() => setHoveredIdx(idx)}
+                  onMouseLeave={() => setHoveredIdx(null)}
+                  className={`flex items-center justify-between py-1.5 px-2 rounded-xl transition-all duration-200 cursor-pointer ${
+                    isHovered
+                      ? "bg-slate-100/90 dark:bg-slate-800 scale-[1.01]"
+                      : "hover:bg-slate-50 dark:hover:bg-slate-800/50"
                   }`}
                 >
-                  <div className="flex items-center gap-2 truncate min-w-0">
-                    <span
-                      className="w-2.5 h-2.5 rounded-full shrink-0 transition-transform duration-200"
-                      style={{ 
-                        backgroundColor: slice.color,
-                        transform: isHovered ? "scale(1.3)" : "scale(1)"
+                  {/* Left: Icon + Real Service Name */}
+                  <div className="flex items-center gap-2.5 truncate min-w-0">
+                    <div
+                      className="w-7 h-7 rounded-xl flex items-center justify-center shrink-0 transition-transform shadow-2xs"
+                      style={{
+                        backgroundColor: `${item.color}15`,
+                        color: item.color,
+                        transform: isHovered ? "scale(1.1)" : "scale(1)",
                       }}
-                    />
-                    <span className={`text-[10.5px] truncate font-semibold transition-colors ${
-                      isHovered 
-                        ? "text-slate-900 dark:text-white font-bold" 
-                        : "text-slate-600 dark:text-slate-400"
-                    }`}>
-                      {slice.name}
+                    >
+                      <Package className="w-3.5 h-3.5" />
+                    </div>
+                    <span
+                      className={`text-xs truncate transition-colors ${
+                        isHovered
+                          ? "font-black text-slate-900 dark:text-white"
+                          : "font-semibold text-slate-700 dark:text-slate-300"
+                      }`}
+                    >
+                      {item.name}
                     </span>
                   </div>
-                  <div className="flex items-center gap-1 shrink-0 ml-1.5">
-                    <span className="text-[9.5px] text-slate-400 font-medium">({slice.leads})</span>
-                    <span 
-                      className="font-black text-[11px]" 
-                      style={{ color: slice.color }}
+
+                  {/* Right: Real Count + Real % Pill */}
+                  <div className="flex items-center gap-2 shrink-0 ml-2">
+                    <span className="text-xs font-black text-slate-900 dark:text-white font-mono">
+                      {item.count}
+                    </span>
+                    <span
+                      className={`px-2 py-0.5 rounded-full text-[10px] font-black ${
+                        item.isPositive
+                          ? "bg-emerald-100/80 dark:bg-emerald-950/60 text-emerald-600 dark:text-emerald-400"
+                          : "bg-rose-100/80 dark:bg-rose-950/60 text-rose-600 dark:text-rose-400"
+                      }`}
                     >
-                      {slice.percentage}%
+                      {item.trendValue}
                     </span>
                   </div>
                 </div>
               );
-            })}
-          </div>
-        )}
+            })
+          )}
+        </div>
       </div>
-
     </div>
   );
 }

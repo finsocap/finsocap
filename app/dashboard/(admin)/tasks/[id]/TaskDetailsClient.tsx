@@ -3,9 +3,9 @@
 import { useEffect, useState, useRef, useMemo } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { 
-  ArrowLeft, Phone, Calendar, Clock, Paperclip, AtSign, 
-  Send, Upload, Download, CheckCircle2, AlertTriangle, 
+import {
+  ArrowLeft, Phone, Calendar, Clock, Paperclip, AtSign,
+  Send, Upload, Download, CheckCircle2, AlertTriangle,
   User, Building2, Briefcase, FileCheck, Loader2, Sparkles,
   ChevronDown, X, ShieldCheck, Award, Eye, EyeOff, FileText, QrCode, Check, Edit3, Copy
 } from "lucide-react";
@@ -42,7 +42,7 @@ export default function TaskDetailsClient({ id }: { id: string }) {
         if (res?.success && Array.isArray(res?.data)) {
           setSpecialistsList(res.data.map((s) => ({ id: s.id, fullName: s.fullName, designation: s.designation })));
         }
-      } catch (e) {}
+      } catch (e) { }
     }
     loadSpecialists();
   }, []);
@@ -56,7 +56,7 @@ export default function TaskDetailsClient({ id }: { id: string }) {
           setCurrentUser(p.user);
         }
       }
-    } catch (e) {}
+    } catch (e) { }
   }, []);
   const [newCommentText, setNewCommentText] = useState("");
   const [isPostingComment, setIsPostingComment] = useState(false);
@@ -71,7 +71,7 @@ export default function TaskDetailsClient({ id }: { id: string }) {
         const r = (p?.user?.role || p?.role || "ADMIN").toUpperCase();
         setUserRole(r);
       }
-    } catch (e) {}
+    } catch (e) { }
   }, []);
 
   // Mark Task as Completed Modal State (Screenshot 1 & Screenshot 2 Exact Match)
@@ -228,11 +228,11 @@ export default function TaskDetailsClient({ id }: { id: string }) {
         assignedTo: isUnassigned
           ? undefined
           : {
-              id: task.assignedTo?.id || "EMP001",
-              name: editAssignedTo,
-              role: task.assignedTo?.role || "Operations Specialist",
-              avatar: task.assignedTo?.avatar,
-            },
+            id: task.assignedTo?.id || "EMP001",
+            name: editAssignedTo,
+            role: task.assignedTo?.role || "Operations Specialist",
+            avatar: task.assignedTo?.avatar,
+          },
       });
       if (updated) {
         setTask({ ...updated });
@@ -368,7 +368,7 @@ export default function TaskDetailsClient({ id }: { id: string }) {
                 currentLiveVersion = verJson.data.version;
               }
             }
-          } catch (e) {}
+          } catch (e) { }
 
           // 2B. Direct PUT task entity update
           await fetch(`/api/proxy/tasks/${numericTaskId}`, {
@@ -449,7 +449,7 @@ export default function TaskDetailsClient({ id }: { id: string }) {
     // 2. Persist directly to crmStore for Licence Report (Requirement: Submitting this restores data into Licence Report)
     const submittedPassword = completePassword.trim() || "Abc@1234";
     const submittedLicenceNumber = completeLicenceNumber.trim();
-    
+
     // Save portal credentials in in-memory / session store instead of exposing in permanent local storage
     if (typeof window !== "undefined") {
       try {
@@ -486,12 +486,12 @@ export default function TaskDetailsClient({ id }: { id: string }) {
         rawCat.includes("FOOD") || rawCat.includes("FSSAI")
           ? "FOOD_BEVERAGE"
           : rawCat.includes("LEGAL") || rawCat.includes("IP") || rawCat.includes("TRADEMARK")
-          ? "LEGAL_IP"
-          : rawCat.includes("TAX") || rawCat.includes("GST") || rawCat.includes("INCOME")
-          ? "TAXATION"
-          : rawCat.includes("COMPANY") || rawCat.includes("REG") || rawCat.includes("INCORPORATION")
-          ? "COMPANY_REG"
-          : "LICENSES";
+            ? "LEGAL_IP"
+            : rawCat.includes("TAX") || rawCat.includes("GST") || rawCat.includes("INCOME")
+              ? "TAXATION"
+              : rawCat.includes("COMPANY") || rawCat.includes("REG") || rawCat.includes("INCORPORATION")
+                ? "COMPANY_REG"
+                : "LICENSES";
 
       await reportsService.registerLicence({
         taskId: task.id,
@@ -531,7 +531,7 @@ export default function TaskDetailsClient({ id }: { id: string }) {
             const verJson = await verRes.json();
             if (typeof verJson?.data?.version === "number") currentLiveVersion = verJson.data.version;
           }
-        } catch (e) {}
+        } catch (e) { }
 
         await taskCollaborationService.updateTaskStatus(
           numericTaskId,
@@ -562,8 +562,8 @@ export default function TaskDetailsClient({ id }: { id: string }) {
   const handleCommentFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
-      const sizeStr = file.size > 1024 * 1024 
-        ? `${(file.size / (1024 * 1024)).toFixed(1)} MB` 
+      const sizeStr = file.size > 1024 * 1024
+        ? `${(file.size / (1024 * 1024)).toFixed(1)} MB`
         : `${(file.size / 1024).toFixed(0)} KB`;
       setCommentAttachment({
         fileName: file.name,
@@ -609,7 +609,7 @@ export default function TaskDetailsClient({ id }: { id: string }) {
     }
 
     const comment = await taskService.addComment(
-      task.id, 
+      task.id,
       newCommentText.trim() || (commentAttachment ? `Uploaded document: ${commentAttachment.fileName}` : ""),
       attachmentsList,
       senderName,
@@ -636,11 +636,11 @@ export default function TaskDetailsClient({ id }: { id: string }) {
 
     const initials = currentUser?.name
       ? currentUser.name
-          .split(" ")
-          .map((n) => n[0])
-          .join("")
-          .toUpperCase()
-          .slice(0, 2)
+        .split(" ")
+        .map((n) => n[0])
+        .join("")
+        .toUpperCase()
+        .slice(0, 2)
       : "AD";
 
     const fileSizeStr = selectedStaffFile
@@ -661,10 +661,10 @@ export default function TaskDetailsClient({ id }: { id: string }) {
             uploadDocCategory.includes("Certificate")
               ? "CERTIFICATE"
               : uploadDocCategory.includes("Acknowledgment")
-              ? "ACKNOWLEDGEMENT"
-              : uploadDocCategory.includes("Receipt")
-              ? "ACKNOWLEDGEMENT"
-              : "OTHER";
+                ? "ACKNOWLEDGEMENT"
+                : uploadDocCategory.includes("Receipt")
+                  ? "ACKNOWLEDGEMENT"
+                  : "OTHER";
 
           const apiRes = await taskCollaborationService.uploadWorkDocument(
             numericTaskId,
@@ -964,19 +964,18 @@ export default function TaskDetailsClient({ id }: { id: string }) {
                         onClick={() => {
                           if (isAllowed) handleStatusChange(opt.status);
                         }}
-                        className={`w-full text-left px-3.5 py-2.5 text-xs font-bold flex items-center justify-between transition-colors ${
-                          isCurrent
-                            ? "bg-blue-50/70 dark:bg-blue-950/40 text-blue-600 dark:text-sky-400 cursor-default"
-                            : isAllowed
+                        className={`w-full text-left px-3.5 py-2.5 text-xs font-bold flex items-center justify-between transition-colors ${isCurrent
+                          ? "bg-blue-50/70 dark:bg-blue-950/40 text-blue-600 dark:text-sky-400 cursor-default"
+                          : isAllowed
                             ? "text-slate-800 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800/80 cursor-pointer"
                             : "text-slate-300 dark:text-slate-600 cursor-not-allowed opacity-50 bg-slate-50/30 dark:bg-slate-900/30"
-                        }`}
+                          }`}
                         title={
                           isCurrent
                             ? "Current status"
                             : isAllowed
-                            ? `Transition to ${opt.status}`
-                            : `Stepwise rule: Cannot jump from ${task.status} to ${opt.status}`
+                              ? `Transition to ${opt.status}`
+                              : `Stepwise rule: Cannot jump from ${task.status} to ${opt.status}`
                         }
                       >
                         <div className="flex items-center gap-2.5">
@@ -1027,185 +1026,80 @@ export default function TaskDetailsClient({ id }: { id: string }) {
         </div>
       </div>
 
-      {/* 3. Main Workspace: Comments with File Upload (Left) & Attachments (Right - No Delete) */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 relative z-10">
-        {/* =================================================================== */}
-        {/* LEFT COLUMN: Comments Timeline with Attachment Support */}
-        {/* =================================================================== */}
-        <div className="lg:col-span-7 space-y-4">
-          <div className="card-luxury p-6 space-y-5">
-            <h3 className="font-black text-slate-900 dark:text-white text-base tracking-tight flex items-center gap-2 border-b border-slate-100 dark:border-slate-800/80 pb-3">
-              <span>Comments</span>
-            </h3>
-
-            {/* Comment Input Box with File Attachment (Requirement 5th ss) */}
-            <form onSubmit={handleAddComment} className="space-y-3">
-              <textarea
-                rows={3}
-                placeholder="Add a comment... (Service team can attach verified files and notices)"
-                value={newCommentText}
-                onChange={(e) => setNewCommentText(e.target.value)}
-                className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-900/80 border border-slate-200 dark:border-slate-700 rounded-2xl text-xs font-medium text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500/30 focus:border-blue-500 transition-all shadow-xs"
-              />
-
-              {/* Selected File Chip */}
-              {commentAttachment && (
-                <div className="flex items-center justify-between p-2.5 rounded-xl bg-blue-50 dark:bg-blue-950/40 border border-blue-200 dark:border-blue-800 text-xs">
-                  <div className="flex items-center gap-2">
-                    <FileText className="w-4 h-4 text-blue-600 dark:text-sky-400" />
-                    <span className="font-bold text-slate-900 dark:text-white">{commentAttachment.fileName}</span>
-                    <span className="text-[10px] text-slate-400">({commentAttachment.fileSize})</span>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setCommentAttachment(null);
-                      if (commentFileInputRef.current) commentFileInputRef.current.value = "";
-                    }}
-                    className="p-1 text-slate-400 hover:text-rose-500 cursor-pointer"
-                  >
-                    <X className="w-3.5 h-3.5" />
-                  </button>
-                </div>
-              )}
-
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2 text-slate-400">
-                  {/* Paperclip Button with file input */}
-                  <label
-                    title="Attach file with comment"
-                    className="p-2 hover:text-sky-500 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer flex items-center"
-                  >
-                    <Paperclip className="w-4 h-4" />
-                    <input
-                      ref={commentFileInputRef}
-                      type="file"
-                      className="hidden"
-                      onChange={handleCommentFileChange}
-                    />
-                  </label>
-                  <button type="button" title="Mention teammate" className="p-2 hover:text-sky-500 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer">
-                    <AtSign className="w-4 h-4" />
-                  </button>
-                </div>
-
-                <button
-                  type="submit"
-                  disabled={isPostingComment || (!newCommentText.trim() && !commentAttachment)}
-                  className="btn-primary-vibrant text-xs py-2 px-5 cursor-pointer disabled:opacity-50"
-                >
-                  <Send className="w-3.5 h-3.5" />
-                  <span>Post Comment</span>
-                </button>
-              </div>
-            </form>
-
-            {/* Comments Feed Timeline */}
-            <div className="space-y-3 pt-2">
-              {(task.comments || []).length === 0 ? (
-                <p className="text-xs text-slate-400 py-6 text-center font-medium">No comments yet. Start the conversation!</p>
-              ) : (
-                task.comments?.map((comment) => (
-                  <div key={comment.id} className="p-4 rounded-2xl bg-slate-50/80 dark:bg-slate-900/60 border border-slate-200/80 dark:border-slate-800/80 space-y-2">
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-2.5">
-                        <div className="w-8 h-8 rounded-xl bg-gradient-to-tr from-sky-500 to-blue-600 text-white font-black text-xs flex items-center justify-center shadow-xs">
-                          {comment.userName.slice(0, 2).toUpperCase()}
-                        </div>
-                        <div>
-                          <span className="font-bold text-xs text-slate-900 dark:text-white">
-                            {comment.userName}
-                          </span>
-                          <span className="ml-2 px-2 py-0.5 rounded-md text-[10px] font-bold bg-slate-200/80 dark:bg-slate-800 text-slate-700 dark:text-slate-300">
-                            {comment.userRole}
-                          </span>
-                        </div>
-                      </div>
-                      <span className="text-[10px] text-slate-400 font-bold">
-                        {comment.timestamp}
-                      </span>
-                    </div>
-
-                    <p className="text-xs text-slate-700 dark:text-slate-300 pl-10 font-medium">
-                      {comment.text}
-                    </p>
-
-                    {/* Attached files inside comment (Requirement 5th ss) */}
-                    {comment.attachments && comment.attachments.length > 0 && (
-                      <div className="pl-10 pt-1 space-y-1.5">
-                        {comment.attachments.map((att) => (
-                          <div
-                            key={att.id}
-                            className="inline-flex items-center gap-2 px-3 py-1.5 rounded-xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-xs font-semibold"
-                          >
-                            <FileCheck className="w-3.5 h-3.5 text-blue-500" />
-                            <span className="text-slate-800 dark:text-slate-200">{att.fileName}</span>
-                            {att.fileSize && <span className="text-[10px] text-slate-400">({att.fileSize})</span>}
-                            <button
-                              type="button"
-                              onClick={() => showToast(`Opening ${att.fileName}...`)}
-                              className="text-blue-600 hover:underline text-[11px] font-bold ml-1 cursor-pointer"
-                            >
-                              Download
-                            </button>
-                          </div>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                ))
-              )}
+      {/* 3. Attachments Row: Partner Attachments (50%) & Staff Work Deliverables (50%) with EXACT EQUAL HEIGHT */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 relative z-10 items-stretch">
+        {/* SECTION 1: Partner Attachments (Uploaded by Franchise Partner) - 50% width, exact equal height */}
+        <div className="card-luxury p-6 flex flex-col h-[280px]">
+          <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800/80 pb-3 shrink-0">
+            <div>
+              <h3 className="font-black text-slate-900 dark:text-white text-base tracking-tight flex items-center gap-2">
+                <Paperclip className="w-4 h-4 text-sky-500" />
+                <span>Partner Attachments</span>
+                <span className="px-2 py-0.5 rounded-full text-[10px] font-black bg-blue-50 text-blue-600 dark:bg-blue-950/60 dark:text-sky-300 border border-blue-200/60 dark:border-blue-800/60">
+                  {((task.attachments || []).filter((a) => !a.source || a.source === "PARTNER")).length} Files
+                </span>
+              </h3>
+              <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">
+                Documents uploaded by Franchise Partner ({task.partnerName}) during service request creation.
+              </p>
             </div>
           </div>
-        </div>
 
-        {/* =================================================================== */}
-        {/* RIGHT COLUMN: Attachments (Partner & Staff/Admin Deliverables) + Status History */}
-        {/* =================================================================== */}
-        <div className="lg:col-span-5 space-y-6">
-          {/* SECTION 1: Partner Attachments (Uploaded by Franchise Partner) */}
-          <div className="card-luxury p-6 space-y-5">
-            <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800/80 pb-3">
-              <div>
-                <h3 className="font-black text-slate-900 dark:text-white text-base tracking-tight flex items-center gap-2">
-                  <Paperclip className="w-4 h-4 text-sky-500" />
-                  <span>Partner Attachments</span>
-                  <span className="px-2 py-0.5 rounded-full text-[10px] font-black bg-blue-50 text-blue-600 dark:bg-blue-950/60 dark:text-sky-300 border border-blue-200/60 dark:border-blue-800/60">
-                    {((task.attachments || []).filter((a) => !a.source || a.source === "PARTNER")).length} Files
-                  </span>
-                </h3>
-                <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">
-                  Documents uploaded by Franchise Partner ({task.partnerName}) during service request creation.
-                </p>
-              </div>
-            </div>
-
-            {/* Partner Attachments Table */}
-            <div className="overflow-x-auto">
-              <table className="w-full text-left border-collapse text-xs">
-                <thead>
-                  <tr className="border-b border-slate-100 dark:border-slate-800 text-[10px] font-black uppercase tracking-wider text-slate-400">
-                    <th className="py-2.5 px-2">#</th>
-                    <th className="py-2.5 px-2">File Name</th>
-                    <th className="py-2.5 px-2">Upload Date</th>
-                    <th className="py-2.5 px-2">Uploaded By</th>
-                    <th className="py-2.5 px-2 text-right">Action</th>
+          {/* Partner Attachments Table - flex-1 scrollable */}
+          <div className="flex-1 overflow-x-auto overflow-y-auto no-scrollbar pt-2">
+            <table className="w-full text-left border-collapse text-xs">
+              <thead>
+                <tr className="border-b border-slate-100 dark:border-slate-800 text-[10px] font-black uppercase tracking-wider text-slate-400">
+                  <th className="py-2.5 px-2">#</th>
+                  <th className="py-2.5 px-2">File Name</th>
+                  <th className="py-2.5 px-2">Upload Date</th>
+                  <th className="py-2.5 px-2">Uploaded By</th>
+                  <th className="py-2.5 px-2 text-right">Action</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100 dark:divide-slate-800/60 font-medium">
+                {((task.attachments || []).filter((a) => !a.source || a.source === "PARTNER")).length === 0 ? (
+                  <tr>
+                    <td colSpan={5} className="py-8 text-center text-slate-400">
+                      No partner documents uploaded yet.
+                    </td>
                   </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-100 dark:divide-slate-800/60 font-medium">
-                  {((task.attachments || []).filter((a) => !a.source || a.source === "PARTNER")).length === 0 ? (
-                    <tr>
-                      <td colSpan={5} className="py-4 text-center text-slate-400">
-                        No partner documents uploaded yet.
-                      </td>
-                    </tr>
-                  ) : (
-                    (task.attachments || [])
-                      .filter((a) => !a.source || a.source === "PARTNER")
-                      .map((att, idx) => (
-                        <tr key={att.id} className="hover:bg-slate-50/60 dark:hover:bg-slate-800/40 transition-colors">
-                          <td className="py-2.5 px-2 font-bold text-slate-400">{idx + 1}</td>
-                          <td className="py-2.5 px-2 font-bold text-blue-600 dark:text-sky-400 hover:underline cursor-pointer">
+                ) : (
+                  (task.attachments || [])
+                    .filter((a) => !a.source || a.source === "PARTNER")
+                    .map((att, idx) => (
+                      <tr key={att.id} className="hover:bg-slate-50/60 dark:hover:bg-slate-800/40 transition-colors">
+                        <td className="py-2.5 px-2 font-bold text-slate-400">{idx + 1}</td>
+                        <td className="py-2.5 px-2 font-bold text-blue-600 dark:text-sky-400 hover:underline cursor-pointer">
+                          <button
+                            type="button"
+                            onClick={() =>
+                              setActivePreviewDoc({
+                                isOpen: true,
+                                title: "Partner Attachment",
+                                fileName: att.fileName,
+                                fileUrl: att.fileUrl,
+                                uploadedBy: att.uploadedBy,
+                                uploadDate: att.uploadDate,
+                                category: "PARTNER ATTACHMENT",
+                              })
+                            }
+                            className="text-left font-bold"
+                          >
+                            {att.fileName}
+                          </button>
+                        </td>
+                        <td className="py-2.5 px-2 text-slate-500 whitespace-nowrap">
+                          {att.uploadDate}
+                        </td>
+                        <td className="py-2.5 px-2">
+                          <span className="w-6 h-6 rounded-full bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-300 font-bold text-[10px] inline-flex items-center justify-center">
+                            {att.uploadedBy}
+                          </span>
+                        </td>
+                        {/* ONLY View & Download Allowed - NO DELETE BUTTON */}
+                        <td className="py-2.5 px-2 text-right whitespace-nowrap">
+                          <div className="flex items-center justify-end gap-1.5">
                             <button
                               type="button"
                               onClick={() =>
@@ -1219,117 +1113,116 @@ export default function TaskDetailsClient({ id }: { id: string }) {
                                   category: "PARTNER ATTACHMENT",
                                 })
                               }
-                              className="text-left font-bold"
+                              title="View Document"
+                              className="w-7 h-7 rounded-lg bg-sky-50 dark:bg-sky-950/40 text-sky-600 dark:text-sky-400 hover:bg-sky-500 hover:text-white transition-all flex items-center justify-center cursor-pointer"
                             >
-                              {att.fileName}
+                              <Eye className="w-3.5 h-3.5" />
                             </button>
-                          </td>
-                          <td className="py-2.5 px-2 text-slate-500 whitespace-nowrap">
-                            {att.uploadDate}
-                          </td>
-                          <td className="py-2.5 px-2">
-                            <span className="w-6 h-6 rounded-full bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-300 font-bold text-[10px] inline-flex items-center justify-center">
-                              {att.uploadedBy}
-                            </span>
-                          </td>
-                          {/* ONLY View & Download Allowed - NO DELETE BUTTON */}
-                          <td className="py-2.5 px-2 text-right whitespace-nowrap">
-                            <div className="flex items-center justify-end gap-1.5">
-                              <button
-                                type="button"
-                                onClick={() =>
-                                  setActivePreviewDoc({
-                                    isOpen: true,
-                                    title: "Partner Attachment",
-                                    fileName: att.fileName,
-                                    fileUrl: att.fileUrl,
-                                    uploadedBy: att.uploadedBy,
-                                    uploadDate: att.uploadDate,
-                                    category: "PARTNER ATTACHMENT",
-                                  })
-                                }
-                                title="View Document"
-                                className="w-7 h-7 rounded-lg bg-sky-50 dark:bg-sky-950/40 text-sky-600 dark:text-sky-400 hover:bg-sky-500 hover:text-white transition-all flex items-center justify-center cursor-pointer"
-                              >
-                                <Eye className="w-3.5 h-3.5" />
-                              </button>
-                              <button
-                                type="button"
-                                onClick={() => downloadFile(att.fileUrl, att.fileName)}
-                                title="Download Document"
-                                className="w-7 h-7 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-blue-600 hover:text-white transition-all flex items-center justify-center cursor-pointer"
-                              >
-                                <Download className="w-3.5 h-3.5" />
-                              </button>
-                            </div>
-                          </td>
-                        </tr>
-                      ))
-                  )}
-                </tbody>
-              </table>
+                            <button
+                              type="button"
+                              onClick={() => downloadFile(att.fileUrl, att.fileName)}
+                              title="Download Document"
+                              className="w-7 h-7 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-blue-600 hover:text-white transition-all flex items-center justify-center cursor-pointer"
+                            >
+                              <Download className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))
+                )}
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        {/* SECTION 2: Staff & Admin Work Deliverables / Attachments - 50% width, exact equal height */}
+        <div className="card-luxury p-6 flex flex-col h-[280px] border-l-4 border-l-indigo-500">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 border-b border-slate-100 dark:border-slate-800/80 pb-3 shrink-0">
+            <div className="min-w-0 pr-2">
+              <h3 className="font-black text-slate-900 dark:text-white text-base tracking-tight flex items-center gap-2 flex-wrap">
+                <FileCheck className="w-4 h-4 text-indigo-500 shrink-0" />
+                <span>Staff &amp; Admin Work Deliverables</span>
+                <span className="px-2 py-0.5 rounded-full text-[10px] font-black bg-indigo-50 text-indigo-600 dark:bg-indigo-950/60 dark:text-indigo-300 border border-indigo-200/60 dark:border-indigo-800/60 shrink-0">
+                  {((task.attachments || []).filter((a) => a.source === "STAFF_ADMIN")).length} Files
+                </span>
+              </h3>
+              <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">
+                Output certificates, filing receipts, and completed paperwork uploaded by internal staff &amp; admin.
+              </p>
             </div>
+
+            {/* Upload Deliverable Button for Staff / Admin */}
+            <button
+              type="button"
+              onClick={() => {
+                setUploadFileName("");
+                setSelectedStaffFile(null);
+                setUploadModalOpen(true);
+              }}
+              className="btn-primary-vibrant text-xs py-2 px-3.5 inline-flex items-center justify-center gap-1.5 shadow-md shadow-blue-500/20 cursor-pointer shrink-0 whitespace-nowrap self-start sm:self-center"
+            >
+              <Upload className="w-3.5 h-3.5 shrink-0" />
+              <span>Upload Document</span>
+            </button>
           </div>
 
-          {/* SECTION 2: Staff & Admin Work Deliverables / Attachments */}
-          <div className="card-luxury p-6 space-y-5 border-l-4 border-l-indigo-500">
-            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 border-b border-slate-100 dark:border-slate-800/80 pb-3">
-              <div className="min-w-0 pr-2">
-                <h3 className="font-black text-slate-900 dark:text-white text-base tracking-tight flex items-center gap-2 flex-wrap">
-                  <FileCheck className="w-4 h-4 text-indigo-500 shrink-0" />
-                  <span>Staff &amp; Admin Work Deliverables</span>
-                  <span className="px-2 py-0.5 rounded-full text-[10px] font-black bg-indigo-50 text-indigo-600 dark:bg-indigo-950/60 dark:text-indigo-300 border border-indigo-200/60 dark:border-indigo-800/60 shrink-0">
-                    {((task.attachments || []).filter((a) => a.source === "STAFF_ADMIN")).length} Files
-                  </span>
-                </h3>
-                <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">
-                  Output certificates, filing receipts, and completed paperwork uploaded by internal staff &amp; admin.
-                </p>
-              </div>
-
-              {/* Upload Deliverable Button for Staff / Admin */}
-              <button
-                type="button"
-                onClick={() => {
-                  setUploadFileName("");
-                  setSelectedStaffFile(null);
-                  setUploadModalOpen(true);
-                }}
-                className="btn-primary-vibrant text-xs py-2 px-3.5 inline-flex items-center justify-center gap-1.5 shadow-md shadow-blue-500/20 cursor-pointer shrink-0 whitespace-nowrap self-start sm:self-center"
-              >
-                <Upload className="w-3.5 h-3.5 shrink-0" />
-                <span>Upload Document</span>
-              </button>
-            </div>
-
-            {/* Staff / Admin Uploads Table */}
-            <div className="overflow-x-auto">
-              <table className="w-full text-left border-collapse text-xs">
-                <thead>
-                  <tr className="border-b border-slate-100 dark:border-slate-800 text-[10px] font-black uppercase tracking-wider text-slate-400">
-                    <th className="py-2.5 px-2">#</th>
-                    <th className="py-2.5 px-2">File Name</th>
-                    <th className="py-2.5 px-2">Document Type</th>
-                    <th className="py-2.5 px-2">Uploaded</th>
-                    <th className="py-2.5 px-2 text-right">Action</th>
+          {/* Staff / Admin Uploads Table - flex-1 scrollable */}
+          <div className="flex-1 overflow-x-auto overflow-y-auto no-scrollbar pt-2">
+            <table className="w-full text-left border-collapse text-xs">
+              <thead>
+                <tr className="border-b border-slate-100 dark:border-slate-800 text-[10px] font-black uppercase tracking-wider text-slate-400">
+                  <th className="py-2.5 px-2">#</th>
+                  <th className="py-2.5 px-2">File Name</th>
+                  <th className="py-2.5 px-2">Document Type</th>
+                  <th className="py-2.5 px-2">Uploaded</th>
+                  <th className="py-2.5 px-2 text-right">Action</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100 dark:divide-slate-800/60 font-medium">
+                {((task.attachments || []).filter((a) => a.source === "STAFF_ADMIN")).length === 0 ? (
+                  <tr>
+                    <td colSpan={5} className="py-4 text-center text-slate-400">
+                      <FileCheck className="w-5 h-5 mx-auto mb-1 text-slate-300 dark:text-slate-700" />
+                      <p className="text-xs font-semibold text-slate-600 dark:text-slate-400">No work deliverables uploaded yet.</p>
+                      <p className="text-[10px] text-slate-400 mt-0.5">Staff &amp; admin can upload final certificates or filed acknowledgments once work is completed.</p>
+                    </td>
                   </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-100 dark:divide-slate-800/60 font-medium">
-                  {((task.attachments || []).filter((a) => a.source === "STAFF_ADMIN")).length === 0 ? (
-                    <tr>
-                      <td colSpan={5} className="py-5 text-center text-slate-400">
-                        <FileCheck className="w-6 h-6 mx-auto mb-1 text-slate-300 dark:text-slate-700" />
-                        <p className="text-xs font-semibold text-slate-600 dark:text-slate-400">No work deliverables uploaded yet.</p>
-                        <p className="text-[10px] text-slate-400 mt-0.5">Staff &amp; admin can upload final certificates or filed acknowledgments once work is completed.</p>
-                      </td>
-                    </tr>
-                  ) : (
-                    (task.attachments || [])
-                      .filter((a) => a.source === "STAFF_ADMIN")
-                      .map((att, idx) => (
-                        <tr key={att.id} className="hover:bg-slate-50/60 dark:hover:bg-slate-800/40 transition-colors">
-                          <td className="py-2.5 px-2 font-bold text-slate-400">{idx + 1}</td>
-                          <td className="py-2.5 px-2 font-bold text-indigo-600 dark:text-indigo-400 hover:underline cursor-pointer">
+                ) : (
+                  (task.attachments || [])
+                    .filter((a) => a.source === "STAFF_ADMIN")
+                    .map((att, idx) => (
+                      <tr key={att.id} className="hover:bg-slate-50/60 dark:hover:bg-slate-800/40 transition-colors">
+                        <td className="py-2.5 px-2 font-bold text-slate-400">{idx + 1}</td>
+                        <td className="py-2.5 px-2 font-bold text-indigo-600 dark:text-indigo-400 hover:underline cursor-pointer">
+                          <button
+                            type="button"
+                            onClick={() =>
+                              setActivePreviewDoc({
+                                isOpen: true,
+                                title: "Staff Deliverable",
+                                fileName: att.fileName,
+                                fileUrl: att.fileUrl,
+                                uploadedBy: att.uploadedBy,
+                                uploadDate: att.uploadDate,
+                                category: att.category || "STAFF DELIVERABLE",
+                              })
+                            }
+                            className="text-left font-bold"
+                          >
+                            {att.fileName}
+                          </button>
+                        </td>
+                        <td className="py-2.5 px-2">
+                          <span className="px-2 py-0.5 rounded-md font-bold text-[10px] bg-indigo-50 text-indigo-700 dark:bg-indigo-950/60 dark:text-indigo-300 border border-indigo-200/60">
+                            {att.category || "Deliverable"}
+                          </span>
+                        </td>
+                        <td className="py-2.5 px-2 text-slate-500 whitespace-nowrap text-[11px]">
+                          {att.uploadDate} by <strong className="text-slate-700 dark:text-slate-300">{att.uploadedBy}</strong>
+                        </td>
+                        <td className="py-2.5 px-2 text-right whitespace-nowrap">
+                          <div className="flex items-center justify-end gap-1.5">
                             <button
                               type="button"
                               onClick={() =>
@@ -1343,87 +1236,192 @@ export default function TaskDetailsClient({ id }: { id: string }) {
                                   category: att.category || "STAFF DELIVERABLE",
                                 })
                               }
-                              className="text-left font-bold"
+                              title="View Deliverable"
+                              className="w-7 h-7 rounded-lg bg-indigo-50 dark:bg-indigo-950/40 text-indigo-600 dark:text-indigo-400 hover:bg-indigo-500 hover:text-white transition-all flex items-center justify-center cursor-pointer"
                             >
-                              {att.fileName}
+                              <Eye className="w-3.5 h-3.5" />
                             </button>
-                          </td>
-                          <td className="py-2.5 px-2">
-                            <span className="px-2 py-0.5 rounded-md font-bold text-[10px] bg-indigo-50 text-indigo-700 dark:bg-indigo-950/60 dark:text-indigo-300 border border-indigo-200/60">
-                              {att.category || "Deliverable"}
-                            </span>
-                          </td>
-                          <td className="py-2.5 px-2 text-slate-500 whitespace-nowrap text-[11px]">
-                            {att.uploadDate} by <strong className="text-slate-700 dark:text-slate-300">{att.uploadedBy}</strong>
-                          </td>
-                          <td className="py-2.5 px-2 text-right whitespace-nowrap">
-                            <div className="flex items-center justify-end gap-1.5">
-                              <button
-                                type="button"
-                                onClick={() =>
-                                  setActivePreviewDoc({
-                                    isOpen: true,
-                                    title: "Staff Deliverable",
-                                    fileName: att.fileName,
-                                    fileUrl: att.fileUrl,
-                                    uploadedBy: att.uploadedBy,
-                                    uploadDate: att.uploadDate,
-                                    category: att.category || "STAFF DELIVERABLE",
-                                  })
-                                }
-                                title="View Deliverable"
-                                className="w-7 h-7 rounded-lg bg-indigo-50 dark:bg-indigo-950/40 text-indigo-600 dark:text-indigo-400 hover:bg-indigo-500 hover:text-white transition-all flex items-center justify-center cursor-pointer"
-                              >
-                                <Eye className="w-3.5 h-3.5" />
-                              </button>
-                              <button
-                                type="button"
-                                onClick={() => downloadFile(att.fileUrl, att.fileName)}
-                                title="Download Deliverable"
-                                className="w-7 h-7 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-indigo-600 hover:text-white transition-all flex items-center justify-center cursor-pointer"
-                              >
-                                <Download className="w-3.5 h-3.5" />
-                              </button>
-                            </div>
-                          </td>
-                        </tr>
-                      ))
-                  )}
-                </tbody>
-              </table>
-            </div>
+                            <button
+                              type="button"
+                              onClick={() => downloadFile(att.fileUrl, att.fileName)}
+                              title="Download Deliverable"
+                              className="w-7 h-7 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-indigo-600 hover:text-white transition-all flex items-center justify-center cursor-pointer"
+                            >
+                              <Download className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))
+                )}
+              </tbody>
+            </table>
           </div>
+        </div>
+      </div>
 
-          {/* Section: Status History Audit Trail */}
-          <div className="card-luxury p-6 space-y-4">
-            <h3 className="font-black text-slate-900 dark:text-white text-base tracking-tight flex items-center gap-2 border-b border-slate-100 dark:border-slate-800/80 pb-3">
-              <Clock className="w-4 h-4 text-amber-500" />
-              <span>Status History</span>
-            </h3>
+      {/* 4. Comments (50%) & Status History (50%) Side by Side with EXACT EQUAL HEIGHT */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 relative z-10 items-stretch">
+        {/* Comments Section - 50% width, exact equal height */}
+        <div className="card-luxury p-6 flex flex-col h-[560px]">
+          <h3 className="font-black text-slate-900 dark:text-white text-base tracking-tight flex items-center gap-2 border-b border-slate-100 dark:border-slate-800/80 pb-3 shrink-0">
+            <span>Comments</span>
+          </h3>
 
-            <div className="relative pl-6 space-y-4 before:absolute before:left-2 before:top-2 before:bottom-2 before:w-0.5 before:bg-slate-200 dark:before:bg-slate-800 text-xs">
-              {(task.statusHistory || []).map((sh) => (
-                <div key={sh.id} className="relative">
-                  <div className="absolute -left-[23px] top-1 w-2.5 h-2.5 rounded-full bg-blue-500 ring-4 ring-white dark:ring-[#0c1427]" />
+          {/* Comment Input Box with File Attachment (Requirement 5th ss) */}
+          <form onSubmit={handleAddComment} className="space-y-3 pt-4 shrink-0">
+            <textarea
+              rows={3}
+              placeholder="Add a comment... (Service team can attach verified files and notices)"
+              value={newCommentText}
+              onChange={(e) => setNewCommentText(e.target.value)}
+              className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-900/80 border border-slate-200 dark:border-slate-700 rounded-2xl text-xs font-medium text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500/30 focus:border-blue-500 transition-all shadow-xs"
+            />
+
+            {/* Selected File Chip */}
+            {commentAttachment && (
+              <div className="flex items-center justify-between p-2.5 rounded-xl bg-blue-50 dark:bg-blue-950/40 border border-blue-200 dark:border-blue-800 text-xs">
+                <div className="flex items-center gap-2">
+                  <FileText className="w-4 h-4 text-blue-600 dark:text-sky-400" />
+                  <span className="font-bold text-slate-900 dark:text-white">{commentAttachment.fileName}</span>
+                  <span className="text-[10px] text-slate-400">({commentAttachment.fileSize})</span>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setCommentAttachment(null);
+                    if (commentFileInputRef.current) commentFileInputRef.current.value = "";
+                  }}
+                  className="p-1 text-slate-400 hover:text-rose-500 cursor-pointer"
+                >
+                  <X className="w-3.5 h-3.5" />
+                </button>
+              </div>
+            )}
+
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2 text-slate-400">
+                {/* Paperclip Button with file input */}
+                <label
+                  title="Attach file with comment"
+                  className="p-2 hover:text-sky-500 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer flex items-center"
+                >
+                  <Paperclip className="w-4 h-4" />
+                  <input
+                    ref={commentFileInputRef}
+                    type="file"
+                    className="hidden"
+                    onChange={handleCommentFileChange}
+                  />
+                </label>
+                <button type="button" title="Mention teammate" className="p-2 hover:text-sky-500 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer">
+                  <AtSign className="w-4 h-4" />
+                </button>
+              </div>
+
+              <button
+                type="submit"
+                disabled={isPostingComment || (!newCommentText.trim() && !commentAttachment)}
+                className="btn-primary-vibrant text-xs py-2 px-5 cursor-pointer disabled:opacity-50"
+              >
+                <Send className="w-3.5 h-3.5" />
+                <span>Post Comment</span>
+              </button>
+            </div>
+          </form>
+
+          {/* Comments Feed Timeline - flex-1 scrollable */}
+          <div className="space-y-3 pt-3 flex-1 overflow-y-auto pr-1 no-scrollbar">
+            {(task.comments || []).length === 0 ? (
+              <p className="text-xs text-slate-400 py-6 text-center font-medium">No comments yet. Start the conversation!</p>
+            ) : (
+              task.comments?.map((comment) => (
+                <div key={comment.id} className="p-4 rounded-2xl bg-slate-50/80 dark:bg-slate-900/60 border border-slate-200/80 dark:border-slate-800/80 space-y-2">
                   <div className="flex items-center justify-between">
-                    <span className="font-black text-blue-600 dark:text-sky-400">
-                      {sh.status}
-                    </span>
-                    <span className="text-[10px] text-slate-400">
-                      {sh.timestamp}
+                    <div className="flex items-center gap-2.5">
+                      <div className="w-8 h-8 rounded-xl bg-gradient-to-tr from-sky-500 to-blue-600 text-white font-black text-xs flex items-center justify-center shadow-xs">
+                        {comment.userName.slice(0, 2).toUpperCase()}
+                      </div>
+                      <div>
+                        <span className="font-bold text-xs text-slate-900 dark:text-white">
+                          {comment.userName}
+                        </span>
+                        <span className="ml-2 px-2 py-0.5 rounded-md text-[10px] font-bold bg-slate-200/80 dark:bg-slate-800 text-slate-700 dark:text-slate-300">
+                          {comment.userRole}
+                        </span>
+                      </div>
+                    </div>
+                    <span className="text-[10px] text-slate-400 font-bold">
+                      {comment.timestamp}
                     </span>
                   </div>
-                  <p className="text-slate-700 dark:text-slate-300 font-semibold mt-0.5">
-                    {sh.title}
+
+                  <p className="text-xs text-slate-700 dark:text-slate-300 pl-10 font-medium">
+                    {comment.text}
                   </p>
-                  {sh.updatedBy && (
-                    <p className="text-[10px] text-slate-400 mt-0.5 font-medium">
-                      by {sh.updatedBy}
-                    </p>
+
+                  {/* Attached files inside comment (Requirement 5th ss) */}
+                  {comment.attachments && comment.attachments.length > 0 && (
+                    <div className="pl-10 pt-1 space-y-1.5">
+                      {comment.attachments.map((att) => (
+                        <div
+                          key={att.id}
+                          className="inline-flex items-center gap-2 px-3 py-1.5 rounded-xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-xs font-semibold"
+                        >
+                          <FileCheck className="w-3.5 h-3.5 text-blue-500" />
+                          <span className="text-slate-800 dark:text-slate-200">{att.fileName}</span>
+                          {att.fileSize && <span className="text-[10px] text-slate-400">({att.fileSize})</span>}
+                          <button
+                            type="button"
+                            onClick={() => showToast(`Opening ${att.fileName}...`)}
+                            className="text-blue-600 hover:underline text-[11px] font-bold ml-1 cursor-pointer"
+                          >
+                            Download
+                          </button>
+                        </div>
+                      ))}
+                    </div>
                   )}
                 </div>
-              ))}
-            </div>
+              ))
+            )}
+          </div>
+        </div>
+
+        {/* Status History Audit Trail - 50% width, exact equal height */}
+        <div className="card-luxury p-6 flex flex-col h-[560px]">
+          <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800/80 pb-3 shrink-0">
+            <h3 className="font-black text-slate-900 dark:text-white text-base tracking-tight flex items-center gap-2">
+              <Clock className="w-4 h-4 text-amber-500" />
+              <span>Status History</span>
+              <span className="px-2 py-0.5 rounded-full text-[10px] font-black bg-amber-50 text-amber-700 dark:bg-amber-950/60 dark:text-amber-300 border border-amber-200/60 dark:border-amber-800/60">
+                {(task.statusHistory || []).length} Updates
+              </span>
+            </h3>
+          </div>
+
+          <div className="flex-1 overflow-y-auto pr-2 no-scrollbar relative pl-6 pt-4 space-y-4 before:absolute before:left-2 before:top-4 before:bottom-2 before:w-0.5 before:bg-slate-200 dark:before:bg-slate-800 text-xs">
+            {(task.statusHistory || []).map((sh) => (
+              <div key={sh.id} className="relative">
+                <div className="absolute -left-[23px] top-1 w-2.5 h-2.5 rounded-full bg-blue-500 ring-4 ring-white dark:ring-[#0c1427]" />
+                <div className="flex items-center justify-between">
+                  <span className="font-black text-blue-600 dark:text-sky-400">
+                    {sh.status}
+                  </span>
+                  <span className="text-[10px] text-slate-400">
+                    {sh.timestamp}
+                  </span>
+                </div>
+                <p className="text-slate-700 dark:text-slate-300 font-semibold mt-0.5">
+                  {sh.title}
+                </p>
+                {sh.updatedBy && (
+                  <p className="text-[10px] text-slate-400 mt-0.5 font-medium">
+                    by {sh.updatedBy}
+                  </p>
+                )}
+              </div>
+            ))}
           </div>
         </div>
       </div>
@@ -2002,11 +2000,10 @@ export default function TaskDetailsClient({ id }: { id: string }) {
                   {/* Permanent Licence Card */}
                   <div
                     onClick={() => setLicenceType("Permanent Licence")}
-                    className={`p-3 rounded-2xl border cursor-pointer transition-all flex items-start gap-3 ${
-                      licenceType === "Permanent Licence"
-                        ? "bg-blue-50/70 dark:bg-blue-950/40 border-blue-500 ring-2 ring-blue-500/20"
-                        : "bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-700 hover:border-slate-300"
-                    }`}
+                    className={`p-3 rounded-2xl border cursor-pointer transition-all flex items-start gap-3 ${licenceType === "Permanent Licence"
+                      ? "bg-blue-50/70 dark:bg-blue-950/40 border-blue-500 ring-2 ring-blue-500/20"
+                      : "bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-700 hover:border-slate-300"
+                      }`}
                   >
                     <input
                       type="radio"
@@ -2028,11 +2025,10 @@ export default function TaskDetailsClient({ id }: { id: string }) {
                   {/* Renewal Licence Card */}
                   <div
                     onClick={() => setLicenceType("Renewal Licence")}
-                    className={`p-3 rounded-2xl border cursor-pointer transition-all flex items-start gap-3 ${
-                      licenceType === "Renewal Licence"
-                        ? "bg-blue-50/70 dark:bg-blue-950/40 border-blue-500 ring-2 ring-blue-500/20"
-                        : "bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-700 hover:border-slate-300"
-                    }`}
+                    className={`p-3 rounded-2xl border cursor-pointer transition-all flex items-start gap-3 ${licenceType === "Renewal Licence"
+                      ? "bg-blue-50/70 dark:bg-blue-950/40 border-blue-500 ring-2 ring-blue-500/20"
+                      : "bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-700 hover:border-slate-300"
+                      }`}
                   >
                     <input
                       type="radio"
