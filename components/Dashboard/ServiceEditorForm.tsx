@@ -359,11 +359,16 @@ export default function ServiceEditorForm({ initialData, isEditMode = false }: S
             : null
           : null;
 
+      // Subtitle column in MySQL/backend database has VARCHAR(255) limit.
+      // Truncate cleanly so lengthy overview text doesn't trigger "Data truncation: Data too long for column 'subtitle'".
+      const trimmedDesc = description.trim();
+      const safeSubtitle = trimmedDesc.length > 250 ? trimmedDesc.slice(0, 247) + "..." : trimmedDesc;
+
       const apiPayload: CreateServicePayload = {
         name: name.trim(),
         category: category.trim(),
         categoryId: selectedCategoryId,
-        subtitle: description.trim(),
+        subtitle: safeSubtitle,
         badges: ["Popular"],
         startingClientPrice: Number(price) || 0,
         partnerProfit: Number(partnerProfit) || 0,
