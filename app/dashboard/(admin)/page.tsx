@@ -315,10 +315,10 @@ export default function DashboardHome() {
       </div>
 
       {/* 3. Classic View: Charts & Task Summary */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 items-stretch">
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-3.5 2xl:gap-4 items-stretch">
 
         {/* Col 1: Leads & Revenue Overview (5 cols) */}
-        <div className="lg:col-span-5 h-[340px]">
+        <div className="lg:col-span-5 h-[290px] xl:h-[310px] 2xl:h-[340px]">
           <LeadsRevenueChart
             selectedBranch={selectedPartner}
             dateRange={dateRange}
@@ -326,16 +326,16 @@ export default function DashboardHome() {
         </div>
 
         {/* Col 2: Service-wise Distribution (4 cols) */}
-        <div className="lg:col-span-4 h-[340px]">
+        <div className="lg:col-span-4 h-[290px] xl:h-[310px] 2xl:h-[340px]">
           <ServiceDistributionDonut
             selectedBranch={selectedPartner}
           />
         </div>
 
         {/* Col 3: Task Summary (3 cols) matching Reference Screenshot */}
-        <div className="lg:col-span-3 h-[340px] bg-white dark:bg-[#0c1427] rounded-3xl border border-slate-200/90 dark:border-slate-800 p-5 shadow-sm flex flex-col justify-between relative">
-          <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800/80 pb-3">
-            <h3 className="font-black text-slate-900 dark:text-white text-base tracking-tight">
+        <div className="lg:col-span-3 h-[290px] xl:h-[310px] 2xl:h-[340px] bg-white dark:bg-[#0c1427] rounded-3xl border border-slate-200/90 dark:border-slate-800 p-4 2xl:p-5 shadow-sm flex flex-col justify-between relative">
+          <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800/80 pb-2.5 2xl:pb-3">
+            <h3 className="font-black text-slate-900 dark:text-white text-sm 2xl:text-base tracking-tight">
               Task Summary
             </h3>
 

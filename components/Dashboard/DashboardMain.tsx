@@ -12,7 +12,7 @@ export default function DashboardMain({ children }: { children: React.ReactNode 
     (pathname?.startsWith("/dashboard/blogs/") && pathname !== "/dashboard/blogs");
 
   return (
-    <main className={`flex-1 overflow-y-auto relative ${isBlogStudio ? "p-0" : "p-3.5 sm:p-5 lg:p-6 lg:pb-6"}`}>
+    <main className={`flex-1 overflow-y-auto relative ${isBlogStudio ? "p-0" : "p-3 sm:p-4.5 2xl:p-6 pb-6"}`}>
       {/* Ambient Gradient Mesh Background (Matches Reference UI in Finsocap Brand Palette) */}
       {!isBlogStudio && (
         <div className="pointer-events-none fixed inset-0 overflow-hidden z-0">

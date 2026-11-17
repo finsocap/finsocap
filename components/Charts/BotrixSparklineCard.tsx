@@ -30,16 +30,16 @@ export default function BotrixSparklineCard({
   barHeights = [30, 45, 25, 60, 40, 75, 50, 90, 65, 80, 45, 70, 85, 95, 60, 75, 90, 100, 70, 85],
 }: BotrixSparklineCardProps) {
   return (
-    <div className="group bg-white dark:bg-[#0c1427] rounded-2xl sm:rounded-3xl border border-slate-200/90 dark:border-slate-800 p-3.5 sm:p-5 shadow-sm hover:shadow-md hover:border-slate-300 dark:hover:border-slate-700 transition-all duration-200 flex flex-col justify-between">
+    <div className="group bg-white dark:bg-[#0c1427] rounded-2xl sm:rounded-3xl border border-slate-200/90 dark:border-slate-800 p-3 2xl:p-5 shadow-sm hover:shadow-md hover:border-slate-300 dark:hover:border-slate-700 transition-all duration-200 flex flex-col justify-between">
       {/* Top Row: Title, Value, Icon */}
       <div>
         <div className="flex items-start justify-between gap-2">
           <div className="min-w-0 flex-1">
-            <p className="text-[11px] sm:text-xs font-bold text-slate-400 dark:text-slate-400 truncate">
+            <p className="text-[10px] 2xl:text-xs font-bold text-slate-400 dark:text-slate-400 truncate">
               {title}
             </p>
             <div className="flex items-baseline gap-1.5 sm:gap-2 mt-0.5 sm:mt-1 flex-wrap">
-              <span className="text-xl sm:text-2xl lg:text-3xl font-black text-slate-900 dark:text-white tracking-tight">
+              <span className="text-lg sm:text-xl 2xl:text-3xl font-black text-slate-900 dark:text-white tracking-tight">
                 {isCurrency && "₹"}
                 {typeof value === "number" ? <AnimatedCounter value={value} /> : value}
               </span>
@@ -54,21 +54,21 @@ export default function BotrixSparklineCard({
                 {delta}
               </span>
             </div>
-            <p className="text-[10px] sm:text-[11px] font-medium text-slate-400 mt-0.5 truncate">
+            <p className="text-[10px] 2xl:text-[11px] font-medium text-slate-400 mt-0.5 truncate">
               {subtitle}
             </p>
           </div>
 
           {/* Icon Badge */}
-          <div className={`w-9 h-9 sm:w-11 sm:h-11 rounded-xl sm:rounded-2xl flex items-center justify-center shrink-0 shadow-xs group-hover:scale-105 transition-transform ${iconBg}`}>
+          <div className={`w-8 h-8 2xl:w-11 2xl:h-11 rounded-xl 2xl:rounded-2xl flex items-center justify-center shrink-0 shadow-xs group-hover:scale-105 transition-transform ${iconBg}`}>
             {icon}
           </div>
         </div>
       </div>
 
       {/* Bottom Row: Micro-Bar Audio-Wave Sparkline matching Botrix */}
-      <div className="pt-4 mt-2">
-        <div className="flex items-end gap-1 h-7 w-full overflow-hidden">
+      <div className="pt-2 2xl:pt-4 mt-1 2xl:mt-2">
+        <div className="flex items-end gap-1 h-5 2xl:h-7 w-full overflow-hidden">
           {barHeights.map((h, i) => (
             <div
               key={i}

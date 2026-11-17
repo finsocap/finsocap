@@ -916,6 +916,31 @@ select:disabled {
   }
 }
 
+/* ============================================================================
+   RESPONSIVE AUTO-SCALING FOR WINDOWS & 125%/150% DPI DISPLAYS
+   Prevents oversized typography, cards, and sidebar on typical Windows 1080p
+   screens (effective viewport 1280px-1536px due to Windows display scaling).
+   Preserves crisp 1:1 display on Mac Retina and large 2K/4K external monitors.
+   ============================================================================ */
+@media screen and (min-width: 1024px) and (max-width: 1536px) {
+  html {
+    font-size: 13.5px;
+  }
+}
+
+@media screen and (min-width: 1024px) and (max-width: 1366px) {
+  html {
+    font-size: 12.5px;
+  }
+}
+
+@media screen and (min-width: 1024px) and (max-width: 1200px) {
+  html {
+    font-size: 12px;
+  }
+}
+
+
 
 
 
