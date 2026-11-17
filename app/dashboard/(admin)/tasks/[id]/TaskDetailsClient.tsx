@@ -402,6 +402,39 @@ export default function TaskDetailsClient({ id }: { id: string }) {
               "STAFF"
             ).catch((err) => console.warn("Staff status transition warning:", err));
           } else {
+            // Intelligent Workflow Bridge:
+            // Backend transition rules enforce: SENT_FOR_REVIEW can only transition to IN_PROGRESS, COMPLETED, CANCELLED.
+            // If admin chooses PENDING_FROM_CLIENT or PENDING_FROM_DEPARTMENT from SENT_FOR_REVIEW,
+            // bridge via IN_PROGRESS first so the server accepts the step without a 409 transition rejection.
+            const currentDbStatus = String(task.status);
+            const isFromReviewToClientOrDept =
+              (currentDbStatus === "Sent for Review" || currentDbStatus === "SENT_FOR_REVIEW") &&
+              (backendStatus === "PENDING_FROM_CLIENT" || backendStatus === "PENDING_FROM_DEPARTMENT");
+
+            if (isFromReviewToClientOrDept) {
+              try {
+                // Step 1: Transition SENT_FOR_REVIEW -> IN_PROGRESS
+                const intermediateRes = await taskCollaborationService.updateTaskStatus(
+                  numericTaskId,
+                  {
+                    status: "IN_PROGRESS",
+                    note: "Automatic stepwise transition to In Progress",
+                    reason: "Workflow step alignment",
+                    decisionNotes: "Transitioning via In Progress",
+                    expectedVersion: currentLiveVersion,
+                  },
+                  "ADMIN"
+                );
+                if (intermediateRes?.data?.version) {
+                  currentLiveVersion = intermediateRes.data.version;
+                } else {
+                  currentLiveVersion += 1;
+                }
+              } catch (bridgeErr) {
+                console.warn("Intermediate bridge status transition warning:", bridgeErr);
+              }
+            }
+
             await taskCollaborationService.updateTaskStatus(
               numericTaskId,
               {

@@ -450,6 +450,36 @@ export default function TasksPage() {
                 "STAFF"
               ).catch((err) => console.warn("Staff status transition warning:", err));
             } else {
+              // Intelligent Workflow Bridge:
+              // Backend enforces: SENT_FOR_REVIEW -> IN_PROGRESS, COMPLETED, CANCELLED.
+              // If moving to PENDING_FROM_CLIENT / PENDING_FROM_DEPARTMENT, bridge via IN_PROGRESS.
+              const isFromReviewToClientOrDept =
+                (editingTask.status === "Sent for Review") &&
+                (backendStatus === "PENDING_FROM_CLIENT" || backendStatus === "PENDING_FROM_DEPARTMENT");
+
+              if (isFromReviewToClientOrDept) {
+                try {
+                  const intermediateRes = await taskCollaborationService.updateTaskStatus(
+                    numericTaskId,
+                    {
+                      status: "IN_PROGRESS",
+                      note: "Automatic stepwise transition to In Progress",
+                      reason: "Workflow step alignment",
+                      decisionNotes: "Transitioning via In Progress",
+                      expectedVersion: currentLiveVersion,
+                    },
+                    "ADMIN"
+                  );
+                  if (intermediateRes?.data?.version) {
+                    currentLiveVersion = intermediateRes.data.version;
+                  } else {
+                    currentLiveVersion += 1;
+                  }
+                } catch (bridgeErr) {
+                  console.warn("Intermediate bridge status transition warning:", bridgeErr);
+                }
+              }
+
               await taskCollaborationService.updateTaskStatus(
                 numericTaskId,
                 {
