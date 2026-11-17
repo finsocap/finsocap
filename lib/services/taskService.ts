@@ -114,7 +114,7 @@ export const taskService = {
       }
 
       if (apiTask) {
-        // Fetch detailed service-request to obtain live history & audit trail for this specific request
+        // Fetch detailed service-request to obtain live history & audit trail and application documents for this specific request
         let serviceRequestHistory: any[] = [];
         const numericSrId = typeof apiTask.id === "number" ? apiTask.id : Number(apiTask.id);
         if (numericSrId > 0) {
@@ -129,6 +129,10 @@ export const taskService = {
                 // Keep version freshest
                 if (typeof srJson.data.version === "number") {
                   apiTask.version = srJson.data.version;
+                }
+                // Merge submitted documents from service request into apiTask.documents
+                if (Array.isArray(srJson.data.documents) && srJson.data.documents.length > 0) {
+                  apiTask.documents = srJson.data.documents;
                 }
               }
             }
@@ -248,14 +252,20 @@ export const taskService = {
 
         // Map partner attached documents ONLY if present in live API payload
         const partnerAttachments: TaskAttachment[] = Array.isArray(apiTask.documents)
-          ? apiTask.documents.map((doc: any, idx: number) => ({
-              id: `doc-${doc.uploadId || idx + 1}`,
-              fileName: doc.fileName || doc.fieldKey || "Customer_Document.pdf",
-              fileSize: doc.sizeBytes ? (doc.sizeBytes > 1024 * 1024 ? `${(doc.sizeBytes / (1024 * 1024)).toFixed(1)} MB` : `${(doc.sizeBytes / 1024).toFixed(0)} KB`) : "1.2 MB",
-              uploadDate: apiTask.taskDate || (apiTask.createdAt ? new Date(apiTask.createdAt).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" }) : "Today"),
-              uploadedBy: apiTask.partnerName ? apiTask.partnerName.slice(0, 2).toUpperCase() : "PT",
-              fileUrl: doc.downloadUrl || `/api/proxy/request-documents/${doc.uploadId || idx + 1}`,
-            }))
+          ? apiTask.documents.map((doc: any, idx: number) => {
+              const rawUrl = doc.downloadUrl || `/api/request-documents/${doc.uploadId || idx + 1}`;
+              const cleanUrl = rawUrl.startsWith("/api/") ? `/api/proxy/${rawUrl.substring(5)}` : (rawUrl.startsWith("/") ? `/api/proxy${rawUrl}` : `/api/proxy/${rawUrl}`);
+              return {
+                id: `doc-${doc.uploadId || idx + 1}`,
+                fileName: doc.fileName || doc.fieldKey || "Customer_Document.pdf",
+                fileSize: doc.sizeBytes ? (doc.sizeBytes > 1024 * 1024 ? `${(doc.sizeBytes / (1024 * 1024)).toFixed(1)} MB` : `${(doc.sizeBytes / 1024).toFixed(0)} KB`) : "1.2 MB",
+                uploadDate: apiTask.taskDate || (apiTask.createdAt ? new Date(apiTask.createdAt).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" }) : "Today"),
+                uploadedBy: apiTask.partnerName ? apiTask.partnerName.slice(0, 2).toUpperCase() : "PT",
+                fileUrl: cleanUrl,
+                source: "PARTNER" as const,
+                category: doc.fieldKey ? doc.fieldKey.replace(/_/g, " ").toUpperCase() : "Customer Document",
+              };
+            })
           : [];
 
         const allAttachments: TaskAttachment[] = [...partnerAttachments, ...staffDeliverables];
