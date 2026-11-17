@@ -359,13 +359,13 @@ export default function DateRangeFilter({
         ref={containerRef}
         className={`relative w-full sm:w-auto sm:inline-block ${isOpen ? "z-50" : "z-10"} ${className}`}
       >
-        {/* Trigger Button - Exactly preserves the screenshot aesthetic */}
+        {/* Trigger Button - Matches sidebar menu height and compact proportions on Windows laptops */}
         <button
           type="button"
           onClick={() => setIsOpen(!isOpen)}
           aria-expanded={isOpen}
           aria-haspopup="true"
-          className={`w-full sm:w-auto flex items-center justify-between sm:justify-start gap-2.5 pl-3 pr-3.5 h-11 rounded-xl bg-white dark:bg-[#0c1427] border text-xs font-semibold shadow-xs cursor-pointer transition-all duration-150 select-none ${
+          className={`w-full sm:w-auto flex items-center justify-between sm:justify-start gap-2 pl-2.5 2xl:pl-3 pr-3 2xl:pr-3.5 h-9 2xl:h-11 rounded-xl bg-white dark:bg-[#0c1427] border text-[11px] 2xl:text-xs font-semibold shadow-xs cursor-pointer transition-all duration-150 select-none ${
             isOpen
               ? "border-blue-500 ring-2 ring-blue-500/20 text-blue-600 dark:text-sky-400 relative z-50 shadow-md"
               : !isDefault

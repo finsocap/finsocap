@@ -397,10 +397,10 @@ export default function Topbar({ user }: { user?: any }) {
         
         {/* LIVE MINIMAL DATE & TIME (BEFORE NOTIFICATION BELL) */}
         {currentDateTime && (
-          <div className="hidden lg:flex items-center gap-2 text-[11px] sm:text-xs text-slate-500 dark:text-slate-400 select-none pr-1">
+          <div className="hidden lg:flex items-center gap-1.5 2xl:gap-2 text-[10px] 2xl:text-xs text-slate-500 dark:text-slate-400 select-none pr-0.5 2xl:pr-1">
             {/* Calendar: Day, DD MMM YYYY */}
-            <div className="flex items-center gap-1.5 font-medium">
-              <Calendar className="w-3.5 h-3.5 text-slate-400 dark:text-slate-500 shrink-0" />
+            <div className="flex items-center gap-1 2xl:gap-1.5 font-medium">
+              <Calendar className="w-3 h-3 2xl:w-3.5 2xl:h-3.5 text-slate-400 dark:text-slate-500 shrink-0" />
               <span className="font-semibold text-slate-700 dark:text-slate-200">{currentDateTime.day},</span>
               <span className="text-slate-500 dark:text-slate-400">{currentDateTime.date}</span>
             </div>
@@ -409,15 +409,15 @@ export default function Topbar({ user }: { user?: any }) {
             <span className="text-slate-300 dark:text-slate-700 font-bold">•</span>
 
             {/* Clock: HH:MM:SS AM/PM */}
-            <div className="flex items-center gap-1 font-mono text-xs">
-              <Clock className="w-3.5 h-3.5 text-slate-400 dark:text-slate-500 shrink-0" />
+            <div className="flex items-center gap-0.5 2xl:gap-1 font-mono text-[11px] 2xl:text-xs">
+              <Clock className="w-3 h-3 2xl:w-3.5 2xl:h-3.5 text-slate-400 dark:text-slate-500 shrink-0" />
               <span className="font-bold text-slate-800 dark:text-slate-100 tabular-nums">
                 {currentDateTime.time}
               </span>
-              <span className="text-[11px] font-semibold text-slate-500 dark:text-slate-400 tabular-nums">
+              <span className="text-[10px] 2xl:text-[11px] font-semibold text-slate-500 dark:text-slate-400 tabular-nums">
                 :{currentDateTime.seconds}
               </span>
-              <span className="text-[10px] font-bold tracking-tight text-slate-400 dark:text-slate-500 ml-0.5">
+              <span className="text-[9px] 2xl:text-[10px] font-bold tracking-tight text-slate-400 dark:text-slate-500 ml-0.5">
                 {currentDateTime.period}
               </span>
             </div>
@@ -432,7 +432,7 @@ export default function Topbar({ user }: { user?: any }) {
               setIsNotifOpen(false);
               setIsProfileOpen(false);
             }}
-            className={`relative p-2 rounded-2xl border transition-all cursor-pointer active:scale-95 flex items-center justify-center ${
+            className={`relative p-1.5 2xl:p-2 rounded-xl 2xl:rounded-2xl border transition-all cursor-pointer active:scale-95 flex items-center justify-center ${
               isCalculatorOpen
                 ? "bg-slate-900 border-slate-900 shadow-md shadow-slate-900/30 ring-2 ring-blue-500/40"
                 : "bg-slate-100 dark:bg-slate-800/80 hover:bg-slate-200/80 dark:hover:bg-slate-700 border-slate-200 dark:border-slate-700"
@@ -440,21 +440,21 @@ export default function Topbar({ user }: { user?: any }) {
             title="Finsocap Business Calculator (Basic, GST, EMI, %)"
           >
             {/* Apple / Modern iOS-style 4-circle Calculator Icon */}
-            <div className="w-[22px] h-[22px] rounded-[7px] bg-[#22252e] p-[2.5px] grid grid-cols-2 gap-[1.5px] shadow-sm select-none">
+            <div className="w-[18px] h-[18px] 2xl:w-[22px] 2xl:h-[22px] rounded-[6px] 2xl:rounded-[7px] bg-[#22252e] p-[2px] 2xl:p-[2.5px] grid grid-cols-2 gap-[1px] 2xl:gap-[1.5px] shadow-sm select-none">
               {/* Top-Left: + */}
-              <div className="rounded-full bg-[#464c5a] flex items-center justify-center text-[8px] font-bold text-white leading-none">
+              <div className="rounded-full bg-[#464c5a] flex items-center justify-center text-[7px] 2xl:text-[8px] font-bold text-white leading-none">
                 +
               </div>
               {/* Top-Right: - */}
-              <div className="rounded-full bg-[#464c5a] flex items-center justify-center text-[9px] font-bold text-white leading-none">
+              <div className="rounded-full bg-[#464c5a] flex items-center justify-center text-[8px] 2xl:text-[9px] font-bold text-white leading-none">
                 −
               </div>
               {/* Bottom-Left: × */}
-              <div className="rounded-full bg-[#464c5a] flex items-center justify-center text-[8px] font-bold text-white leading-none">
+              <div className="rounded-full bg-[#464c5a] flex items-center justify-center text-[7px] 2xl:text-[8px] font-bold text-white leading-none">
                 ×
               </div>
               {/* Bottom-Right: = (Orange) */}
-              <div className="rounded-full bg-gradient-to-br from-[#ff9f0a] to-[#f47c00] flex items-center justify-center text-[8px] font-black text-white leading-none shadow-[0_1px_2px_rgba(244,124,0,0.5)]">
+              <div className="rounded-full bg-gradient-to-br from-[#ff9f0a] to-[#f47c00] flex items-center justify-center text-[7px] 2xl:text-[8px] font-black text-white leading-none shadow-[0_1px_2px_rgba(244,124,0,0.5)]">
                 =
               </div>
             </div>
@@ -468,17 +468,17 @@ export default function Topbar({ user }: { user?: any }) {
               setIsNotifOpen(!isNotifOpen);
               setIsProfileOpen(false);
             }}
-            className={`relative p-2.5 rounded-2xl border transition-all cursor-pointer active:scale-95 ${
+            className={`relative p-2 2xl:p-2.5 rounded-xl 2xl:rounded-2xl border transition-all cursor-pointer active:scale-95 ${
               isNotifOpen 
                 ? "bg-blue-50 dark:bg-blue-950/70 text-blue-600 dark:text-sky-400 border-blue-300 dark:border-blue-700 shadow-sm" 
                 : "bg-slate-100 dark:bg-slate-800/80 hover:bg-slate-200/80 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 border-slate-200 dark:border-slate-700"
             }`}
             title="Notification Center"
           >
-            <Bell className="w-4 h-4" />
+            <Bell className="w-3.5 h-3.5 2xl:w-4 2xl:h-4" />
             {unreadCount > 0 && (
-              <span className="absolute -top-1 -right-1 bg-red-500 text-white text-[10px] font-black w-4 h-4 flex items-center justify-center rounded-full shadow-sm animate-pulse">
-                {unreadCount}
+              <span className="absolute -top-1 -right-1 bg-red-500 text-white text-[9px] 2xl:text-[10px] font-black w-3.5 h-3.5 2xl:w-4 2xl:h-4 flex items-center justify-center rounded-full shadow-sm animate-pulse">
+                {unreadCount > 9 ? "9+" : unreadCount}
               </span>
             )}
           </button>
@@ -634,13 +634,13 @@ export default function Topbar({ user }: { user?: any }) {
               setIsProfileOpen(!isProfileOpen);
               setIsNotifOpen(false);
             }}
-            className="flex items-center gap-3 pl-3 sm:pl-4 border-l border-slate-200 dark:border-slate-800 hover:opacity-95 transition-opacity text-left cursor-pointer"
+            className="flex items-center gap-2 2xl:gap-3 pl-2.5 2xl:pl-4 border-l border-slate-200 dark:border-slate-800 hover:opacity-95 transition-opacity text-left cursor-pointer"
           >
             <div className="text-right hidden sm:block">
-              <p className="text-xs font-black text-slate-900 dark:text-white leading-tight">
+              <p className="text-[11px] 2xl:text-xs font-black text-slate-900 dark:text-white leading-tight">
                 {userName}
               </p>
-              <p className="text-[10px] font-bold text-blue-600 dark:text-sky-400 uppercase tracking-wider mt-0.5">
+              <p className="text-[9px] 2xl:text-[10px] font-bold text-blue-600 dark:text-sky-400 uppercase tracking-wider mt-0.5">
                 {userRole}
               </p>
             </div>
@@ -649,10 +649,10 @@ export default function Topbar({ user }: { user?: any }) {
               <img
                 src={userDp}
                 alt={userName}
-                className="w-10 h-10 rounded-2xl object-cover border-2 border-blue-500 shadow-md flex-shrink-0 transition-transform active:scale-95"
+                className="w-8 h-8 2xl:w-10 2xl:h-10 rounded-xl 2xl:rounded-2xl object-cover border-2 border-blue-500 shadow-sm flex-shrink-0 transition-transform active:scale-95"
               />
             ) : (
-              <div className="w-10 h-10 rounded-2xl bg-gradient-to-tr from-blue-600 via-indigo-600 to-purple-600 text-white font-black flex items-center justify-center text-sm shadow-md shadow-blue-500/25 flex-shrink-0 transition-transform active:scale-95">
+              <div className="w-8 h-8 2xl:w-10 2xl:h-10 rounded-xl 2xl:rounded-2xl bg-gradient-to-tr from-blue-600 via-indigo-600 to-purple-600 text-white font-black flex items-center justify-center text-xs 2xl:text-sm shadow-sm shadow-blue-500/25 flex-shrink-0 transition-transform active:scale-95">
                 {userName ? userName.charAt(0).toUpperCase() : "S"}
               </div>
             )}
