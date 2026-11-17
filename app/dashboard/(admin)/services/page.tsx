@@ -604,6 +604,9 @@ export default function ServicesPage() {
                   <th className="py-3.5 px-4">Price (₹)</th>
                 )}
                 {!["STAFF", "SPECIALIST", "EXECUTIVE"].includes(userRole.toUpperCase()) && (
+                  <th className="py-3.5 px-4">Partner Profit</th>
+                )}
+                {!["STAFF", "SPECIALIST", "EXECUTIVE"].includes(userRole.toUpperCase()) && (
                   <th className="py-3.5 px-4">Government Fee</th>
                 )}
                 <th className="py-3.5 px-4">Processing Time</th>
@@ -614,7 +617,7 @@ export default function ServicesPage() {
             <tbody className="divide-y divide-slate-100 dark:divide-slate-800/60 font-medium">
               {loading ? (
                 <tr>
-                  <td colSpan={10} className="py-16 text-center text-slate-400">
+                  <td colSpan={11} className="py-16 text-center text-slate-400">
                     <div className="flex flex-col items-center justify-center gap-2">
                       <Loader2 className="w-6 h-6 animate-spin text-blue-500" />
                       <span className="font-semibold text-xs">Loading services...</span>
@@ -623,7 +626,7 @@ export default function ServicesPage() {
                 </tr>
               ) : filteredServices.length === 0 ? (
                 <tr>
-                  <td colSpan={10} className="py-16 text-center text-slate-400">
+                  <td colSpan={11} className="py-16 text-center text-slate-400">
                     <div className="flex flex-col items-center justify-center gap-3">
                       <div className="w-12 h-12 rounded-2xl bg-blue-50 dark:bg-blue-950/40 border border-blue-200 dark:border-blue-800 flex items-center justify-center text-blue-600">
                         <Boxes className="w-6 h-6" />
@@ -676,6 +679,11 @@ export default function ServicesPage() {
                     {!["STAFF", "SPECIALIST", "EXECUTIVE"].includes(userRole.toUpperCase()) && (
                       <td className="py-3.5 px-4 font-black text-slate-900 dark:text-white">
                         {money(s.price)}
+                      </td>
+                    )}
+                    {!["STAFF", "SPECIALIST", "EXECUTIVE"].includes(userRole.toUpperCase()) && (
+                      <td className="py-3.5 px-4 font-bold text-blue-600 dark:text-sky-400">
+                        {money(s.partnerProfit || 0)}
                       </td>
                     )}
                     {!["STAFF", "SPECIALIST", "EXECUTIVE"].includes(userRole.toUpperCase()) && (

@@ -343,6 +343,7 @@ export interface TaskCompletionData extends ServiceRequestSummary {
     portalUserId?: string;
     hasPortalPassword?: boolean;
   } | null;
+  documentsUnlocked?: boolean;
   completionAttachments: Array<{
     id: number;
     fileName: string;

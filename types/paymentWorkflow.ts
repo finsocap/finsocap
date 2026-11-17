@@ -1,45 +1,71 @@
-export interface PaymentVerificationItem {
-  id: string | number;
-  requestCode: string;
-  applicationId: string;
-  partnerId: string | number;
-  partnerName: string;
-  partnerPhone?: string;
-  customerName: string;
-  serviceName: string;
-  serviceCategory?: string;
-  totalServiceFee: number; // e.g. 1149
-  partnerPaymentAmount: number; // e.g. 1149
-  partnerEarning: number; // e.g. 600
-  submittedUtr?: string; // 12-digit UTR
-  paymentScreenshotUrl?: string;
-  status: "PAYMENT_NOT_REQUESTED" | "PAYMENT_REQUESTED" | "PAYMENT_REQUIRED" | "VERIFICATION_PENDING" | "PAYMENT_RECEIVED" | "REJECTED";
-  requestSentAt?: string;
-  detailsSharedAt?: string;
-  taskStatus?: string;
-  taskCompletedAt?: string;
-  submittedAt?: string;
-  verifiedAt?: string;
-  verifiedBy?: string;
-  rejectionReason?: string;
-  certificateReleased: boolean;
-  certificateUrl?: string;
-  licenceNumber?: string;
+/**
+ * FinSoCap Task Payment & Document Release Types
+ * Matching API Specification (17 November 2026)
+ */
+
+export interface AdminPaymentSettings {
+  upiId: string;
+  payeeName: string;
+  qrUrl: string;
+  qrContentType?: string;
 }
 
-export interface SubmitPaymentPayload {
-  taskId: string | number;
-  requestCode?: string;
-  utrNumber: string;
-  screenshotFile?: File | string;
-  screenshotUrl?: string;
+export interface TaskPaymentRequestItem {
+  id: number;
+  version: number;
+  taskId: number;
+  requestCode: string;
+  partnerId: number;
+  partnerName: string;
+  customerId: number;
+  customerName: string;
+  serviceId: number;
+  serviceName: string;
+  amount: number;
+  currency: string;
+  status: "PENDING" | "COMPLETED";
+  notes?: string | null;
+  requestedBy: string;
+  createdAt: string;
+  paidAt?: string | null;
+  confirmedBy?: string | null;
+  transactionReference?: string | null;
+  documentsUnlocked: boolean;
+}
+
+export interface PaginatedPaymentRequests {
+  items: TaskPaymentRequestItem[];
+  page: number;
+  size: number;
+  totalElements: number;
+  totalPages: number;
+}
+
+export interface SendPaymentRequestPayload {
   notes?: string;
 }
 
-export interface VerifyPaymentPayload {
-  taskId: string | number;
-  paymentId?: string | number;
-  status: "RECEIVED" | "REJECTED";
-  rejectionReason?: string;
+export interface ConfirmPaymentPayload {
+  status: "COMPLETED" | "PENDING";
+  expectedVersion: number;
+  transactionReference?: string;
+  notes?: string;
 }
 
+export interface PartnerPaidDocumentItem {
+  id: number;
+  taskId: number;
+  title: string;
+  documentType: string;
+  fileName: string;
+  contentType: string;
+  sizeBytes: number;
+  uploadedBy: string;
+  uploadedByRole: string;
+  createdAt: string;
+  completionId?: number | null;
+  documentRequestId?: number | null;
+  itemKey?: string | null;
+  replacesTaskFileId?: number | null;
+  downloadPath: string;
+}
