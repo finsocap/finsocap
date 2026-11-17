@@ -924,19 +924,87 @@ select:disabled {
    ============================================================================ */
 @media screen and (min-width: 1024px) and (max-width: 1536px) {
   html {
-    font-size: 13.5px;
+    font-size: 13px;
+  }
+
+  /* Automatically scale down oversized action buttons, trigger pills, and filter bars across all dashboard pages */
+  button.h-11,
+  a.h-11,
+  div.h-11,
+  select.h-11,
+  input.h-11 {
+    height: 2.35rem !important; /* ~32px-34px to match sidebar item heights */
+    min-height: 2.35rem !important;
+    padding-top: 0.35rem !important;
+    padding-bottom: 0.35rem !important;
+    font-size: 0.78rem !important;
+  }
+
+  button.h-12,
+  a.h-12,
+  div.h-12,
+  input.h-12 {
+    height: 2.5rem !important;
+    min-height: 2.5rem !important;
+    padding-top: 0.4rem !important;
+    padding-bottom: 0.4rem !important;
+  }
+
+  /* Compact padding for buttons with py-3, py-3.5 or py-4 */
+  button.py-3,
+  a.py-3,
+  button.py-3\.5,
+  a.py-3\.5,
+  button.py-4,
+  a.py-4 {
+    padding-top: 0.5rem !important;
+    padding-bottom: 0.5rem !important;
+    font-size: 0.8rem !important;
+  }
+
+  /* Scale large action icon circles across all pages (Tasks, Partners, Team, Clients, etc.) */
+  div.w-11.h-11,
+  span.w-11.h-11,
+  button.w-11.h-11,
+  div.w-12.h-12,
+  span.w-12.h-12,
+  button.w-12.h-12 {
+    width: 2.25rem !important;
+    height: 2.25rem !important;
+  }
+
+  div.w-11.h-11 svg,
+  span.w-11.h-11 svg,
+  button.w-11.h-11 svg,
+  div.w-12.h-12 svg,
+  span.w-12.h-12 svg,
+  button.w-12.h-12 svg {
+    width: 1.15rem !important;
+    height: 1.15rem !important;
   }
 }
 
 @media screen and (min-width: 1024px) and (max-width: 1366px) {
   html {
-    font-size: 12.5px;
+    font-size: 12.2px;
+  }
+
+  button.h-11,
+  a.h-11,
+  div.h-11,
+  select.h-11,
+  input.h-11 {
+    height: 2.25rem !important;
+    min-height: 2.25rem !important;
+    padding-top: 0.3rem !important;
+    padding-bottom: 0.3rem !important;
+    font-size: 0.75rem !important;
   }
 }
 
 @media screen and (min-width: 1024px) and (max-width: 1200px) {
   html {
-    font-size: 12px;
+    font-size: 11.8px;
   }
 }
 
