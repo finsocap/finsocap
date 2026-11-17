@@ -933,8 +933,8 @@ select:disabled {
   div.h-11,
   select.h-11,
   input.h-11 {
-    height: 2.35rem !important; /* ~32px-34px to match sidebar item heights */
-    min-height: 2.35rem !important;
+    height: 2.25rem !important; /* ~36px to match sidebar item heights */
+    min-height: 2.25rem !important;
     padding-top: 0.35rem !important;
     padding-bottom: 0.35rem !important;
     font-size: 0.78rem !important;
@@ -944,10 +944,47 @@ select:disabled {
   a.h-12,
   div.h-12,
   input.h-12 {
-    height: 2.5rem !important;
-    min-height: 2.5rem !important;
-    padding-top: 0.4rem !important;
-    padding-bottom: 0.4rem !important;
+    height: 2.35rem !important;
+    min-height: 2.35rem !important;
+    padding-top: 0.35rem !important;
+    padding-bottom: 0.35rem !important;
+  }
+
+  /* Compact primary and action buttons for Windows laptops */
+  .btn-primary-vibrant,
+  .btn-emerald-vibrant,
+  .btn-purple-vibrant,
+  .btn-danger-vibrant,
+  .btn-glass-modern,
+  button:has(svg.lucide-download),
+  a:has(svg.lucide-download),
+  button:has(svg.lucide-plus),
+  a:has(svg.lucide-plus),
+  button:has(svg.lucide-user-plus),
+  a:has(svg.lucide-user-plus) {
+    height: 2.25rem !important; /* Exactly 36px - matching sidebar item height */
+    min-height: 2.25rem !important;
+    padding-top: 0.35rem !important;
+    padding-bottom: 0.35rem !important;
+    padding-left: 0.85rem !important;
+    padding-right: 0.85rem !important;
+    font-size: 0.75rem !important;
+    font-weight: 700 !important;
+    border-radius: 8px !important;
+    gap: 0.4rem !important;
+  }
+
+  /* Scale icons inside buttons to stay sleek and aligned with text */
+  .btn-primary-vibrant svg,
+  .btn-emerald-vibrant svg,
+  .btn-purple-vibrant svg,
+  .btn-danger-vibrant svg,
+  .btn-glass-modern svg,
+  button:has(svg.lucide-download) svg,
+  button:has(svg.lucide-plus) svg,
+  button:has(svg.lucide-user-plus) svg {
+    width: 0.875rem !important; /* 14px */
+    height: 0.875rem !important;
   }
 
   /* Compact padding for buttons with py-3, py-3.5 or py-4 */
@@ -957,9 +994,9 @@ select:disabled {
   a.py-3\.5,
   button.py-4,
   a.py-4 {
-    padding-top: 0.5rem !important;
-    padding-bottom: 0.5rem !important;
-    font-size: 0.8rem !important;
+    padding-top: 0.4rem !important;
+    padding-bottom: 0.4rem !important;
+    font-size: 0.78rem !important;
   }
 
   /* Scale large action icon circles across all pages (Tasks, Partners, Team, Clients, etc.) */
