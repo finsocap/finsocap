@@ -41,6 +41,35 @@ export interface PaginatedPaymentRequests {
   totalPages: number;
 }
 
+export interface PaymentProofItem {
+  id: number;
+  paymentId: number;
+  taskId: number;
+  requestCode?: string;
+  partnerId: number;
+  partnerName: string;
+  customerId: number;
+  customerName: string;
+  amount: number;
+  currency: string;
+  paymentStatus: "PENDING" | "COMPLETED";
+  utrNumber?: string | null;
+  submittedBy: string;
+  createdAt: string;
+  fileName: string;
+  contentType: string;
+  sizeBytes: number;
+  screenshotUrl: string;
+}
+
+export interface PaginatedPaymentProofs {
+  items: PaymentProofItem[];
+  page: number;
+  size: number;
+  totalElements: number;
+  totalPages: number;
+}
+
 export interface SendPaymentRequestPayload {
   notes?: string;
 }

@@ -113,4 +113,48 @@ export const paymentWorkflowService = {
       payload
     );
   },
+
+  /**
+   * 8. GET /api/admin/payment-proofs
+   * Lists submitted payment proofs with optional filters: partnerId, customerId, taskId, paymentId.
+   */
+  getPaymentProofs: async (params?: {
+    partnerId?: number;
+    customerId?: number;
+    taskId?: number;
+    paymentId?: number;
+    page?: number;
+    size?: number;
+  }): Promise<ApiResponse<any>> => {
+    try {
+      return await apiClient.get<ApiResponse<any>>("/admin/payment-proofs", params);
+    } catch (e) {
+      return { success: false, message: "Proofs endpoint unavailable", data: { items: [] } };
+    }
+  },
+
+  /**
+   * 9. GET /api/admin/payment-proofs/{proofId}/screenshot
+   * Retrieves raw screenshot image bytes as a Blob object with Bearer token.
+   */
+  getProofScreenshotBlob: async (proofId: number | string): Promise<Blob | null> => {
+    try {
+      const token = getAuthToken();
+      const targetUrl =
+        typeof window !== "undefined"
+          ? `/api/proxy/admin/payment-proofs/${proofId}/screenshot`
+          : `${(process.env.NEXT_PUBLIC_API_BASE_URL || "https://finsocap.cloud/api").replace(/\/+$/, "")}/admin/payment-proofs/${proofId}/screenshot`;
+
+      const res = await fetch(targetUrl, {
+        headers: {
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+      });
+      if (!res.ok) return null;
+      return await res.blob();
+    } catch (e) {
+      console.error("[paymentWorkflowService] getProofScreenshotBlob error:", e);
+      return null;
+    }
+  },
 };
