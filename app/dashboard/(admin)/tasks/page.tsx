@@ -9,7 +9,7 @@ import {
   X, Paperclip, Send, Download, ShieldAlert, XCircle, Loader2,
   Calendar, ChevronDown, Eye, ArrowUpDown, Edit3, Save
 } from "lucide-react";
-import { TaskItem, TaskStatus, ALLOWED_STATUS_TRANSITIONS, canTransitionStatus } from "@/types";
+import { TaskItem, TaskStatus, ALLOWED_STATUS_TRANSITIONS, canTransitionStatus, getBackendStatusTransitionPath } from "@/types";
 import { taskService } from "@/lib/services/taskService";
 import { taskApiService } from "@/lib/api/taskService";
 import { taskCollaborationService } from "@/lib/api/taskCollaborationService";
@@ -450,45 +450,43 @@ export default function TasksPage() {
                 "STAFF"
               ).catch((err) => console.warn("Staff status transition warning:", err));
             } else {
-              // Intelligent Workflow Bridge:
-              // Backend enforces: SENT_FOR_REVIEW -> IN_PROGRESS, COMPLETED, CANCELLED.
-              // If moving to PENDING_FROM_CLIENT / PENDING_FROM_DEPARTMENT, bridge via IN_PROGRESS.
-              const isFromReviewToClientOrDept =
-                (editingTask.status === "Sent for Review") &&
-                (backendStatus === "PENDING_FROM_CLIENT" || backendStatus === "PENDING_FROM_DEPARTMENT");
+              // Universal Automated Stepwise Transition Bridge:
+              // Backend enforces strict parent-child transitions. If jumping across branches,
+              // bridge through the intermediate valid states automatically.
+              const currentDbStatus = String(editingTask.status);
+              const transitionHops = getBackendStatusTransitionPath(currentDbStatus, backendStatus);
 
-              if (isFromReviewToClientOrDept) {
+              for (let i = 0; i < transitionHops.length; i++) {
+                const hopStatus = transitionHops[i];
+                const isFinalHop = i === transitionHops.length - 1;
+                const hopNote = isFinalHop
+                  ? `Status updated to ${editStatus} from Task Editor`
+                  : `Automatic stepwise bridge to ${hopStatus}`;
+
                 try {
-                  const intermediateRes = await taskCollaborationService.updateTaskStatus(
+                  const hopRes = await taskCollaborationService.updateTaskStatus(
                     numericTaskId,
                     {
-                      status: "IN_PROGRESS",
-                      note: "Automatic stepwise transition to In Progress",
-                      reason: "Workflow step alignment",
-                      decisionNotes: "Transitioning via In Progress",
+                      status: hopStatus,
+                      note: hopNote,
+                      reason: hopNote,
+                      decisionNotes: hopNote,
                       expectedVersion: currentLiveVersion,
                     },
                     "ADMIN"
                   );
-                  if (intermediateRes?.data?.version) {
-                    currentLiveVersion = intermediateRes.data.version;
+                  if (hopRes?.data?.version) {
+                    currentLiveVersion = hopRes.data.version;
                   } else {
                     currentLiveVersion += 1;
                   }
-                } catch (bridgeErr) {
-                  console.warn("Intermediate bridge status transition warning:", bridgeErr);
+                } catch (bridgeErr: any) {
+                  console.warn(`Admin bridge hop ${hopStatus} error:`, bridgeErr);
+                  if (isFinalHop) {
+                    toast.error(bridgeErr?.message || "Status change rejected by server transition rules", "Status Error");
+                  }
                 }
               }
-
-              await taskCollaborationService.updateTaskStatus(
-                numericTaskId,
-                {
-                  status: backendStatus,
-                  note: `Status updated to ${editStatus} from Task Editor`,
-                  expectedVersion: currentLiveVersion,
-                },
-                "ADMIN"
-              ).catch((patchErr) => console.warn("Admin status transition warning:", patchErr));
             }
           }
         }

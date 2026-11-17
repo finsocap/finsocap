@@ -9,7 +9,7 @@ import {
   User, Building2, Briefcase, FileCheck, Loader2, Sparkles,
   ChevronDown, X, ShieldCheck, Award, Eye, EyeOff, FileText, QrCode, Check, Edit3, Copy
 } from "lucide-react";
-import { TaskItem, TaskStatus, TaskComment, TaskAttachment, CommentAttachment, TaskCertificate, ALLOWED_STATUS_TRANSITIONS, canTransitionStatus } from "@/types";
+import { TaskItem, TaskStatus, TaskComment, TaskAttachment, CommentAttachment, TaskCertificate, ALLOWED_STATUS_TRANSITIONS, canTransitionStatus, getBackendStatusTransitionPath } from "@/types";
 import { taskService } from "@/lib/services/taskService";
 import { useTheme } from "@/components/Providers/ThemeProvider";
 import { useToast } from "@/components/Global/ToastNotification";
@@ -402,53 +402,44 @@ export default function TaskDetailsClient({ id }: { id: string }) {
               "STAFF"
             ).catch((err) => console.warn("Staff status transition warning:", err));
           } else {
-            // Intelligent Workflow Bridge:
-            // Backend transition rules enforce: SENT_FOR_REVIEW can only transition to IN_PROGRESS, COMPLETED, CANCELLED.
-            // If admin chooses PENDING_FROM_CLIENT or PENDING_FROM_DEPARTMENT from SENT_FOR_REVIEW,
-            // bridge via IN_PROGRESS first so the server accepts the step without a 409 transition rejection.
+            // Universal Automated Stepwise Transition Bridge:
+            // Backend rejects direct jumps when intermediate steps are mandatory (e.g.
+            // PENDING_FROM_CLIENT -> PENDING_FROM_DEPARTMENT, SENT_FOR_REVIEW -> PENDING_FROM_CLIENT, etc.)
+            // Calculate the shortest valid path and execute any intermediate hops automatically!
             const currentDbStatus = String(task.status);
-            const isFromReviewToClientOrDept =
-              (currentDbStatus === "Sent for Review" || currentDbStatus === "SENT_FOR_REVIEW") &&
-              (backendStatus === "PENDING_FROM_CLIENT" || backendStatus === "PENDING_FROM_DEPARTMENT");
+            const transitionHops = getBackendStatusTransitionPath(currentDbStatus, backendStatus);
 
-            if (isFromReviewToClientOrDept) {
+            for (let i = 0; i < transitionHops.length; i++) {
+              const hopStatus = transitionHops[i];
+              const isFinalHop = i === transitionHops.length - 1;
+              const hopNote = isFinalHop
+                ? (userNote || `Status updated to ${newStatus} by ${currentUser?.name || "Operations Team"}`)
+                : `Automatic stepwise bridge to ${hopStatus}`;
+
               try {
-                // Step 1: Transition SENT_FOR_REVIEW -> IN_PROGRESS
-                const intermediateRes = await taskCollaborationService.updateTaskStatus(
+                const hopRes = await taskCollaborationService.updateTaskStatus(
                   numericTaskId,
                   {
-                    status: "IN_PROGRESS",
-                    note: "Automatic stepwise transition to In Progress",
-                    reason: "Workflow step alignment",
-                    decisionNotes: "Transitioning via In Progress",
+                    status: hopStatus,
+                    note: hopNote,
+                    reason: hopNote,
+                    decisionNotes: hopNote,
                     expectedVersion: currentLiveVersion,
                   },
                   "ADMIN"
                 );
-                if (intermediateRes?.data?.version) {
-                  currentLiveVersion = intermediateRes.data.version;
+                if (hopRes?.data?.version) {
+                  currentLiveVersion = hopRes.data.version;
                 } else {
                   currentLiveVersion += 1;
                 }
-              } catch (bridgeErr) {
-                console.warn("Intermediate bridge status transition warning:", bridgeErr);
+              } catch (hopErr: any) {
+                console.warn(`Bridge hop ${hopStatus} error:`, hopErr);
+                if (isFinalHop) {
+                  toast.error(hopErr?.message || "Status change rejected by server transition rules", "Status Error");
+                }
               }
             }
-
-            await taskCollaborationService.updateTaskStatus(
-              numericTaskId,
-              {
-                status: backendStatus,
-                note: userNote || `Status updated to ${newStatus} by ${currentUser?.name || "Operations Team"}`,
-                reason: userNote || `Status updated to ${newStatus}`,
-                decisionNotes: userNote || `Status updated to ${newStatus}`,
-                expectedVersion: currentLiveVersion,
-              },
-              "ADMIN"
-            ).catch((patchErr) => {
-              console.warn("Admin PATCH service-request status warning:", patchErr);
-              toast.error(patchErr?.message || "Status change rejected by server transition rules", "Status Error");
-            });
           }
         }
       }

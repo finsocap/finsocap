@@ -266,6 +266,58 @@ export function canTransitionStatus(currentStatus: TaskStatus, targetStatus: Tas
   return Array.isArray(allowed) ? allowed.includes(targetStatus) : false;
 }
 
+/**
+ * Universal shortest path planner for backend state transitions.
+ * Since backend enforces strict direct parent-child transitions,
+ * this returns the sequence of intermediate backend statuses needed to reach targetStatus.
+ */
+export function getBackendStatusTransitionPath(currentStatus: string, targetStatus: string): string[] {
+  const norm = (s: string) => {
+    const u = s.toUpperCase().replace(/\s+/g, "_");
+    if (u === "SENT_FOR_REVIEW" || u === "REVIEW") return "SENT_FOR_REVIEW";
+    if (u === "PENDING_FROM_CLIENT" || u === "PENDINGCLIENT") return "PENDING_FROM_CLIENT";
+    if (u === "PENDING_FROM_DEPARTMENT" || u === "PENDINGDEPARTMENT") return "PENDING_FROM_DEPARTMENT";
+    if (u === "IN_PROGRESS" || u === "INPROGRESS") return "IN_PROGRESS";
+    if (u === "COMPLETED" || u === "APPROVED") return "COMPLETED";
+    if (u === "CANCELLED" || u === "REJECTED") return "CANCELLED";
+    return "PENDING";
+  };
+
+  const start = norm(currentStatus);
+  const end = norm(targetStatus);
+  if (start === end) return [];
+
+  const GRAPH: Record<string, string[]> = {
+    PENDING: ["IN_PROGRESS", "CANCELLED"],
+    IN_PROGRESS: ["SENT_FOR_REVIEW", "PENDING_FROM_CLIENT", "PENDING_FROM_DEPARTMENT", "COMPLETED", "CANCELLED"],
+    PENDING_FROM_CLIENT: ["IN_PROGRESS", "CANCELLED"],
+    PENDING_FROM_DEPARTMENT: ["IN_PROGRESS", "CANCELLED"],
+    SENT_FOR_REVIEW: ["IN_PROGRESS", "COMPLETED", "CANCELLED"],
+    COMPLETED: [],
+    CANCELLED: [],
+  };
+
+  const queue: Array<{ node: string; path: string[] }> = [{ node: start, path: [] }];
+  const visited = new Set<string>([start]);
+
+  while (queue.length > 0) {
+    const { node, path } = queue.shift()!;
+    const neighbors = GRAPH[node] || [];
+    for (const nxt of neighbors) {
+      if (nxt === end) {
+        return [...path, nxt];
+      }
+      if (!visited.has(nxt)) {
+        visited.add(nxt);
+        queue.push({ node: nxt, path: [...path, nxt] });
+      }
+    }
+  }
+
+  // Fallback to direct target if no path found
+  return [end];
+}
+
 export interface CommentAttachment {
   id: string;
   fileName: string;
