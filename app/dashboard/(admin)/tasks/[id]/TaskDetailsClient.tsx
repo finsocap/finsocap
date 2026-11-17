@@ -175,6 +175,13 @@ export default function TaskDetailsClient({ id }: { id: string }) {
   const [editPartnerName, setEditPartnerName] = useState("");
   const [editPartnerContact, setEditPartnerContact] = useState("");
 
+  // Status Change Confirmation Modal State
+  const [confirmStatusModal, setConfirmStatusModal] = useState<{
+    targetStatus: TaskStatus;
+    note: string;
+  } | null>(null);
+  const [isUpdatingStatus, setIsUpdatingStatus] = useState(false);
+
   const openEditTaskModal = () => {
     if (!task) return;
     setEditClientName(task.clientName);
@@ -294,25 +301,39 @@ export default function TaskDetailsClient({ id }: { id: string }) {
     );
   }
 
-  // Handle status update with strict stepwise workflow enforcement
-  const handleStatusChange = async (newStatus: TaskStatus) => {
+  // Handle status update trigger (prompts confirmation modal to prevent accidental changes)
+  const handleStatusChange = (newStatus: TaskStatus) => {
     setStatusDropdownOpen(false);
 
     if (!task || newStatus === task.status) return;
 
-    // Stepwise Workflow Validation:
+    // Stepwise Workflow: Completed opens the dedicated final certification modal
     if (newStatus === "Completed") {
       setIsCompleteModalOpen(true);
       return;
     }
 
+    // Open confirmation popup before executing status transition
+    setConfirmStatusModal({
+      targetStatus: newStatus,
+      note: "",
+    });
+  };
+
+  // Confirmed status execution with live backend sync & optimistic audit trail
+  const executeConfirmedStatusChange = async () => {
+    if (!task || !confirmStatusModal) return;
+
+    const newStatus = confirmStatusModal.targetStatus;
+    const userNote = confirmStatusModal.note.trim();
+    setIsUpdatingStatus(true);
+
     // 1. Optimistic UI update immediately so UI never lags or ignores user click
-    const previousTask = { ...task };
     const updatedStatusHistory = [
       {
         id: `sh-${Date.now()}`,
         status: newStatus,
-        title: `Status changed to ${newStatus}`,
+        title: userNote ? `Status changed to ${newStatus}: ${userNote}` : `Status changed to ${newStatus}`,
         timestamp: new Date().toLocaleDateString("en-GB", {
           day: "2-digit",
           month: "short",
@@ -361,7 +382,7 @@ export default function TaskDetailsClient({ id }: { id: string }) {
           // 2A. Fetch live version to avoid 409 stale version conflict
           let currentLiveVersion = typeof task.version === "number" ? task.version : 0;
           try {
-            const verRes = await fetch(`/api/proxy/tasks/${numericTaskId}`, { cache: "no-store" });
+            const verRes = await fetch(`/api/proxy/service-requests/${numericTaskId}`, { cache: "no-store" });
             if (verRes.ok) {
               const verJson = await verRes.json();
               if (typeof verJson?.data?.version === "number") {
@@ -370,23 +391,13 @@ export default function TaskDetailsClient({ id }: { id: string }) {
             }
           } catch (e) { }
 
-          // 2B. Direct PUT task entity update
-          await fetch(`/api/proxy/tasks/${numericTaskId}`, {
-            method: "PUT",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              status: backendStatus,
-              version: currentLiveVersion,
-            }),
-          }).catch((err) => console.warn("Direct PUT task entity warning:", err));
-
-          // 2C. Status transition workflow endpoint
+          // 2B. Status transition workflow endpoint
           if (isStaffRole) {
             await taskCollaborationService.updateTaskStatus(
               numericTaskId,
               {
                 status: backendStatus,
-                note: `Status updated to ${newStatus} by ${currentUser?.name || "Specialist"}`,
+                note: userNote || `Status updated to ${newStatus} by ${currentUser?.name || "Specialist"}`,
               },
               "STAFF"
             ).catch((err) => console.warn("Staff status transition warning:", err));
@@ -395,7 +406,9 @@ export default function TaskDetailsClient({ id }: { id: string }) {
               numericTaskId,
               {
                 status: backendStatus,
-                note: `Status updated to ${newStatus} by ${currentUser?.name || "Operations Team"}`,
+                note: userNote || `Status updated to ${newStatus} by ${currentUser?.name || "Operations Team"}`,
+                reason: userNote || `Status updated to ${newStatus}`,
+                decisionNotes: userNote || `Status updated to ${newStatus}`,
                 expectedVersion: currentLiveVersion,
               },
               "ADMIN"
@@ -419,6 +432,9 @@ export default function TaskDetailsClient({ id }: { id: string }) {
       }
     } catch (err) {
       console.warn("TaskService persist warning:", err);
+    } finally {
+      setIsUpdatingStatus(false);
+      setConfirmStatusModal(null);
     }
   };
 
@@ -805,7 +821,7 @@ export default function TaskDetailsClient({ id }: { id: string }) {
               <span>Back to Tasks</span>
             </Link>
 
-            {task.status !== "Completed" && currentUser?.role !== "ADMIN" && (
+            {task.status !== "Completed" && (
               <button
                 type="button"
                 onClick={() => setIsCompleteModalOpen(true)}
@@ -2460,6 +2476,84 @@ export default function TaskDetailsClient({ id }: { id: string }) {
           uploadDate={activePreviewDoc.uploadDate}
           category={activePreviewDoc.category}
         />
+      )}
+
+      {/* Confirmation Modal to Prevent Accidental Status Changes */}
+      {confirmStatusModal && (
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-in fade-in">
+          <div className="bg-white dark:bg-[#0c1427] border border-slate-200 dark:border-slate-800 rounded-3xl p-5 sm:p-6 w-full max-w-md shadow-2xl relative animate-in zoom-in-95 duration-150 space-y-4">
+            <ModalHeaderBanner
+              icon={AlertTriangle}
+              badge="CONFIRM WORKFLOW STEP"
+              title="Change Task Status?"
+              description="Confirm this status transition to prevent accidental updates."
+              badgeTag="Workflow Protection"
+              onClose={() => !isUpdatingStatus && setConfirmStatusModal(null)}
+            />
+
+            <div className="p-3.5 bg-blue-50/80 dark:bg-blue-950/40 rounded-2xl border border-blue-200/60 dark:border-blue-900/40 text-xs space-y-2">
+              <div className="flex items-center justify-between text-slate-600 dark:text-slate-400 font-semibold">
+                <span>Current Status:</span>
+                <span className="font-bold text-slate-900 dark:text-white px-2 py-0.5 rounded-md bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700">
+                  {task.status}
+                </span>
+              </div>
+              <div className="flex items-center justify-between text-slate-600 dark:text-slate-400 font-semibold">
+                <span>New Status:</span>
+                <span className="font-bold text-blue-600 dark:text-sky-400 px-2 py-0.5 rounded-md bg-blue-100/70 dark:bg-blue-900/50 border border-blue-300 dark:border-blue-700">
+                  {confirmStatusModal.targetStatus}
+                </span>
+              </div>
+            </div>
+
+            <div className="space-y-1.5">
+              <label className="block text-[11px] font-bold text-slate-600 dark:text-slate-400">
+                Transition Note / Remark (Optional)
+              </label>
+              <textarea
+                value={confirmStatusModal.note}
+                onChange={(e) =>
+                  setConfirmStatusModal({
+                    ...confirmStatusModal,
+                    note: e.target.value,
+                  })
+                }
+                rows={2}
+                placeholder="Reason or notes for this status change..."
+                className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-semibold text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+              />
+            </div>
+
+            <div className="flex items-center justify-end gap-2.5 pt-3 border-t border-slate-100 dark:border-slate-800">
+              <button
+                type="button"
+                disabled={isUpdatingStatus}
+                onClick={() => setConfirmStatusModal(null)}
+                className="px-4 py-2 rounded-xl text-xs font-semibold text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer disabled:opacity-50"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                disabled={isUpdatingStatus}
+                onClick={executeConfirmedStatusChange}
+                className="btn-primary-vibrant text-xs py-2 px-5 cursor-pointer inline-flex items-center gap-1.5 shadow-md shadow-blue-500/25 disabled:opacity-50"
+              >
+                {isUpdatingStatus ? (
+                  <>
+                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                    <span>Updating...</span>
+                  </>
+                ) : (
+                  <>
+                    <CheckCircle2 className="w-3.5 h-3.5" />
+                    <span>Confirm Change</span>
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );

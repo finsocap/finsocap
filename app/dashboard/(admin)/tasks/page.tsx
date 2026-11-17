@@ -1132,7 +1132,6 @@ export default function TasksPage() {
                     <option value={editingTask.status}>{editingTask.status} (Current)</option>
                     {(ALLOWED_STATUS_TRANSITIONS[editingTask.status] || [])
                       .filter((s) => s !== editingTask.status)
-                      .filter((s) => userRole !== "ADMIN" || s !== "Completed")
                       .map((s) => (
                         <option key={s} value={s}>
                           {s}
