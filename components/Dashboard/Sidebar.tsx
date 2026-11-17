@@ -327,12 +327,12 @@ export default function Sidebar({ userRole = "ADMIN" }: { userRole?: string }) {
       </div>
 
       {/* Navigation */}
-      <nav className={`flex-1 px-3 flex flex-col justify-between overflow-y-auto no-scrollbar py-2 ${isCollapsed ? "px-2" : ""}`}>
+      <nav className={`flex-1 px-2.5 2xl:px-3 flex flex-col justify-between overflow-y-auto custom-slim-scrollbar py-1.5 2xl:py-2 ${isCollapsed ? "px-2" : ""}`}>
         {/* Top Section: Nav Items */}
-        <div className="space-y-1.5 2xl:space-y-2">
+        <div className="space-y-1 2xl:space-y-2">
           {/* Core Operations Section */}
           {!isCollapsed && (
-            <div className="pt-1.5 pb-1 px-3.5">
+            <div className="pt-1 pb-0.5 px-3 2xl:px-3.5">
               <span className="text-[10px] font-black uppercase tracking-wider text-slate-400 dark:text-slate-500">
                 Core Operations
               </span>
@@ -349,11 +349,11 @@ export default function Sidebar({ userRole = "ADMIN" }: { userRole?: string }) {
                 href={item.href}
                 onClick={() => setOptimisticHref(item.href)}
                 title={isCollapsed ? item.label : ""}
-                className={`flex items-center justify-between py-2.5 2xl:py-3.5 rounded-xl transition-all duration-200 cursor-pointer ${
+                className={`flex items-center justify-between py-2 2xl:py-3 rounded-xl transition-all duration-200 cursor-pointer ${
                   isCollapsed ? "justify-center px-0" : "px-3 2xl:px-3.5"
                 } ${
                   active
-                    ? "bg-gradient-to-r from-blue-600 via-indigo-600 to-blue-700 text-white font-bold shadow-lg shadow-blue-500/25 border border-blue-400/20 scale-[1.01]"
+                    ? "bg-gradient-to-r from-blue-600 via-indigo-600 to-blue-700 text-white font-bold shadow-md shadow-blue-500/25 border border-blue-400/20 scale-[1.01]"
                     : "text-slate-600 dark:text-slate-400 hover:bg-slate-100/80 dark:hover:bg-slate-800/60 hover:text-slate-900 dark:hover:text-white font-semibold"
                 }`}
               >
@@ -374,13 +374,13 @@ export default function Sidebar({ userRole = "ADMIN" }: { userRole?: string }) {
 
           {/* Reports Header */}
           {!isCollapsed ? (
-            <div className="pt-3 2xl:pt-6 pb-1 px-3 2xl:px-3.5">
+            <div className="pt-2 2xl:pt-5 pb-0.5 px-3 2xl:px-3.5">
               <span className="text-[10px] font-black uppercase tracking-wider text-slate-400 dark:text-slate-500">
                 Analytics & Reports
               </span>
             </div>
           ) : (
-            <div className="my-2.5 border-t border-slate-200 dark:border-slate-800" />
+            <div className="my-2 border-t border-slate-200 dark:border-slate-800" />
           )}
 
           {reportNavItems.map((item) => {
@@ -406,11 +406,11 @@ export default function Sidebar({ userRole = "ADMIN" }: { userRole?: string }) {
                   }
                 }}
                 title={isCollapsed ? item.label : ""}
-                className={`flex items-center justify-between py-2.5 2xl:py-3.5 rounded-xl transition-all duration-200 cursor-pointer ${
+                className={`flex items-center justify-between py-2 2xl:py-3 rounded-xl transition-all duration-200 cursor-pointer ${
                   isCollapsed ? "justify-center px-0" : "px-3 2xl:px-3.5"
                 } ${
                   active
-                    ? "bg-gradient-to-r from-blue-600 via-indigo-600 to-blue-700 text-white font-bold shadow-lg shadow-blue-500/25 border border-blue-400/20 scale-[1.01]"
+                    ? "bg-gradient-to-r from-blue-600 via-indigo-600 to-blue-700 text-white font-bold shadow-md shadow-blue-500/25 border border-blue-400/20 scale-[1.01]"
                     : "text-slate-600 dark:text-slate-400 hover:bg-slate-100/80 dark:hover:bg-slate-800/60 hover:text-slate-900 dark:hover:text-white font-semibold"
                 }`}
               >
@@ -423,14 +423,14 @@ export default function Sidebar({ userRole = "ADMIN" }: { userRole?: string }) {
           })}
         </div>
 
-        {/* Bottom Section: Live Weather & Forecast Widget (Replaced System Health) */}
-        <div className={`mt-auto pt-3 pb-1 ${isCollapsed ? "px-1" : ""}`}>
+        {/* Bottom Section: Live Weather & Forecast Widget (Compact on standard laptop screens) */}
+        <div className={`mt-auto pt-2 pb-1 ${isCollapsed ? "px-1" : ""}`}>
           <WeatherWidgetCard isCollapsed={isCollapsed} />
         </div>
       </nav>
 
       {/* Bottom: Logout Button (Temporary Red Pill Matching Message Center dimensions) */}
-      <div className={`p-3 border-t border-slate-200/90 dark:border-slate-800/90 ${isCollapsed ? "px-2" : ""}`}>
+      <div className={`p-2.5 2xl:p-3 border-t border-slate-200/90 dark:border-slate-800/90 ${isCollapsed ? "px-2" : ""}`}>
         {/* Red Logout Button in exact width and height */}
         {!isCollapsed ? (
           <button
@@ -442,22 +442,22 @@ export default function Sidebar({ userRole = "ADMIN" }: { userRole?: string }) {
               } catch (e) {}
               router.push("/dashboard/login");
             }}
-            className="w-full relative overflow-hidden flex items-center justify-between p-3 rounded-2xl border border-red-500/30 bg-gradient-to-r from-red-600 via-rose-600 to-red-700 hover:from-red-700 hover:to-rose-800 text-white shadow-lg shadow-red-500/25 transition-all duration-300 group cursor-pointer hover:scale-[1.02]"
+            className="w-full relative overflow-hidden flex items-center justify-between p-2 2xl:p-3 rounded-2xl border border-red-500/30 bg-gradient-to-r from-red-600 via-rose-600 to-red-700 hover:from-red-700 hover:to-rose-800 text-white shadow-md shadow-red-500/20 transition-all duration-300 group cursor-pointer hover:scale-[1.01]"
           >
-            <div className="flex items-center gap-2.5 relative z-10">
-              <div className="relative w-9 h-9 rounded-xl flex items-center justify-center shrink-0 shadow-md bg-white/20 text-white ring-2 ring-white/30 transition-transform duration-300 group-hover:scale-110">
-                <LogOut className="w-4 h-4" />
+            <div className="flex items-center gap-2 2xl:gap-2.5 relative z-10">
+              <div className="relative w-7 h-7 2xl:w-9 2xl:h-9 rounded-xl flex items-center justify-center shrink-0 shadow-sm bg-white/20 text-white ring-1 2xl:ring-2 ring-white/30 transition-transform duration-300 group-hover:scale-105">
+                <LogOut className="w-3.5 h-3.5 2xl:w-4 2xl:h-4" />
               </div>
               <div className="flex flex-col min-w-0 text-left">
-                <span className="text-[11px] font-black uppercase tracking-wider leading-tight text-white">
+                <span className="text-[10px] 2xl:text-[11px] font-black uppercase tracking-wider leading-tight text-white">
                   LOGOUT
                 </span>
-                <span className="text-[10px] font-bold mt-0.5 truncate text-red-100">
+                <span className="text-[9px] 2xl:text-[10px] font-bold mt-0.5 truncate text-red-100">
                   Exit Dashboard Session
                 </span>
               </div>
             </div>
-            <ChevronRight className="w-4 h-4 shrink-0 transition-transform duration-300 group-hover:translate-x-1 relative z-10 text-white" />
+            <ChevronRight className="w-3.5 h-3.5 2xl:w-4 2xl:h-4 shrink-0 transition-transform duration-300 group-hover:translate-x-0.5 relative z-10 text-white" />
           </button>
         ) : (
           <button

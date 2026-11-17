@@ -301,34 +301,32 @@ export default function WeatherWidgetCard({ isCollapsed = false }: { isCollapsed
 
   return (
     <div
-      className={`relative w-full h-[180px] rounded-2xl overflow-hidden bg-gradient-to-r ${theme.bg} text-white shadow-md shadow-indigo-950/20 select-none transition-all duration-700 shrink-0 border border-white/20 flex flex-col justify-between`}
+      className={`relative w-full h-[90px] 2xl:h-[150px] rounded-2xl overflow-hidden bg-gradient-to-r ${theme.bg} text-white shadow-sm select-none transition-all duration-700 shrink-0 border border-white/20 flex flex-col justify-between`}
     >
       {/* 1. Animated Celestial Orb (Sun/Moon/Sunrise/Sunset) */}
       <div className={`absolute pointer-events-none transition-all duration-1000 ${
         theme.ambient === "sunrise"
-          ? "right-8 bottom-12"
+          ? "right-8 bottom-6"
           : theme.ambient === "sunset"
-          ? "right-10 bottom-14"
-          : "right-6 -top-3"
+          ? "right-10 bottom-6"
+          : "right-4 -top-6"
       }`}>
         <div
-          className={`w-32 h-32 rounded-full bg-gradient-to-br ${theme.sunGlow} blur-[1px] opacity-90 animate-pulse`}
+          className={`w-24 h-24 2xl:w-32 2xl:h-32 rounded-full bg-gradient-to-br ${theme.sunGlow} blur-[1px] opacity-80 animate-pulse`}
           style={{ animationDuration: "4s" }}
         />
         <div
-          className="absolute -inset-3 rounded-full bg-white/20 blur-md animate-ping"
+          className="absolute -inset-2 rounded-full bg-white/20 blur-md animate-ping"
           style={{ animationDuration: "6s" }}
         />
       </div>
 
-      {/* 2. Twinkling Stars for Night & Evening Ambients (Positioned in middle/lower sky, away from clock) */}
+      {/* 2. Twinkling Stars for Night & Evening Ambients */}
       {(theme.ambient === "night" || theme.ambient === "sunset") && (
         <div className="absolute inset-0 pointer-events-none">
-          <span className="absolute top-14 right-28 w-1 h-1 rounded-full bg-white animate-ping opacity-75" style={{ animationDuration: "3s" }} />
-          <span className="absolute top-16 right-16 w-1.5 h-1.5 rounded-full bg-amber-200 animate-pulse opacity-90" style={{ animationDuration: "2.5s" }} />
-          <span className="absolute top-20 right-8 w-1 h-1 rounded-full bg-white animate-pulse opacity-80" style={{ animationDuration: "4s" }} />
-          <span className="absolute top-12 left-28 w-1 h-1 rounded-full bg-sky-200 animate-pulse opacity-70" style={{ animationDuration: "3.5s" }} />
-          <span className="absolute top-18 right-24 w-1 h-1 rounded-full bg-yellow-100 animate-ping opacity-60" style={{ animationDuration: "4.5s" }} />
+          <span className="absolute top-8 right-20 w-1 h-1 rounded-full bg-white animate-ping opacity-75" style={{ animationDuration: "3s" }} />
+          <span className="absolute top-10 right-12 w-1 h-1 rounded-full bg-amber-200 animate-pulse opacity-90" style={{ animationDuration: "2.5s" }} />
+          <span className="absolute top-12 right-6 w-1 h-1 rounded-full bg-white animate-pulse opacity-80" style={{ animationDuration: "4s" }} />
         </div>
       )}
 
@@ -344,13 +342,12 @@ export default function WeatherWidgetCard({ isCollapsed = false }: { isCollapsed
         <div className="absolute inset-0 pointer-events-none overflow-hidden">
           <span className="absolute top-2 right-18 w-1.5 h-1.5 rounded-full bg-white/90 animate-bounce" style={{ animationDuration: "2s" }} />
           <span className="absolute top-7 right-10 w-1 h-1 rounded-full bg-white/80 animate-bounce" style={{ animationDuration: "3s" }} />
-          <span className="absolute top-14 right-22 w-1 h-1 rounded-full bg-white/70 animate-bounce" style={{ animationDuration: "2.5s" }} />
         </div>
       )}
 
-      {/* 5. Layered Silhouette Mountain Hills (Reference SS2 Design) */}
+      {/* 5. Layered Silhouette Mountain Hills */}
       <svg
-        className={`absolute bottom-0 left-0 right-0 w-full h-20 pointer-events-none ${theme.hill1} opacity-50`}
+        className={`absolute bottom-0 left-0 right-0 w-full h-10 2xl:h-14 pointer-events-none ${theme.hill1} opacity-50`}
         viewBox="0 0 240 65"
         preserveAspectRatio="none"
         fill="currentColor"
@@ -358,7 +355,7 @@ export default function WeatherWidgetCard({ isCollapsed = false }: { isCollapsed
         <path d="M0,38 Q40,16 85,32 T170,24 T215,36 T240,30 L240,65 L0,65 Z" />
       </svg>
       <svg
-        className={`absolute bottom-0 left-0 right-0 w-full h-14 pointer-events-none ${theme.hill2} opacity-85`}
+        className={`absolute bottom-0 left-0 right-0 w-full h-8 2xl:h-12 pointer-events-none ${theme.hill2} opacity-85`}
         viewBox="0 0 240 50"
         preserveAspectRatio="none"
         fill="currentColor"
@@ -367,86 +364,62 @@ export default function WeatherWidgetCard({ isCollapsed = false }: { isCollapsed
       </svg>
 
       {/* 6. Dynamic Foreground Weather Information */}
-      <div className="relative z-10 h-full p-4 flex flex-col justify-between">
-        {/* Top Header: Weather Condition + Day/Night Phase + Live Browser 12h Clock */}
-        <div className="flex items-start justify-between">
-          <div className="flex items-center gap-2 min-w-0">
-            <div className="p-1 rounded-lg bg-white/10 backdrop-blur-md border border-white/15">
+      <div className="relative z-10 h-full p-2.5 2xl:p-3.5 flex flex-col justify-between">
+        {/* Top Header: Weather Condition + Live Clock */}
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-1.5 min-w-0">
+            <div className="p-0.5 2xl:p-1 rounded-md bg-white/10 backdrop-blur-md border border-white/15">
               <IconComponent
-                className={`w-4 h-4 text-amber-300 drop-shadow-sm shrink-0 ${theme.ambient === "sunny" ? "animate-spin" : "animate-pulse"}`}
+                className={`w-3.5 h-3.5 text-amber-300 drop-shadow-sm shrink-0 ${theme.ambient === "sunny" ? "animate-spin" : "animate-pulse"}`}
                 style={{ animationDuration: theme.ambient === "sunny" ? "16s" : "3s" }}
               />
             </div>
             <div className="flex flex-col min-w-0">
-              <span className="capitalize tracking-wide truncate max-w-[110px] text-[12px] font-extrabold text-white leading-tight">
-                {loading ? "Detecting..." : data?.conditionText}
-              </span>
-              <span className="text-[10px] font-semibold text-amber-200/90 tracking-wide uppercase leading-none mt-0.5">
-                {theme.phaseLabel}
+              <span className="capitalize tracking-wide truncate max-w-[85px] 2xl:max-w-[110px] text-[11px] 2xl:text-[12px] font-extrabold text-white leading-tight">
+                {loading ? "..." : data?.conditionText}
               </span>
             </div>
           </div>
 
-          {/* Live Browser 12h Clock (e.g. 07:11 PM) & Date */}
-          <div className="text-right flex flex-col items-end shrink-0 pl-2">
-            <div className="flex items-baseline justify-end gap-1 font-mono font-black text-white drop-shadow-[0_2px_4px_rgba(0,0,0,0.6)] leading-none">
-              <span className="text-[15px] tracking-tight">{liveTime || "07:00"}</span>
-              <span className="text-[11px] font-extrabold text-amber-300 font-sans tracking-normal leading-none ml-0.5">
-                {liveAmPm || "PM"}
-              </span>
-              <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-ping inline-block self-center ml-1" />
-            </div>
-            <div className="text-[10px] font-extrabold text-white/90 leading-none mt-1 tracking-wider uppercase drop-shadow-[0_1px_3px_rgba(0,0,0,0.6)]">
-              {liveDate || "TODAY"}
-            </div>
+          {/* Live Clock */}
+          <div className="text-right flex items-baseline justify-end gap-1 font-mono font-black text-white leading-none">
+            <span className="text-xs 2xl:text-sm tracking-tight">{liveTime || "07:00"}</span>
+            <span className="text-[9px] 2xl:text-[10px] font-extrabold text-amber-300 font-sans ml-0.5">
+              {liveAmPm || "PM"}
+            </span>
           </div>
         </div>
 
-        {/* Middle: Temperature + Live Detected City */}
-        <div className="flex items-end justify-between my-auto py-1.5">
-          <div className="flex items-start select-none">
-            <span className="text-4xl sm:text-[42px] font-black tracking-tight leading-none text-white drop-shadow-[0_2px_8px_rgba(0,0,0,0.6)]">
+        {/* Middle/Bottom: Temp + City */}
+        <div className="flex items-end justify-between pt-1">
+          <div className="flex items-baseline select-none">
+            <span className="text-2xl 2xl:text-3xl font-black tracking-tight leading-none text-white drop-shadow">
               {loading ? "--" : data?.temp}
             </span>
-            <span className="text-xl sm:text-2xl font-bold leading-none ml-0.5 text-amber-300 drop-shadow-[0_1px_4px_rgba(0,0,0,0.6)] -mt-1">
-              °
-            </span>
+            <span className="text-sm font-bold text-amber-300 -mt-1 ml-0.5">°C</span>
           </div>
 
-          {/* Location Badge + Instant Refresh Action */}
-          <div className="text-right flex items-center justify-end gap-1.5 min-w-0">
+          <div className="flex items-center gap-1 bg-black/40 backdrop-blur-md px-2 py-0.5 rounded-full border border-white/20 shadow-xs">
+            <MapPin className="w-2.5 h-2.5 text-amber-300 shrink-0" />
+            <span className="text-[10px] font-bold text-white tracking-wide truncate max-w-[85px] block">
+              {loading ? "..." : data?.city}
+            </span>
             <button
               onClick={handleManualRefresh}
               disabled={isRefreshing}
-              title="Refresh live weather & location"
-              className="p-1 rounded-full bg-black/40 hover:bg-black/60 backdrop-blur-md border border-white/20 text-white/90 hover:text-amber-300 transition-all duration-200 active:scale-95 disabled:opacity-75 shadow-sm"
+              title="Refresh"
+              className="text-white hover:text-amber-300 transition-colors ml-0.5 cursor-pointer"
             >
-              <RefreshCw className={`w-3 h-3 ${isRefreshing ? "animate-spin text-amber-300" : ""}`} />
+              <RefreshCw className={`w-2.5 h-2.5 ${isRefreshing ? "animate-spin text-amber-300" : ""}`} />
             </button>
-
-            <div className="flex items-center gap-1.5 bg-black/40 backdrop-blur-md px-2.5 py-1 rounded-full border border-white/20 shadow-md">
-              <MapPin className="w-3 h-3 text-amber-300 shrink-0" />
-              <span className="text-[11px] font-extrabold text-white tracking-wide drop-shadow truncate max-w-[105px] block">
-                {loading ? "Locating..." : data?.city}
-              </span>
-            </div>
           </div>
         </div>
 
-        {/* Bottom Pill Row: Extended Live Telemetry (Feels Like, Humidity, Wind) */}
-        <div className="flex items-center justify-between pt-2.5 border-t border-white/20 text-[11px] font-bold text-white drop-shadow-[0_1px_3px_rgba(0,0,0,0.7)]">
-          <div className="flex items-center gap-1.5" title="Feels like temperature">
-            <Thermometer className="w-3.5 h-3.5 text-amber-300" />
-            <span>Feels {loading ? "--" : `${data?.feelsLike}°`}</span>
-          </div>
-          <div className="flex items-center gap-1.5" title="Humidity percentage">
-            <Droplets className="w-3.5 h-3.5 text-sky-300" />
-            <span>{loading ? "--" : `${data?.humidity}%`}</span>
-          </div>
-          <div className="flex items-center gap-1.5" title="Wind speed">
-            <Wind className="w-3.5 h-3.5 text-teal-300" />
-            <span>{loading ? "--" : `${data?.windKph}km/h`}</span>
-          </div>
+        {/* Extended Telemetry on 2xl large screens only */}
+        <div className="hidden 2xl:flex items-center justify-between pt-1.5 border-t border-white/20 text-[10px] font-bold text-white">
+          <span>Feels {loading ? "--" : `${data?.feelsLike}°`}</span>
+          <span>Hum {loading ? "--" : `${data?.humidity}%`}</span>
+          <span>Wind {loading ? "--" : `${data?.windKph}k`}</span>
         </div>
       </div>
     </div>
