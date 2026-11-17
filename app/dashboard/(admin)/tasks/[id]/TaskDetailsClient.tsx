@@ -91,6 +91,7 @@ export default function TaskDetailsClient({ id }: { id: string }) {
   const [completeClientName, setCompleteClientName] = useState("");
   const [completeClientNumber, setCompleteClientNumber] = useState("");
   const [completeAttachments, setCompleteAttachments] = useState<string[]>([]);
+  const [completeAttachmentFile, setCompleteAttachmentFile] = useState<File | null>(null);
   const completeFileInputRef = useRef<HTMLInputElement>(null);
 
   const statusOptions: { status: TaskStatus; dotColor: string }[] = useMemo(() => {
@@ -549,7 +550,7 @@ export default function TaskDetailsClient({ id }: { id: string }) {
       console.warn("Live reports licence registration sync warning:", licSyncErr);
     }
 
-    // 4. Live Backend Status Sync to COMPLETED
+    // 4. Live Backend Status Sync to COMPLETED with Certificate Attachment Upload
     try {
       const numericTaskId = task.numericId || (Number(task.id.replace(/\D/g, "")) || 0);
       if (numericTaskId > 0) {
@@ -563,26 +564,69 @@ export default function TaskDetailsClient({ id }: { id: string }) {
           }),
         }).catch((err) => console.warn("Direct PUT task completion warning:", err));
 
-        // Admin workflow status transition to COMPLETED
+        // 4A. If user attached an actual file in the completion modal, upload it to task collaboration documents BEFORE closing the task!
+        // Once a task is closed, the server marks it read-only.
+        if (completeAttachmentFile) {
+          try {
+            await taskCollaborationService.uploadWorkDocument(
+              numericTaskId,
+              completeAttachmentFile,
+              {
+                title: `${completeServiceName} Official Certificate - ${completeLicenceNumber.trim()}`,
+                documentType: "CERTIFICATE",
+              },
+              "ADMIN"
+            );
+          } catch (uploadErr) {
+            console.warn("Completion attachment upload warning:", uploadErr);
+          }
+        }
+
+        // 4B. Admin workflow status transition to COMPLETED via Universal Stepwise Planner
+        // (If task is not already in SENT_FOR_REVIEW, bridge through intermediate valid states like SENT_FOR_REVIEW first)
         let currentLiveVersion = typeof task.version === "number" ? task.version : 0;
         try {
-          const verRes = await fetch(`/api/proxy/tasks/${numericTaskId}`, { cache: "no-store" });
+          const verRes = await fetch(`/api/proxy/service-requests/${numericTaskId}`, { cache: "no-store" });
           if (verRes.ok) {
             const verJson = await verRes.json();
             if (typeof verJson?.data?.version === "number") currentLiveVersion = verJson.data.version;
           }
         } catch (e) { }
 
-        await taskCollaborationService.updateTaskStatus(
-          numericTaskId,
-          {
-            status: "COMPLETED",
-            reason: "Task completed with issued licence / certificate",
-            decisionNotes: `Licence No: ${completeLicenceNumber.trim()} issued. Valid till ${completeExpiryDate}`,
-            expectedVersion: currentLiveVersion,
-          },
-          "ADMIN"
-        ).catch((err) => console.warn("Admin PATCH complete status warning:", err));
+        const currentDbStatus = String(task.status);
+        const transitionHops = getBackendStatusTransitionPath(currentDbStatus, "COMPLETED");
+
+        for (let i = 0; i < transitionHops.length; i++) {
+          const hopStatus = transitionHops[i];
+          const isFinalHop = i === transitionHops.length - 1;
+          const hopNote = isFinalHop
+            ? `Task completed with issued licence / certificate #${completeLicenceNumber.trim()}`
+            : `Automatic stepwise bridge to ${hopStatus}`;
+
+          try {
+            const hopRes = await taskCollaborationService.updateTaskStatus(
+              numericTaskId,
+              {
+                status: hopStatus,
+                note: hopNote,
+                reason: isFinalHop ? `Licence No: ${completeLicenceNumber.trim()} issued. Valid till ${completeExpiryDate}` : hopNote,
+                decisionNotes: isFinalHop ? `Licence No: ${completeLicenceNumber.trim()} issued. Valid till ${completeExpiryDate}` : hopNote,
+                expectedVersion: currentLiveVersion,
+              },
+              "ADMIN"
+            );
+            if (hopRes?.data?.version) {
+              currentLiveVersion = hopRes.data.version;
+            } else {
+              currentLiveVersion += 1;
+            }
+          } catch (hopErr: any) {
+            console.warn(`Completion bridge hop ${hopStatus} error:`, hopErr);
+            if (isFinalHop) {
+              toast.error(hopErr?.message || "Status change rejected by server transition rules", "Status Error");
+            }
+          }
+        }
       }
     } catch (e) {
       console.warn("Complete status backend sync warning:", e);
@@ -2230,8 +2274,9 @@ export default function TaskDetailsClient({ id }: { id: string }) {
                   onChange={(e) => {
                     const f = e.target.files?.[0];
                     if (f) {
+                      setCompleteAttachmentFile(f);
                       setCompleteAttachments([f.name]);
-                      showToast(`Uploaded ${f.name}`);
+                      showToast(`Selected attachment: ${f.name}`);
                     }
                   }}
                 />
