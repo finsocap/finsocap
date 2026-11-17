@@ -13,6 +13,8 @@ import {
   Loader2,
   Image as ImageIcon,
   ShieldCheck,
+  Edit2,
+  RotateCcw,
 } from "lucide-react";
 import ModalHeaderBanner from "@/components/Dashboard/ModalHeaderBanner";
 import { paymentWorkflowService } from "@/lib/api/paymentWorkflowService";
@@ -36,6 +38,7 @@ export default function PayoutSettingsModal({
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [existingQrUrl, setExistingQrUrl] = useState<string | null>(null);
   const [isAlreadyConfigured, setIsAlreadyConfigured] = useState(false);
+  const [isEditing, setIsEditing] = useState(false);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [copied, setCopied] = useState(false);
@@ -103,17 +106,9 @@ export default function PayoutSettingsModal({
       return;
     }
 
-    if (!selectedFile && !isAlreadyConfigured) {
-      toast.error("QR Code required", "Please upload a valid PNG or JPEG QR Code image.");
-      return;
-    }
-
-    if (isAlreadyConfigured) {
-      toast.info(
-        "One-Time Setup",
-        "Payment settings are already configured for this admin on the server."
-      );
-      onClose();
+    // When editing or creating new, replacement file is required
+    if (!selectedFile && (!isAlreadyConfigured || isEditing)) {
+      toast.error("QR Code required", "Please select a replacement PNG or JPEG QR Code image.");
       return;
     }
 
@@ -126,9 +121,18 @@ export default function PayoutSettingsModal({
         fd.append("qr", selectedFile);
       }
 
-      const res = await paymentWorkflowService.savePaymentSettings(fd);
+      // Use PUT /admin/payment-settings if updating existing, otherwise POST
+      const res = isAlreadyConfigured
+        ? await paymentWorkflowService.updatePaymentSettings(fd)
+        : await paymentWorkflowService.savePaymentSettings(fd);
+
       if (res?.success && res.data) {
-        toast.success("Success", "Admin QR and UPI payment settings saved successfully.");
+        toast.success(
+          "Settings Updated",
+          isAlreadyConfigured
+            ? "Payment settings & QR code updated successfully."
+            : "Admin QR and UPI payment settings saved successfully."
+        );
         onSaved(res.data);
         onClose();
       } else {
@@ -137,23 +141,25 @@ export default function PayoutSettingsModal({
     } catch (err: any) {
       console.error("[PayoutSettingsModal] save error:", err);
       toast.error(
-        "Setup Error",
-        err?.message || "Server rejected QR/UPI settings. Ensure file is PNG/JPEG < 2MB."
+        "Update Error",
+        err?.message || "Server rejected update. Ensure QR image is PNG/JPEG < 2MB."
       );
     } finally {
       setSubmitting(false);
     }
   };
 
+  const isFormDisabled = isAlreadyConfigured && !isEditing;
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-in fade-in">
       <div className="bg-white dark:bg-[#0c1427] border border-slate-200 dark:border-slate-800 rounded-3xl w-full max-w-lg shadow-2xl relative overflow-hidden flex flex-col max-h-[92vh]">
         {/* Banner Header */}
         <ModalHeaderBanner
-          title="Admin UPI & QR Payment Setup"
-          description="Configure official receiving UPI handle & QR code image for partner manual settlement"
+          title={isEditing ? "Edit Admin UPI & QR Code" : "Admin UPI & QR Payment Setup"}
+          description="Configure or update official receiving UPI handle & QR code image for partner manual settlement"
           icon={QrCode}
-          badge="Verified Gateway"
+          badge={isAlreadyConfigured ? (isEditing ? "Editing Mode" : "Active Gateway") : "Initial Setup"}
           onClose={onClose}
         />
 
@@ -165,14 +171,31 @@ export default function PayoutSettingsModal({
         ) : (
           <form onSubmit={handleSubmit} className="p-6 space-y-5 overflow-y-auto">
             {/* Note alert */}
-            <div className="p-3.5 rounded-2xl bg-blue-50/70 dark:bg-blue-950/40 border border-blue-200/60 dark:border-blue-900/40 text-xs text-blue-900 dark:text-sky-300 flex items-start gap-2.5">
-              <Sparkles className="w-4 h-4 text-blue-600 dark:text-sky-400 shrink-0 mt-0.5" />
-              <div className="space-y-0.5">
-                <p className="font-bold">One-Time Setup Policy</p>
-                <p className="text-[11px] text-blue-700/90 dark:text-sky-300/80 leading-relaxed">
-                  Per the FinSocap payment specification, QR image bytes are verified and stored securely in the database. Bank account fields are disabled in this mode.
-                </p>
+            <div className="p-3.5 rounded-2xl bg-blue-50/70 dark:bg-blue-950/40 border border-blue-200/60 dark:border-blue-900/40 text-xs text-blue-900 dark:text-sky-300 flex items-start justify-between gap-2.5">
+              <div className="flex items-start gap-2.5">
+                <Sparkles className="w-4 h-4 text-blue-600 dark:text-sky-400 shrink-0 mt-0.5" />
+                <div className="space-y-0.5">
+                  <p className="font-bold">
+                    {isEditing ? "Updating Payment Setup (PUT /admin/payment-settings)" : "Official Payment Gateway"}
+                  </p>
+                  <p className="text-[11px] text-blue-700/90 dark:text-sky-300/80 leading-relaxed">
+                    {isEditing
+                      ? "Enter the new UPI ID, Payee Name, and select a new replacement QR Code image (PNG/JPEG max 2MB)."
+                      : "Saved QR image bytes are served directly from the database to partners upon payment request."}
+                  </p>
+                </div>
               </div>
+
+              {isAlreadyConfigured && !isEditing && (
+                <button
+                  type="button"
+                  onClick={() => setIsEditing(true)}
+                  className="px-3 py-1.5 rounded-xl text-xs font-bold text-blue-600 dark:text-sky-400 bg-white dark:bg-slate-800 border border-blue-200 dark:border-blue-900 hover:bg-blue-50 flex items-center gap-1.5 shrink-0 cursor-pointer transition-colors shadow-2xs"
+                >
+                  <Edit2 className="w-3.5 h-3.5" />
+                  <span>Edit / Re-upload</span>
+                </button>
+              )}
             </div>
 
             {/* Payee Name */}
@@ -183,11 +206,11 @@ export default function PayoutSettingsModal({
               <input
                 type="text"
                 required
-                disabled={isAlreadyConfigured}
+                disabled={isFormDisabled}
                 placeholder="e.g. FinSocap Financial Services"
                 value={payeeName}
                 onChange={(e) => setPayeeName(e.target.value)}
-                className="w-full px-3.5 py-2.5 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-bold text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500/20 disabled:opacity-70 disabled:cursor-not-allowed"
+                className="w-full px-3.5 py-2.5 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-bold text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500/20 disabled:opacity-75 disabled:cursor-not-allowed"
               />
             </div>
 
@@ -200,11 +223,11 @@ export default function PayoutSettingsModal({
                 <input
                   type="text"
                   required
-                  disabled={isAlreadyConfigured}
+                  disabled={isFormDisabled}
                   placeholder="e.g. finsocap@icici"
                   value={upiId}
                   onChange={(e) => setUpiId(e.target.value)}
-                  className="w-full px-3.5 py-2.5 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-mono font-bold text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500/20 disabled:opacity-70 disabled:cursor-not-allowed pr-20"
+                  className="w-full px-3.5 py-2.5 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-mono font-bold text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500/20 disabled:opacity-75 disabled:cursor-not-allowed pr-20"
                 />
                 {upiId && (
                   <button
@@ -222,14 +245,14 @@ export default function PayoutSettingsModal({
             {/* QR Image Upload & Preview */}
             <div className="space-y-2">
               <label className="text-xs font-bold text-slate-700 dark:text-slate-300 flex items-center justify-between">
-                <span>Upload Official UPI QR Code *</span>
+                <span>{isEditing ? "Upload Replacement QR Code *" : "Official UPI QR Code *"}</span>
                 <span className="text-[10px] font-semibold text-slate-400">PNG / JPEG (Max 2MB)</span>
               </label>
 
               <div className="p-4 rounded-2xl border-2 border-dashed border-slate-200 dark:border-slate-700 bg-slate-50/60 dark:bg-slate-900/40 text-center space-y-3">
                 {previewUrl || existingQrUrl ? (
                   <div className="flex flex-col items-center gap-2">
-                    <div className="w-40 h-40 rounded-2xl bg-white p-2 shadow-md border border-slate-200 flex items-center justify-center overflow-hidden">
+                    <div className="w-44 h-44 rounded-2xl bg-white p-2 shadow-md border border-slate-200 flex items-center justify-center overflow-hidden">
                       {/* eslint-disable-next-line @next/next/no-img-element */}
                       <img
                         src={previewUrl || existingQrUrl || ""}
@@ -237,10 +260,16 @@ export default function PayoutSettingsModal({
                         className="w-full h-full object-contain"
                       />
                     </div>
-                    {isAlreadyConfigured && (
+                    {isAlreadyConfigured && !previewUrl && (
                       <span className="inline-flex items-center gap-1 text-[11px] font-bold text-emerald-600">
                         <ShieldCheck className="w-3.5 h-3.5" />
                         Stored in DB (Active)
+                      </span>
+                    )}
+                    {previewUrl && (
+                      <span className="inline-flex items-center gap-1 text-[11px] font-bold text-blue-600">
+                        <Upload className="w-3.5 h-3.5" />
+                        New Image Selected (Pending Save)
                       </span>
                     )}
                   </div>
@@ -258,11 +287,12 @@ export default function PayoutSettingsModal({
                   </div>
                 )}
 
-                {!isAlreadyConfigured && (
+                {/* Upload button shown when initially configuring OR when editing */}
+                {(!isAlreadyConfigured || isEditing) && (
                   <div>
                     <label className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold text-white bg-blue-600 hover:bg-blue-700 cursor-pointer shadow-xs transition-colors">
                       <Upload className="w-3.5 h-3.5" />
-                      <span>{previewUrl ? "Change Image" : "Browse File"}</span>
+                      <span>{previewUrl || existingQrUrl ? "Change / Re-upload Image" : "Browse File"}</span>
                       <input
                         type="file"
                         accept="image/png,image/jpeg"
@@ -277,14 +307,30 @@ export default function PayoutSettingsModal({
 
             {/* Actions */}
             <div className="pt-2 flex items-center justify-end gap-2.5">
-              <button
-                type="button"
-                onClick={onClose}
-                className="px-4 py-2.5 text-xs font-bold text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-xl transition-colors cursor-pointer"
-              >
-                Close
-              </button>
-              {!isAlreadyConfigured && (
+              {isEditing ? (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsEditing(false);
+                    setSelectedFile(null);
+                    setPreviewUrl(null);
+                  }}
+                  className="px-4 py-2.5 text-xs font-bold text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-xl transition-colors cursor-pointer"
+                >
+                  Cancel Edit
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  onClick={onClose}
+                  className="px-4 py-2.5 text-xs font-bold text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-xl transition-colors cursor-pointer"
+                >
+                  Close
+                </button>
+              )}
+
+              {/* Submit / Update Button */}
+              {(!isAlreadyConfigured || isEditing) && (
                 <button
                   type="submit"
                   disabled={submitting}
@@ -295,7 +341,7 @@ export default function PayoutSettingsModal({
                   ) : (
                     <Save className="w-3.5 h-3.5" />
                   )}
-                  <span>Save QR &amp; UPI Setup</span>
+                  <span>{isEditing ? "Update & Save Changes" : "Save QR & UPI Setup"}</span>
                 </button>
               )}
             </div>

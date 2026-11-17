@@ -27,6 +27,15 @@ export const paymentWorkflowService = {
   },
 
   /**
+   * 2b. PUT /api/admin/payment-settings
+   * Updates / re-uploads admin QR + UPI using multipart form-data.
+   * Key: upiId (Text), payeeName (Text), qr (File - PNG/JPEG max 2MB)
+   */
+  updatePaymentSettings: async (formData: FormData): Promise<ApiResponse<AdminPaymentSettings>> => {
+    return apiClient.put<ApiResponse<AdminPaymentSettings>>("/admin/payment-settings", formData);
+  },
+
+  /**
    * 3. GET /api/admin/payment-settings/qr
    * Retrieves raw QR image bytes as a Blob object with Bearer token.
    */
