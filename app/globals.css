@@ -1044,6 +1044,17 @@ html[data-os="windows"] {
    ============================================================================ */
 
 /* 1. TYPOGRAPHY: Exact -15% scaling for every single text class */
+/* PageBanner Heading (Executive Dashboard, Tasks, Clients, Partners, Services, etc.): +5% bump for prominent page banner titles */
+html[data-os="windows"] .bg-gradient-to-r.from-white h1,
+html[data-os="windows"] h1.text-xl,
+html[data-os="windows"] h1.sm\:text-2xl,
+html[data-os="windows"] h1.lg\:text-3xl {
+  font-size: 1.68rem !important; /* +5% bump */
+  line-height: 1.25 !important;
+  font-weight: 800 !important;
+  letter-spacing: -0.015em !important;
+}
+
 html[data-os="windows"] .text-4xl,
 html[data-os="windows"] h1.text-4xl {
   font-size: 1.9rem !important;  /* MacBook 2.25rem -> 1.9rem (-15%) */
@@ -1277,21 +1288,58 @@ html[data-os="windows"] [role="dialog"] .p-8 {
   padding: 1.28rem !important;
 }
 
-/* 7. TABLES: Exact -15% row padding and font */
-html[data-os="windows"] table th {
-  padding-top: 0.55rem !important;
-  padding-bottom: 0.55rem !important;
-  padding-left: 0.85rem !important;
-  padding-right: 0.85rem !important;
-  font-size: 0.72rem !important;
+/* 7. TABLES & LIST ITEMS: Exact -15% row padding and font for Windows */
+/* Target all table rows, th, td across Products/Services, Tasks, Task Allocation, Partners, Clients, Team, Reports, Payment Verification */
+html[data-os="windows"] table th,
+html[data-os="windows"] table th.py-3,
+html[data-os="windows"] table th.py-3\.5,
+html[data-os="windows"] table th.py-4,
+html[data-os="windows"] table th.px-4,
+html[data-os="windows"] table th.px-3\.5 {
+  padding-top: 0.52rem !important;
+  padding-bottom: 0.52rem !important;
+  padding-left: 0.75rem !important;
+  padding-right: 0.75rem !important;
+  font-size: 0.7rem !important;
+  line-height: 1.25 !important;
 }
 
-html[data-os="windows"] table td {
-  padding-top: 0.65rem !important;
-  padding-bottom: 0.65rem !important;
-  padding-left: 0.85rem !important;
-  padding-right: 0.85rem !important;
-  font-size: 0.78rem !important;
+html[data-os="windows"] table td,
+html[data-os="windows"] table td.py-3,
+html[data-os="windows"] table td.py-3\.5,
+html[data-os="windows"] table td.py-4,
+html[data-os="windows"] table td.px-4,
+html[data-os="windows"] table td.px-3\.5 {
+  padding-top: 0.58rem !important;
+  padding-bottom: 0.58rem !important;
+  padding-left: 0.75rem !important;
+  padding-right: 0.75rem !important;
+  font-size: 0.75rem !important;
+  line-height: 1.3 !important;
+}
+
+/* Service Name, Client Name, Partner Name, Task ID titles inside table cells */
+html[data-os="windows"] table td .font-bold,
+html[data-os="windows"] table td .font-black,
+html[data-os="windows"] table td .font-semibold {
+  font-size: 0.75rem !important;
+}
+
+/* Sub-labels, badges, frequency, categories inside table cells */
+html[data-os="windows"] table td span.text-\[10px\],
+html[data-os="windows"] table td span.text-\[11px\],
+html[data-os="windows"] table td .text-xs {
+  font-size: 0.65rem !important;
+}
+
+/* List item badges & status pills inside tables */
+html[data-os="windows"] table td span.rounded-full,
+html[data-os="windows"] table td span.rounded-md {
+  padding-top: 0.15rem !important;
+  padding-bottom: 0.15rem !important;
+  padding-left: 0.5rem !important;
+  padding-right: 0.5rem !important;
+  font-size: 0.65rem !important;
 }
 
 /* Pulsing opacity animation for Task Row Left Status Border */
