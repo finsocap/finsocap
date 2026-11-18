@@ -51,6 +51,22 @@ export default function RootLayout({
       className={`${inter.variable} ${jetbrainsMono.variable} h-full antialiased`}
       style={{ colorScheme: "light" }}
     >
+      <head>
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `(function(){
+              try {
+                var p = (navigator.userAgentData && navigator.userAgentData.platform) || navigator.platform || navigator.userAgent || '';
+                var isWin = /Win/i.test(p);
+                var isMac = /Mac/i.test(p);
+                document.documentElement.setAttribute('data-os', isWin ? 'windows' : isMac ? 'macos' : 'default');
+              } catch (e) {
+                document.documentElement.setAttribute('data-os', 'default');
+              }
+            })();`,
+          }}
+        />
+      </head>
       <body className="min-h-full flex flex-col bg-[#f4f6fa] text-slate-800 font-sans transition-colors duration-200 selection:bg-blue-600 selection:text-white">
         <ThemeProvider>
           <AuthProvider>

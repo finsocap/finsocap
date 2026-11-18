@@ -40,7 +40,7 @@ import { teamService } from "@/lib/api/teamService";
 import { serviceCatalogService } from "@/lib/api/serviceCatalogService";
 import { reportsService } from "@/lib/api/reportsService";
 import { apiClient } from "@/lib/api/apiClient";
-import { formatName, formatEmail, formatIndianPhoneNumber, validateIndianMobile, validateEmail, validatePersonName, normalizePhoneForBackend } from "@/lib/formatters";
+import { formatName, formatEmail, formatIndianPhoneNumber, validateIndianMobile, validateEmail, validatePersonName, normalizePhoneForBackend, toTitleCase } from "@/lib/formatters";
 import { PhoneInput } from "@/components/Global/PhoneInput";
 import { EmailInput } from "@/components/Global/EmailInput";
 import { NameInput } from "@/components/Global/NameInput";
@@ -657,7 +657,7 @@ export default function TeamPage() {
                           </div>
                           <div>
                             <span className="font-black text-slate-900 dark:text-white block group-hover:text-blue-600 dark:group-hover:text-sky-400 transition-colors">
-                              {user.name}
+                              {toTitleCase(user.name)}
                             </span>
                             <span className="text-[10px] text-slate-400 font-mono block">
                               ID: #{String(user.id).padStart(4, "0")}
@@ -710,10 +710,10 @@ export default function TeamPage() {
                       <td className="py-3.5 px-4">
                         <div>
                           <span className="font-bold text-slate-900 dark:text-white block">
-                            {user.role}
+                            {toTitleCase(user.role)}
                           </span>
                           <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
-                            {user.dept}
+                            {toTitleCase(user.dept)}
                           </span>
                         </div>
                       </td>
@@ -726,7 +726,7 @@ export default function TeamPage() {
                               key={sk}
                               className="px-2 py-0.5 rounded-md font-bold text-[9px] bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border border-slate-200/80 dark:border-slate-700"
                             >
-                              {sk}
+                              {toTitleCase(sk)}
                             </span>
                           ))}
                         </div>

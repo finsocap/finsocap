@@ -6,34 +6,147 @@
  */
 
 // -----------------------------------------------------------------------------
-// 1. Name Formatting
+// 1. Global Title Case & Name Formatting
 // -----------------------------------------------------------------------------
-/**
- * Capitalizes the first letter of each word in a person/business name,
- * preserving letters after apostrophes/hyphens and respecting initials.
- * Example: 'aarav jha' -> 'Aarav Jha', 'RAHUL KUMAR' -> 'Rahul Kumar'
- */
-export function formatName(val: string): string {
-  if (!val) return "";
-  // Do not format if empty or only spaces
-  const trimmed = val.trim();
-  if (!trimmed) return "";
 
-  // Split words by space while preserving structure
-  return val
-    .split(" ")
-    .map((word) => {
-      if (!word) return "";
-      // Handle hyphenated names like "Mary-Jane"
-      if (word.includes("-")) {
-        return word
-          .split("-")
-          .map((sub) => (sub ? sub.charAt(0).toUpperCase() + sub.slice(1).toLowerCase() : ""))
-          .join("-");
-      }
-      return word.charAt(0).toUpperCase() + word.slice(1).toLowerCase();
-    })
-    .join(" ");
+/**
+ * Well-known acronyms, abbreviations, and official statutory terms that must
+ * preserve their exact official uppercase/casing.
+ */
+const ACRONYM_MAP: Record<string, string> = {
+  gst: "GST",
+  gstin: "GSTIN",
+  fssai: "FSSAI",
+  upi: "UPI",
+  api: "API",
+  kyc: "KYC",
+  pan: "PAN",
+  tan: "TAN",
+  cin: "CIN",
+  din: "DIN",
+  llp: "LLP",
+  llc: "LLC",
+  pvt: "Pvt",
+  ltd: "Ltd",
+  msme: "MSME",
+  udyam: "Udyam",
+  iec: "IEC",
+  sop: "SOP",
+  faq: "FAQ",
+  faqs: "FAQs",
+  sla: "SLA",
+  dsc: "DSC",
+  ca: "CA",
+  cs: "CS",
+  cma: "CMA",
+  it: "IT",
+  itr: "ITR",
+  tds: "TDS",
+  tcs: "TCS",
+  rbsh: "RBSH",
+  rbi: "RBI",
+  sebi: "SEBI",
+  nbfc: "NBFC",
+  mca: "MCA",
+  roc: "ROC",
+  epf: "EPF",
+  epfo: "EPFO",
+  esi: "ESI",
+  esic: "ESIC",
+  iso: "ISO",
+  pf: "PF",
+  crm: "CRM",
+  id: "ID",
+  ids: "IDs",
+  wip: "WIP",
+  tat: "TAT",
+  otp: "OTP",
+  sms: "SMS",
+  pdf: "PDF",
+  url: "URL",
+  urls: "URLs",
+  inr: "INR",
+  usd: "USD",
+  neft: "NEFT",
+  rtgs: "RTGS",
+  imps: "IMPS",
+  qr: "QR",
+};
+
+/**
+ * Checks whether a token is a URL, email, technical slug, or code that should not be touched.
+ */
+function isTechnicalIdentifier(str: string): boolean {
+  if (!str) return false;
+  // URL check
+  if (/^https?:\/\//i.test(str) || /^www\./i.test(str)) return true;
+  // Email check
+  if (/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(str)) return true;
+  // Code / Task ID / Reference format (e.g. T-1234, #1234, UUID, 24-char hex, slug with underscores like SENT_FOR_REVIEW)
+  if (/^[T#]-[a-zA-Z0-9_-]+$/.test(str)) return true;
+  if (/^[0-9a-f]{24}$/i.test(str)) return true; // Mongo ObjectId
+  if (/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(str)) return true; // UUID
+  return false;
+}
+
+/**
+ * Universal Title Case converter adhering to the Finsocap Global Standard:
+ * - Converts names, titles, categories, locations, statuses to proper Title Case.
+ * - Respects acronyms (GST, FSSAI, MSME, DSC, LLP, etc.).
+ * - Handles hyphens, slashes, and parentheses appropriately.
+ * - Leaves URLs, emails, and technical codes/IDs untouched.
+ * 
+ * Example:
+ * - 'shubham jha' -> 'Shubham Jha'
+ * - 'SHIVAM KUMAR' -> 'Shivam Kumar'
+ * - 'annual compliance service' -> 'Annual Compliance Service'
+ * - 'gst registration - proprietor' -> 'GST Registration - Proprietor'
+ * - 'fssai food license' -> 'FSSAI Food License'
+ * - 'pending from client' -> 'Pending From Client'
+ * - 'madhubani' -> 'Madhubani'
+ */
+export function toTitleCase(val?: string | null): string {
+  if (!val) return "";
+  const raw = String(val);
+  const trimmed = raw.trim();
+  if (!trimmed) return raw;
+
+  // Don't format URLs, emails, or technical IDs
+  if (isTechnicalIdentifier(trimmed)) {
+    return raw;
+  }
+
+  // Format words while preserving multiple spaces, tabs, etc.
+  return raw.replace(/([^\s/()\-–—]+)/g, (word) => {
+    // If the word has numbers combined with letters (e.g. ISO9001, 717/F-2, 100-500), check acronym or leave
+    const cleanWord = word.replace(/^[^\w]+|[^\w]+$/g, "");
+    const lowerClean = cleanWord.toLowerCase();
+
+    // Check acronym dictionary
+    if (ACRONYM_MAP[lowerClean]) {
+      const target = ACRONYM_MAP[lowerClean];
+      return word.replace(cleanWord, target);
+    }
+
+    // If word is already a known uppercase acronym or all digits/special
+    if (/^[A-Z0-9]{2,}$/.test(cleanWord) && ACRONYM_MAP[lowerClean]) {
+      return word.replace(cleanWord, ACRONYM_MAP[lowerClean]);
+    }
+
+    // Capitalize first character, lowercase the rest
+    if (word.length <= 1) {
+      return word.toUpperCase();
+    }
+    return word.charAt(0).toUpperCase() + word.slice(1).toLowerCase();
+  });
+}
+
+/**
+ * Capitalizes names and titles, respecting hyphenated and punctuated words.
+ * Backward compatible alias for toTitleCase.
+ */
+export function formatName(val?: string | null): string {
+  return toTitleCase(val);
 }
 
 /**
@@ -331,5 +444,69 @@ export function mapBackendTaskStatus(status?: string | null): "Pending" | "In Pr
       return "Pending";
   }
 }
+
+// -----------------------------------------------------------------------------
+// 8. Auto-Format Presenter Adapter for Dynamic / Live API Data
+// Deeply transforms user-facing display fields (names, services, categories,
+// cities, statuses, titles) to strict Title Case while strictly preserving
+// IDs, UUIDs, tokens, emails, URLs, dates, numbers, and technical values.
+// -----------------------------------------------------------------------------
+
+const TITLE_CASE_KEYS = new Set([
+  "name",
+  "fullname",
+  "client",
+  "clientname",
+  "partner",
+  "partnername",
+  "business",
+  "businessname",
+  "shopname",
+  "service",
+  "servicename",
+  "servicecategory",
+  "category",
+  "categoryname",
+  "department",
+  "dept",
+  "designation",
+  "city",
+  "state",
+  "tier",
+  "franchisetier",
+  "author",
+  "role",
+  "status",
+  "assignee",
+  "assignedtoname",
+  "licencetype",
+  "type",
+]);
+
+/**
+ * Automatically normalizes any object or list received from APIs or stores
+ * so all descriptive names, services, and locations are rendered in proper Title Case.
+ */
+export function formatDataRecord<T>(data: T): T {
+  if (!data || typeof data !== "object") return data;
+
+  if (Array.isArray(data)) {
+    return data.map((item) => formatDataRecord(item)) as unknown as T;
+  }
+
+  const result: any = { ...data };
+  for (const [key, val] of Object.entries(result)) {
+    if (typeof val === "string") {
+      const normalizedKey = key.toLowerCase().replace(/[^a-z]/g, "");
+      if (TITLE_CASE_KEYS.has(normalizedKey)) {
+        result[key] = toTitleCase(val);
+      }
+    } else if (val && typeof val === "object" && !(val instanceof Date)) {
+      result[key] = formatDataRecord(val);
+    }
+  }
+  return result;
+}
+
 
 

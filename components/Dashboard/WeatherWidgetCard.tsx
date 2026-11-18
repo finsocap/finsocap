@@ -301,7 +301,7 @@ export default function WeatherWidgetCard({ isCollapsed = false }: { isCollapsed
 
   return (
     <div
-      className={`relative w-full h-[90px] 2xl:h-[150px] rounded-2xl overflow-hidden bg-gradient-to-r ${theme.bg} text-white shadow-sm select-none transition-all duration-700 shrink-0 border border-white/20 flex flex-col justify-between`}
+      className={`relative w-full h-[180px] rounded-2xl overflow-hidden bg-gradient-to-r ${theme.bg} text-white shadow-md shadow-indigo-950/20 select-none transition-all duration-700 shrink-0 border border-white/20 flex flex-col justify-between`}
     >
       {/* 1. Animated Celestial Orb (Sun/Moon/Sunrise/Sunset) */}
       <div className={`absolute pointer-events-none transition-all duration-1000 ${
@@ -392,11 +392,13 @@ export default function WeatherWidgetCard({ isCollapsed = false }: { isCollapsed
 
         {/* Middle/Bottom: Temp + City */}
         <div className="flex items-end justify-between pt-1">
-          <div className="flex items-baseline select-none">
-            <span className="text-2xl 2xl:text-3xl font-black tracking-tight leading-none text-white drop-shadow">
+          <div className="flex items-start select-none">
+            <span className="text-4xl sm:text-[42px] font-black tracking-tight leading-none text-white drop-shadow-[0_2px_8px_rgba(0,0,0,0.6)]">
               {loading ? "--" : data?.temp}
             </span>
-            <span className="text-sm font-bold text-amber-300 -mt-1 ml-0.5">°C</span>
+            <span className="text-xl sm:text-2xl font-bold leading-none ml-0.5 text-amber-300 drop-shadow-[0_1px_4px_rgba(0,0,0,0.6)] -mt-1">
+              °
+            </span>
           </div>
 
           <div className="flex items-center gap-1 bg-black/40 backdrop-blur-md px-2 py-0.5 rounded-full border border-white/20 shadow-xs">
@@ -415,11 +417,20 @@ export default function WeatherWidgetCard({ isCollapsed = false }: { isCollapsed
           </div>
         </div>
 
-        {/* Extended Telemetry on 2xl large screens only */}
-        <div className="hidden 2xl:flex items-center justify-between pt-1.5 border-t border-white/20 text-[10px] font-bold text-white">
-          <span>Feels {loading ? "--" : `${data?.feelsLike}°`}</span>
-          <span>Hum {loading ? "--" : `${data?.humidity}%`}</span>
-          <span>Wind {loading ? "--" : `${data?.windKph}k`}</span>
+        {/* Bottom Pill Row: Extended Live Telemetry Always Visible */}
+        <div className="flex items-center justify-between pt-2.5 border-t border-white/20 text-[11px] font-bold text-white drop-shadow-[0_1px_3px_rgba(0,0,0,0.7)]">
+          <div className="flex items-center gap-1.5" title="Feels like temperature">
+            <Thermometer className="w-3.5 h-3.5 text-amber-300" />
+            <span>Feels {loading ? "--" : `${data?.feelsLike}°`}</span>
+          </div>
+          <div className="flex items-center gap-1.5" title="Humidity percentage">
+            <Droplets className="w-3.5 h-3.5 text-sky-300" />
+            <span>{loading ? "--" : `${data?.humidity}%`}</span>
+          </div>
+          <div className="flex items-center gap-1.5" title="Wind speed">
+            <Wind className="w-3.5 h-3.5 text-teal-300" />
+            <span>{loading ? "--" : `${data?.windKph}km/h`}</span>
+          </div>
         </div>
       </div>
     </div>

@@ -20,6 +20,7 @@ import { useToast } from "@/components/Global/ToastNotification";
 import { useRouter } from "next/navigation";
 import ModalHeaderBanner from "@/components/Dashboard/ModalHeaderBanner";
 import { isDateWithinRange, getCurrentMonthRangeLabel } from "@/lib/dateRangeHelper";
+import { toTitleCase } from "@/lib/formatters";
 
 export default function LicenceReportPage() {
   const router = useRouter();
@@ -800,7 +801,7 @@ export default function LicenceReportPage() {
                         {lic.assignedTo && lic.assignedTo !== "-" ? (
                           <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full font-bold text-[10px] bg-purple-50 text-purple-700 dark:bg-purple-950/60 dark:text-purple-300 border border-purple-200/60 dark:border-purple-800/60">
                             <Users className="w-3 h-3 text-purple-500" />
-                            <span>{lic.assignedTo}</span>
+                            <span>{toTitleCase(lic.assignedTo)}</span>
                           </span>
                         ) : (
                           <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md font-bold text-[10px] bg-slate-100 text-slate-500 dark:bg-slate-800 dark:text-slate-400">
@@ -811,7 +812,7 @@ export default function LicenceReportPage() {
 
                       {/* Partner Name */}
                       <td className="py-3 px-3 font-bold text-slate-900 dark:text-white">
-                        {lic.partner}
+                        {toTitleCase(lic.partner)}
                       </td>
 
                       {/* Partner Number */}
@@ -823,7 +824,7 @@ export default function LicenceReportPage() {
 
                       {/* Client Name */}
                       <td className="py-3 px-3 font-bold text-slate-900 dark:text-white">
-                        {lic.client}
+                        {toTitleCase(lic.client)}
                       </td>
 
                       {/* Client Number */}
@@ -842,20 +843,20 @@ export default function LicenceReportPage() {
                               : "bg-sky-50 text-sky-700 dark:bg-sky-950/70 dark:text-sky-300 border-sky-200/60 dark:border-sky-800"
                           }`}
                         >
-                          {lic.type}
+                          {toTitleCase(lic.type)}
                         </span>
                       </td>
 
                       {/* Task Category */}
                       <td className="py-3 px-3">
                         <span className="px-2 py-0.5 rounded-md text-[10px] font-bold bg-amber-50 text-amber-700 dark:bg-amber-950/70 dark:text-amber-300">
-                          {lic.category}
+                          {toTitleCase(lic.category)}
                         </span>
                       </td>
 
                       {/* Service Name */}
                       <td className="py-3 px-3 text-purple-600 dark:text-purple-400 font-semibold">
-                        {lic.service}
+                        {toTitleCase(lic.service)}
                       </td>
 
                       {/* Licence Number */}

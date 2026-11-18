@@ -23,19 +23,19 @@ export default function PageBanner({
   bottomMeta,
 }: PageBannerProps) {
   return (
-    <div className="relative rounded-2xl sm:rounded-3xl p-3.5 sm:p-4.5 2xl:p-6 bg-gradient-to-br from-white via-white to-blue-50/50 border border-slate-200/90 shadow-sm shadow-slate-200/50">
+    <div className="relative rounded-2xl sm:rounded-3xl p-4 sm:p-5 lg:p-6 bg-gradient-to-br from-white via-white to-blue-50/50 border border-slate-200/90 shadow-sm shadow-slate-200/50">
       {/* Ambient Brand Glow Mesh - Strictly clipped inside banner shape without clipping outer dropdowns */}
       <div className="absolute inset-0 overflow-hidden rounded-2xl sm:rounded-3xl pointer-events-none z-0">
         <div className="absolute -top-20 -left-16 w-64 h-64 bg-blue-400/10 rounded-full blur-3xl" />
         <div className="absolute -bottom-20 -right-16 w-64 h-64 bg-indigo-400/10 rounded-full blur-3xl" />
       </div>
 
-      <div className="relative z-20 flex flex-col xl:flex-row xl:items-center xl:justify-between gap-3 sm:gap-4 2xl:gap-5">
+      <div className="relative z-20 flex flex-col xl:flex-row xl:items-center xl:justify-between gap-4 sm:gap-5">
         {/* Brand Identity & Title */}
         <div className="flex items-start sm:items-center gap-3 sm:gap-3.5">
           <div className="relative shrink-0">
-            <div className="w-9 h-9 sm:w-11 sm:h-11 2xl:w-12 2xl:h-12 rounded-xl sm:rounded-2xl bg-gradient-to-tr from-[#0e1c44] via-blue-600 to-sky-400 text-white flex items-center justify-center font-bold shadow-lg shadow-blue-500/25 ring-2 sm:ring-4 ring-blue-500/10">
-              <Icon className="w-4.5 h-4.5 sm:w-5.5 sm:h-5.5 2xl:w-6 2xl:h-6 text-white" />
+            <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl sm:rounded-2xl bg-gradient-to-tr from-[#0e1c44] via-blue-600 to-sky-400 text-white flex items-center justify-center font-bold shadow-lg shadow-blue-500/25 ring-2 sm:ring-4 ring-blue-500/10">
+              <Icon className="w-5 h-5 sm:w-6 sm:h-6 text-white" />
             </div>
             <span className="absolute -bottom-0.5 -right-0.5 sm:-bottom-1 sm:-right-1 w-3 h-3 sm:w-3.5 sm:h-3.5 bg-emerald-500 border-2 border-white dark:border-[#0b1226] rounded-full ring-2 ring-emerald-500/20 animate-pulse" />
           </div>
@@ -53,7 +53,7 @@ export default function PageBanner({
               )}
             </div>
 
-            <h1 className="text-lg sm:text-xl lg:text-2xl 2xl:text-3xl font-black text-slate-900 dark:text-white tracking-tight leading-tight">
+            <h1 className="text-xl sm:text-2xl lg:text-3xl font-black text-slate-900 dark:text-white tracking-tight leading-tight">
               {title}
             </h1>
             <p className="text-[11px] sm:text-xs text-slate-500 dark:text-slate-400 font-medium mt-0.5 max-w-xl">
@@ -71,7 +71,7 @@ export default function PageBanner({
       </div>
 
       {/* Bottom Sub-bar (Lower z-index than actions so dropdowns never get obstructed) */}
-      <div className="relative z-10 mt-3.5 2xl:mt-5 pt-2.5 2xl:pt-3.5 border-t border-blue-100/80 dark:border-blue-900/40 flex flex-wrap items-center justify-between text-[11px] font-semibold text-slate-500 dark:text-slate-400 gap-3">
+      <div className="relative z-10 mt-5 pt-3.5 border-t border-blue-100/80 dark:border-blue-900/40 flex flex-wrap items-center justify-between text-[11px] font-semibold text-slate-500 dark:text-slate-400 gap-3">
         <div className="flex items-center gap-3">
           <span className="inline-flex items-center gap-1.5 text-emerald-600 dark:text-emerald-400 font-bold">
             <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />

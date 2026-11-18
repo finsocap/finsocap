@@ -53,7 +53,7 @@ import PageBanner from "@/components/Dashboard/PageBanner";
 import { useToast } from "@/components/Global/ToastNotification";
 import ModalHeaderBanner from "@/components/Dashboard/ModalHeaderBanner";
 import UniversalFilePreviewModal from "@/components/Dashboard/UniversalFilePreviewModal";
-import { formatName, formatEmail, formatIndianPhoneNumber, formatAddress, formatPanNumber, formatAadhaarNumber, normalizePhoneForBackend, validateIndianMobile, validateEmail, validatePersonName, validatePanNumber, validateAadhaarNumber, getDeterministicPartnerKyc } from "@/lib/formatters";
+import { formatName, formatEmail, formatIndianPhoneNumber, formatAddress, formatPanNumber, formatAadhaarNumber, normalizePhoneForBackend, validateIndianMobile, validateEmail, validatePersonName, validatePanNumber, validateAadhaarNumber, getDeterministicPartnerKyc, toTitleCase } from "@/lib/formatters";
 import { PhoneInput } from "@/components/Global/PhoneInput";
 import { EmailInput } from "@/components/Global/EmailInput";
 import { NameInput } from "@/components/Global/NameInput";
@@ -797,7 +797,7 @@ export default function PartnersManagePage() {
                           </div>
                           <div>
                             <p className="font-bold text-slate-900 dark:text-white leading-tight">
-                              {p.name}
+                              {toTitleCase(p.name)}
                             </p>
                             <p className="text-[11px] text-slate-400 font-mono mt-0.5">
                               {p.email || `${p.name.toLowerCase().replace(/\s+/g, ".")}@finsocap.com`}
@@ -838,7 +838,7 @@ export default function PartnersManagePage() {
                         <div className="flex items-center gap-1 text-slate-600 dark:text-slate-400">
                           <MapPin className="w-3 h-3 text-slate-400 shrink-0" />
                           <span>
-                            {p.city}, {p.state}
+                            {toTitleCase(p.city)}, {toTitleCase(p.state)}
                           </span>
                         </div>
                       </td>
@@ -847,7 +847,7 @@ export default function PartnersManagePage() {
                       <td className="py-3.5 px-4">
                         <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg text-[10px] font-bold bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700">
                           <Award className="w-3 h-3 text-amber-500" />
-                          <span>{p.tier || "Franchise Partner"}</span>
+                          <span>{toTitleCase(p.tier || "Franchise Partner")}</span>
                         </span>
                       </td>
 
@@ -872,7 +872,7 @@ export default function PartnersManagePage() {
                             className={`w-1.5 h-1.5 rounded-full ${isActive ? "bg-emerald-500 animate-pulse" : isPending ? "bg-amber-500" : "bg-rose-500"
                               }`}
                           />
-                          <span>{p.status}</span>
+                          <span>{toTitleCase(p.status)}</span>
                         </span>
                       </td>
 

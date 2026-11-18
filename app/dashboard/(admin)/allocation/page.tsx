@@ -39,7 +39,8 @@ import { useToast } from "@/components/Global/ToastNotification";
 import { workloadService } from "@/lib/api/workloadService";
 import { adminWorkflowService } from "@/lib/api/adminWorkflowService";
 import { downloadFile } from "@/lib/fileViewer";
-import TaskIdBadge from "@/components/Dashboard/TaskIdBadge";
+import TaskIdBadge, { formatShortTaskId } from "@/components/Dashboard/TaskIdBadge";
+import { toTitleCase } from "@/lib/formatters";
 import { WorkloadMetrics, BalancingRecommendation } from "@/types/api";
 
 export default function AllocationPage() {
@@ -481,7 +482,7 @@ export default function AllocationPage() {
                 </label>
                 {selectedTask && (
                   <span className="text-[10px] font-bold text-blue-600 dark:text-sky-400">
-                    {selectedTask.business || selectedTask.client}
+                    {toTitleCase(selectedTask.business || selectedTask.client)}
                   </span>
                 )}
               </div>
@@ -496,7 +497,7 @@ export default function AllocationPage() {
                   ) : (
                     unassignedTasks.map((t) => (
                       <option key={t.id} value={t.id}>
-                        {t.id} • {t.client} • {t.service}
+                        {formatShortTaskId(t.id)} &nbsp; &nbsp; &nbsp; • &nbsp; &nbsp; &nbsp; {toTitleCase(t.client)} &nbsp; &nbsp; &nbsp; • &nbsp; &nbsp; &nbsp; {toTitleCase(t.service)}
                       </option>
                     ))
                   )}
@@ -517,7 +518,7 @@ export default function AllocationPage() {
                         Client Dossier &amp; Compliance Attachments
                       </h4>
                       <p className="text-[10px] text-slate-500 dark:text-slate-400">
-                        Dispatched by Partner <span className="font-semibold text-slate-700 dark:text-slate-300">{selectedTask.partner}</span> for Client <span className="font-semibold text-slate-700 dark:text-slate-300">{selectedTask.client}</span>
+                        Dispatched by Partner <span className="font-semibold text-slate-700 dark:text-slate-300">{toTitleCase(selectedTask.partner)}</span> for Client <span className="font-semibold text-slate-700 dark:text-slate-300">{toTitleCase(selectedTask.client)}</span>
                       </p>
                     </div>
                   </div>
@@ -733,8 +734,8 @@ export default function AllocationPage() {
                           onClick={() => setSelectedTaskId(t.id)}
                           className={`cursor-pointer transition-all ${
                             isSelected
-                              ? "bg-blue-50/80 dark:bg-blue-950/40 font-bold border-l-4 border-l-blue-600"
-                              : "hover:bg-slate-50/80 dark:hover:bg-slate-800/40"
+                              ? "bg-rose-50/60 dark:bg-rose-950/30 font-bold border-l-4 border-l-rose-500"
+                              : "bg-rose-50/30 dark:bg-rose-950/15 hover:bg-rose-50/60 dark:hover:bg-rose-950/30 border-l-4 border-l-rose-400/50"
                           }`}
                         >
                           <td className="py-2.5 px-3 whitespace-nowrap">
@@ -742,14 +743,14 @@ export default function AllocationPage() {
                           </td>
                           <td className="py-2.5 px-3">
                             <span className="font-bold text-slate-900 dark:text-white block">
-                              {t.client}
+                              {toTitleCase(t.client)}
                             </span>
                             <span className="text-[10px] text-slate-400 block font-normal">
-                              {t.business}
+                              {toTitleCase(t.business)}
                             </span>
                           </td>
                           <td className="py-2.5 px-3 text-slate-700 dark:text-slate-300">
-                            {t.service}
+                            {toTitleCase(t.service)}
                           </td>
                           <td className="py-2.5 px-3">
                             <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-blue-50 dark:bg-blue-950/60 text-blue-600 dark:text-sky-400 border border-blue-200 dark:border-blue-900/40">
@@ -758,7 +759,7 @@ export default function AllocationPage() {
                             </span>
                           </td>
                           <td className="py-2.5 px-3 text-slate-600 dark:text-slate-400">
-                            {t.partner}
+                            {toTitleCase(t.partner)}
                           </td>
                           <td className="py-2.5 px-3 text-slate-500 font-mono text-[11px]">
                             {t.due}
@@ -855,11 +856,11 @@ export default function AllocationPage() {
                         <td className="py-3 px-3 whitespace-nowrap">
                           <TaskIdBadge id={task.id} href={`/dashboard/tasks/${task.id}`} />
                         </td>
-                        <td className="py-3 px-3 font-bold text-slate-800 dark:text-slate-200 capitalize">
-                          {task.client}
+                        <td className="py-3 px-3 font-bold text-slate-800 dark:text-slate-200">
+                          {toTitleCase(task.client)}
                         </td>
                         <td className="py-3 px-3 text-slate-600 dark:text-slate-300 font-medium">
-                          {task.service}
+                          {toTitleCase(task.service)}
                         </td>
                         <td className="py-3 px-3">
                           {task.files && task.files.length > 0 ? (
@@ -881,7 +882,7 @@ export default function AllocationPage() {
                             <span className="w-6 h-6 rounded-full bg-blue-600 text-white text-[10px] font-black flex items-center justify-center shrink-0 shadow-xs">
                               {task.assignee.charAt(0).toUpperCase()}
                             </span>
-                            <span>{task.assignee}</span>
+                            <span>{toTitleCase(task.assignee)}</span>
                           </span>
                         </td>
                         <td className="py-3 px-3 text-slate-500 font-mono text-[11px] whitespace-nowrap">
@@ -889,7 +890,7 @@ export default function AllocationPage() {
                         </td>
                         <td className="py-3 px-3 whitespace-nowrap">
                           <span className={`inline-block px-2.5 py-0.5 rounded-md text-[10px] font-bold tracking-wide whitespace-nowrap ${getStatusBadge(task.status)}`}>
-                            {task.status}
+                            {toTitleCase(task.status)}
                           </span>
                         </td>
                         <td className="py-3 px-3 text-right">

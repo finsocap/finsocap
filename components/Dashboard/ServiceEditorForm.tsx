@@ -17,6 +17,7 @@ import { CreateServicePayload, normalizeServiceCategory } from "@/types/api";
 import { fetchLiveDbData } from "@/lib/crmStore";
 import { useTheme } from "@/components/Providers/ThemeProvider";
 import RichTextEditor from "@/components/Dashboard/RichTextEditor";
+import { toTitleCase } from "@/lib/formatters";
 
 interface ServiceEditorFormProps {
   initialData?: ServiceItem | null;
@@ -73,7 +74,7 @@ export default function ServiceEditorForm({ initialData, isEditMode = false }: S
   }, []);
 
   const handleAddNewCategory = async () => {
-    const trimmed = newCategoryName.trim();
+    const trimmed = toTitleCase(newCategoryName.trim());
     if (!trimmed) return;
     setIsCreatingCategory(true);
     try {
@@ -364,9 +365,12 @@ export default function ServiceEditorForm({ initialData, isEditMode = false }: S
       const trimmedDesc = description.trim();
       const safeSubtitle = trimmedDesc.length > 250 ? trimmedDesc.slice(0, 247) + "..." : trimmedDesc;
 
+      const formattedName = toTitleCase(name.trim());
+      const formattedCategory = toTitleCase(category.trim());
+
       const apiPayload: CreateServicePayload = {
-        name: name.trim(),
-        category: category.trim(),
+        name: formattedName,
+        category: formattedCategory,
         categoryId: selectedCategoryId,
         subtitle: safeSubtitle,
         badges: ["Popular"],
@@ -532,6 +536,7 @@ export default function ServiceEditorForm({ initialData, isEditMode = false }: S
                     placeholder="e.g. FSSAI Registration"
                     value={name}
                     onChange={(e) => setName(e.target.value)}
+                    onBlur={() => setName((prev) => toTitleCase(prev))}
                     className="w-full px-4 py-2.5 pr-10 bg-slate-50 dark:bg-slate-900/80 border border-slate-200 dark:border-slate-700 rounded-2xl text-xs font-bold text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all shadow-xs"
                   />
                   <div className="absolute right-3.5 top-3 text-slate-400 pointer-events-none" title="Field is editable">

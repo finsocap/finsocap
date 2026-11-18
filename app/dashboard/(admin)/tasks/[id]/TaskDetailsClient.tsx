@@ -16,7 +16,7 @@ import { useToast } from "@/components/Global/ToastNotification";
 import { useCrmStore } from "@/lib/crmStore";
 import { teamService } from "@/lib/api/teamService";
 import ModalHeaderBanner from "@/components/Dashboard/ModalHeaderBanner";
-import { formatName, formatIndianPhoneNumber, normalizePhoneForBackend } from "@/lib/formatters";
+import { formatName, formatIndianPhoneNumber, normalizePhoneForBackend, toTitleCase } from "@/lib/formatters";
 import { PhoneInput } from "@/components/Global/PhoneInput";
 import { NameInput } from "@/components/Global/NameInput";
 import { taskCollaborationService, TaskDocumentItem, TaskChatMessage } from "@/lib/api/taskCollaborationService";
@@ -986,7 +986,7 @@ export default function TaskDetailsClient({ id }: { id: string }) {
               Real-Time Sync Active
             </span>
             <span className="text-slate-300 dark:text-slate-700 hidden sm:inline">•</span>
-            <span className="hidden sm:inline">Partner: <strong className="text-slate-700 dark:text-slate-300">{task.partnerName}</strong> &bull; Client: <strong className="text-slate-700 dark:text-slate-300">{task.clientName}</strong> &bull; Service: <strong className="text-slate-700 dark:text-slate-300">{task.serviceName}</strong></span>
+            <span className="hidden sm:inline">Partner: <strong className="text-slate-700 dark:text-slate-300">{toTitleCase(task.partnerName)}</strong> &bull; Client: <strong className="text-slate-700 dark:text-slate-300">{toTitleCase(task.clientName)}</strong> &bull; Service: <strong className="text-slate-700 dark:text-slate-300">{toTitleCase(task.serviceName)}</strong></span>
           </div>
           <span className="px-2.5 py-0.5 rounded-md bg-blue-50/80 dark:bg-blue-950/80 text-blue-700 dark:text-sky-300 font-bold text-[10px] border border-blue-200/60 dark:border-blue-800/60 shadow-2xs">
             Finsocap v2.4 Enterprise
@@ -1152,7 +1152,7 @@ export default function TaskDetailsClient({ id }: { id: string }) {
           </div>
           <div>
             <span className="text-slate-400 font-medium">Service Name: </span>
-            <span className="font-black text-blue-600 dark:text-sky-400">{task.serviceName}</span>
+            <span className="font-black text-blue-600 dark:text-sky-400">{toTitleCase(task.serviceName)}</span>
           </div>
           <div>
             <span className="text-slate-400 font-medium">Assigned Specialist: </span>
@@ -1962,11 +1962,11 @@ export default function TaskDetailsClient({ id }: { id: string }) {
               <div className="grid grid-cols-2 gap-2 text-left p-3 rounded-xl bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-[11px]">
                 <div>
                   <span className="text-slate-400 font-bold block text-[10px]">Client / Entity</span>
-                  <span className="font-bold text-slate-900 dark:text-white">{task.clientName}</span>
+                  <span className="font-bold text-slate-900 dark:text-white">{toTitleCase(task.clientName)}</span>
                 </div>
                 <div>
                   <span className="text-slate-400 font-bold block text-[10px]">Business Name</span>
-                  <span className="font-bold text-slate-900 dark:text-white">{task.nameOfBusiness}</span>
+                  <span className="font-bold text-slate-900 dark:text-white">{toTitleCase(task.nameOfBusiness)}</span>
                 </div>
                 <div>
                   <span className="text-slate-400 font-bold block text-[10px]">Issue Date</span>

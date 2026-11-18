@@ -16,7 +16,7 @@ import ClientsInfographic from "@/components/Charts/ClientsInfographic";
 import PageBanner from "@/components/Dashboard/PageBanner";
 import { useToast } from "@/components/Global/ToastNotification";
 import ModalHeaderBanner from "@/components/Dashboard/ModalHeaderBanner";
-import { formatName, formatIndianPhoneNumber, normalizePhoneForBackend } from "@/lib/formatters";
+import { formatName, formatIndianPhoneNumber, normalizePhoneForBackend, toTitleCase } from "@/lib/formatters";
 import { PhoneInput } from "@/components/Global/PhoneInput";
 import { NameInput } from "@/components/Global/NameInput";
 import ClientVaultModal from "@/components/Dashboard/ClientVaultModal";
@@ -480,17 +480,17 @@ export default function ClientsPage() {
                   <tr key={client.name} className="hover:bg-slate-50/80 dark:hover:bg-slate-800/50 transition-colors">
                     <td className="py-3.5 px-5">
                       <span className="font-bold text-slate-900 dark:text-white">
-                        {client.name}
+                        {toTitleCase(client.name)}
                       </span>
                     </td>
                     <td className="py-3.5 px-5 font-mono text-slate-600 dark:text-slate-400">
                       {client.phone}
                     </td>
                     <td className="py-3.5 px-5 font-semibold text-slate-800 dark:text-slate-200">
-                      {client.business}
+                      {toTitleCase(client.business)}
                     </td>
                     <td className="py-3.5 px-5 text-slate-600 dark:text-slate-400">
-                      {client.partner}
+                      {toTitleCase(client.partner)}
                     </td>
                     <td className="py-3.5 px-5 text-center">
                       <span className="inline-block px-2.5 py-0.5 rounded-full font-black text-xs bg-blue-50 text-blue-700 dark:bg-blue-950/60 dark:text-sky-300">
@@ -500,7 +500,7 @@ export default function ClientsPage() {
                     <td className="py-3.5 px-5">
                       <span className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full font-bold text-[10px] ${getStatusBadge(client.status)}`}>
                         <span className="w-1.5 h-1.5 rounded-full bg-current" />
-                        {client.status}
+                        {toTitleCase(client.status)}
                       </span>
                     </td>
                     <td className="py-3.5 px-5 text-right">

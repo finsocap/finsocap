@@ -23,21 +23,21 @@ import TasksInfographic from "@/components/Charts/TasksInfographic";
 import DateRangeFilter, { DateRangeValue } from "@/components/Dashboard/DateRangeFilter";
 import { useToast } from "@/components/Global/ToastNotification";
 import ModalHeaderBanner from "@/components/Dashboard/ModalHeaderBanner";
-import { formatName, formatIndianPhoneNumber, normalizePhoneForBackend, mapBackendTaskStatus } from "@/lib/formatters";
+import { formatName, formatIndianPhoneNumber, normalizePhoneForBackend, mapBackendTaskStatus, toTitleCase } from "@/lib/formatters";
 import { PhoneInput } from "@/components/Global/PhoneInput";
 import { NameInput } from "@/components/Global/NameInput";
 import { isDateWithinRange, getCurrentMonthRangeLabel, calculateOverdueDays } from "@/lib/dateRangeHelper";
 import PartnerRequestsDashboard from "@/components/Dashboard/PartnerRequestsDashboard";
 
 const allStatuses: { status: TaskStatus; label: string; count: number; color: string; bg: string; icon: any }[] = [
-  { status: "Pending", label: "Pending", count: 47, color: "text-blue-500", bg: "bg-blue-500/10 border-blue-500/20", icon: Clock },
-  { status: "In Progress", label: "In Progress", count: 12, color: "text-indigo-500", bg: "bg-indigo-500/10 border-indigo-500/20", icon: Loader2 },
-  { status: "Sent for Review", label: "Sent for Review", count: 15, color: "text-purple-500", bg: "bg-purple-500/10 border-purple-500/20", icon: FileText },
-  { status: "Pending from Client", label: "Pending from Client", count: 28, color: "text-rose-500", bg: "bg-rose-500/10 border-rose-500/20", icon: Users },
-  { status: "Pending from Department", label: "Pending from Department", count: 6, color: "text-amber-500", bg: "bg-amber-500/10 border-amber-500/20", icon: Building2 },
+  { status: "Pending", label: "Pending", count: 47, color: "text-rose-600", bg: "bg-rose-500/10 border-rose-500/20", icon: Clock },
+  { status: "In Progress", label: "In Progress", count: 12, color: "text-amber-600", bg: "bg-amber-500/10 border-amber-500/20", icon: Loader2 },
+  { status: "Sent for Review", label: "Sent for Review", count: 15, color: "text-indigo-600", bg: "bg-indigo-500/10 border-indigo-500/20", icon: FileText },
+  { status: "Pending from Client", label: "Pending from Client", count: 28, color: "text-orange-600", bg: "bg-orange-500/10 border-orange-500/20", icon: Users },
+  { status: "Pending from Department", label: "Pending from Department", count: 6, color: "text-yellow-600", bg: "bg-yellow-500/10 border-yellow-500/20", icon: Building2 },
   { status: "Overdue", label: "Overdue", count: 38, color: "text-red-600", bg: "bg-red-500/10 border-red-500/20", icon: AlertCircle },
-  { status: "Completed", label: "Completed", count: 302, color: "text-emerald-500", bg: "bg-emerald-500/10 border-emerald-500/20", icon: CheckCircle2 },
-  { status: "Cancelled", label: "Cancelled", count: 9, color: "text-slate-500", bg: "bg-slate-500/10 border-slate-500/20", icon: XCircle },
+  { status: "Completed", label: "Completed", count: 302, color: "text-emerald-600", bg: "bg-emerald-500/10 border-emerald-500/20", icon: CheckCircle2 },
+  { status: "Cancelled", label: "Cancelled", count: 9, color: "text-rose-600", bg: "bg-rose-500/10 border-rose-500/20", icon: XCircle },
 ];
 
 export default function TasksPage() {
@@ -324,6 +324,38 @@ export default function TasksPage() {
       }
 
       return true;
+    }).sort((a, b) => {
+      // Custom Status Priority Order requested:
+      // 1. Pending
+      // 2. In Progress
+      // 3. Sent for Review
+      // 4. Pending from Client
+      // 5. Pending from Department
+      // 6. Overdue
+      // 7. Completed
+      // 8. Cancelled
+      const statusPriority: Record<string, number> = {
+        "Pending": 1,
+        "In Progress": 2,
+        "Sent for Review": 3,
+        "Pending from Client": 4,
+        "Pending from Department": 5,
+        "Overdue": 6,
+        "Completed": 7,
+        "Cancelled": 8,
+      };
+
+      const orderA = statusPriority[a.status] || 99;
+      const orderB = statusPriority[b.status] || 99;
+
+      if (orderA !== orderB) {
+        return orderA - orderB;
+      }
+
+      // Secondary sort: newest taskDate/dueDate first
+      const dateA = a.taskDate || a.dueDate || "";
+      const dateB = b.taskDate || b.dueDate || "";
+      return dateB.localeCompare(dateA);
     });
   }, [scopedUserTasks, selectedStatusFilter, selectedCategory, selectedService, searchQuery, dateRange]);
 
@@ -529,23 +561,46 @@ export default function TasksPage() {
   const getStatusBadge = (status: TaskStatus) => {
     switch (status) {
       case "Pending":
-        return "bg-rose-50 text-rose-600 dark:bg-rose-950/60 dark:text-rose-400 border border-rose-200";
+        return "bg-rose-50 text-rose-600 dark:bg-rose-950/60 dark:text-rose-400 border border-rose-200/80 dark:border-rose-900/60";
       case "In Progress":
-        return "bg-sky-50 text-sky-600 dark:bg-sky-950/60 dark:text-sky-400 border border-sky-200";
+        return "bg-amber-50 text-amber-700 dark:bg-amber-950/60 dark:text-amber-300 border border-amber-200/80 dark:border-amber-900/60";
       case "Sent for Review":
-        return "bg-purple-50 text-purple-600 dark:bg-purple-950/60 dark:text-purple-400 border border-purple-200";
+        return "bg-indigo-50 text-indigo-700 dark:bg-indigo-950/60 dark:text-indigo-300 border border-indigo-200/80 dark:border-indigo-900/60";
       case "Pending from Client":
-        return "bg-rose-50 text-rose-600 dark:bg-rose-950/60 dark:text-rose-400 border border-rose-200";
+        return "bg-orange-50 text-orange-700 dark:bg-orange-950/60 dark:text-orange-300 border border-orange-200/80 dark:border-orange-900/60";
       case "Pending from Department":
-        return "bg-amber-50 text-amber-700 dark:bg-amber-950/60 dark:text-amber-300 border border-amber-200";
+        return "bg-yellow-50 text-yellow-800 dark:bg-yellow-950/60 dark:text-yellow-300 border border-yellow-200/80 dark:border-yellow-900/60";
       case "Overdue":
-        return "bg-red-50 text-red-600 dark:bg-red-950/60 dark:text-red-400 border border-red-200";
+        return "bg-red-50 text-red-700 dark:bg-red-950/60 dark:text-red-400 border border-red-200/80 dark:border-red-900/60";
       case "Completed":
-        return "bg-emerald-50 text-emerald-600 dark:bg-emerald-950/60 dark:text-emerald-400 border border-emerald-200";
+        return "bg-emerald-50 text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-300 border border-emerald-200/80 dark:border-emerald-900/60";
       case "Cancelled":
-        return "bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-400 border border-slate-200";
+        return "bg-rose-50 text-rose-700 dark:bg-rose-950/60 dark:text-rose-400 border border-rose-300/90 dark:border-rose-900/80 font-bold";
       default:
         return "bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300";
+    }
+  };
+
+  const getStatusRowBorderRgb = (status: TaskStatus) => {
+    switch (status) {
+      case "Pending":
+        return "244, 63, 94"; // rose-500
+      case "In Progress":
+        return "245, 158, 11"; // amber-500
+      case "Sent for Review":
+        return "99, 102, 241"; // indigo-500
+      case "Pending from Client":
+        return "249, 115, 22"; // orange-500
+      case "Pending from Department":
+        return "250, 204, 21"; // yellow-400
+      case "Overdue":
+        return "220, 38, 38"; // red-600
+      case "Completed":
+        return "16, 185, 129"; // emerald-500
+      case "Cancelled":
+        return "225, 29, 72"; // rose-600
+      default:
+        return "203, 213, 225"; // slate-300
     }
   };
 
@@ -774,8 +829,15 @@ export default function TasksPage() {
                   </td>
                 </tr>
               ) : (
-                filteredTasks.map((t) => (
-                  <tr key={t.id} className="hover:bg-slate-50/80 dark:hover:bg-slate-800/50 transition-colors">
+                filteredTasks.map((t, idx) => (
+                  <tr
+                    key={t.id}
+                    className="border-l-[5px] task-status-border-pulse hover:bg-slate-50/80 dark:hover:bg-slate-800/50 transition-colors"
+                    style={{
+                      ["--indicator-rgb" as any]: getStatusRowBorderRgb(t.status),
+                      animationDelay: `${(idx * 0.35) % 2.5}s`,
+                    }}
+                  >
                     {/* Task ID: display with Click-to-Copy */}
                     <td className="py-3 px-3.5 whitespace-nowrap">
                       <div className="inline-flex items-center gap-1.5 bg-blue-50/70 dark:bg-blue-950/40 px-2.5 py-1 rounded-xl border border-blue-200/60 dark:border-blue-900/40">
@@ -811,7 +873,7 @@ export default function TasksPage() {
 
                     {/* Partner Name */}
                     <td className="py-3 px-3.5 font-bold text-slate-900 dark:text-white">
-                      {t.partnerName}
+                      {toTitleCase(t.partnerName)}
                     </td>
 
                     {/* Partner Contact */}
@@ -823,7 +885,7 @@ export default function TasksPage() {
 
                     {/* Client Name */}
                     <td className="py-3 px-3.5 font-bold text-slate-900 dark:text-white">
-                      {t.clientName}
+                      {toTitleCase(t.clientName)}
                     </td>
 
                     {/* Contact Number */}
@@ -835,17 +897,17 @@ export default function TasksPage() {
 
                     {/* Name of Business */}
                     <td className="py-3 px-3.5 text-slate-800 dark:text-slate-200">
-                      {t.nameOfBusiness}
+                      {toTitleCase(t.nameOfBusiness)}
                     </td>
 
                     {/* Task Category */}
                     <td className="py-3 px-3.5 text-slate-600 dark:text-slate-400">
-                      {t.taskCategory}
+                      {toTitleCase(t.taskCategory)}
                     </td>
 
                     {/* Service Name */}
                     <td className="py-3 px-3.5 font-semibold text-slate-900 dark:text-white">
-                      {t.serviceName}
+                      {toTitleCase(t.serviceName)}
                     </td>
 
                     {/* Assigned Specialist */}
@@ -853,7 +915,7 @@ export default function TasksPage() {
                       {t.assignedTo?.name ? (
                         <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full font-bold text-[10px] bg-indigo-50 text-indigo-700 dark:bg-indigo-950/60 dark:text-indigo-300 border border-indigo-200/60 dark:border-indigo-800/60">
                           <Users className="w-3 h-3 text-indigo-500" />
-                          <span>{t.assignedTo.name}</span>
+                          <span>{toTitleCase(t.assignedTo.name)}</span>
                         </span>
                       ) : (
                         <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md font-bold text-[10px] bg-slate-100 text-slate-500 dark:bg-slate-800 dark:text-slate-400">
@@ -865,7 +927,7 @@ export default function TasksPage() {
                     {/* Status */}
                     <td className="py-3 px-3.5">
                       <span className={`inline-flex whitespace-nowrap px-2.5 py-0.5 rounded-full font-bold text-[10px] ${getStatusBadge(t.status)}`}>
-                        {t.status}
+                        {toTitleCase(t.status)}
                       </span>
                     </td>
 

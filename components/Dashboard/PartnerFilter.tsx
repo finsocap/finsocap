@@ -236,41 +236,41 @@ export default function PartnerFilter({
         />
       )}
       <div ref={dropdownRef} className={`relative w-full sm:w-auto sm:inline-block text-left ${isOpen ? "z-50" : "z-10"} ${className}`}>
-      {/* Trigger Button matching Screenshot 1 & matching sidebar menu height */}
+      {/* Trigger Button matching Screenshot 1 */}
       <button
         type="button"
         onClick={() => setIsOpen(!isOpen)}
         aria-haspopup="listbox"
         aria-expanded={isOpen}
-        className={`w-full sm:w-auto group flex items-center justify-between sm:justify-start gap-1.5 2xl:gap-2 pl-2.5 2xl:pl-3 pr-3 2xl:pr-3.5 h-9 2xl:h-11 rounded-xl text-[11px] 2xl:text-xs font-bold transition-all duration-200 cursor-pointer shadow-xs border ${
+        className={`w-full sm:w-auto group flex items-center justify-between sm:justify-start gap-2 pl-3 pr-3.5 h-11 rounded-xl text-xs font-bold transition-all duration-200 cursor-pointer shadow-xs border ${
           isCustomPartner
             ? "bg-blue-50/90 dark:bg-blue-950/60 border-blue-400 dark:border-blue-600 text-blue-700 dark:text-sky-300 ring-2 ring-blue-500/20"
             : "bg-white/80 dark:bg-slate-900/80 border-slate-200/90 dark:border-slate-800 text-slate-700 dark:text-slate-200 hover:bg-white dark:hover:bg-slate-900 hover:border-slate-300 dark:hover:border-slate-700"
         } backdrop-blur-md`}
       >
-        <div className="flex items-center gap-1.5 2xl:gap-2 truncate">
+        <div className="flex items-center gap-2 truncate">
           <div
-            className={`w-5 h-5 2xl:w-6 2xl:h-6 rounded-md 2xl:rounded-lg flex items-center justify-center shrink-0 transition-colors ${
+            className={`w-6 h-6 rounded-lg flex items-center justify-center shrink-0 transition-colors ${
               isCustomPartner
                 ? "bg-blue-600 text-white shadow-xs"
                 : "bg-blue-50 dark:bg-blue-950/60 text-blue-600 dark:text-sky-400 group-hover:bg-blue-100 dark:group-hover:bg-blue-900/40"
             }`}
           >
-            <Users className="w-3 h-3 2xl:w-3.5 2xl:h-3.5" />
+            <Users className="w-3.5 h-3.5" />
           </div>
 
           <div className="flex flex-col text-left leading-tight truncate">
-            <span className="text-[8.5px] 2xl:text-[9.5px] uppercase tracking-wider font-extrabold text-slate-400 dark:text-slate-500">
+            <span className="text-[9.5px] uppercase tracking-wider font-extrabold text-slate-400 dark:text-slate-500">
               Partner Filter
             </span>
-            <span className="truncate max-w-[150px] 2xl:max-w-[150px] font-extrabold text-slate-900 dark:text-white">
+            <span className="truncate max-w-[190px] sm:max-w-[150px] font-extrabold text-slate-900 dark:text-white">
               {selectedPartner.shortName}
             </span>
           </div>
         </div>
 
         <ChevronDown
-          className={`w-3 h-3 2xl:w-3.5 2xl:h-3.5 shrink-0 text-slate-400 transition-transform duration-200 ml-1 ${
+          className={`w-3.5 h-3.5 shrink-0 text-slate-400 transition-transform duration-200 ml-1.5 ${
             isOpen ? "rotate-180 text-blue-600 dark:text-sky-400" : ""
           }`}
         />

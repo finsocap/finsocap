@@ -262,7 +262,7 @@ export default function Sidebar({ userRole = "ADMIN" }: { userRole?: string }) {
 
       <aside 
         className={`fixed lg:sticky top-0 h-screen z-50 flex flex-col bg-white/85 backdrop-blur-xl border-r border-slate-200/80 text-slate-700 shadow-xl lg:shadow-xs transition-all duration-300 ease-in-out ${
-          isCollapsed ? "lg:w-20" : "lg:w-56 xl:w-60 2xl:w-64"
+          isCollapsed ? "lg:w-20" : "lg:w-64"
         } w-72 max-w-[85vw] ${
           isMobileOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0"
         }`}
@@ -277,7 +277,7 @@ export default function Sidebar({ userRole = "ADMIN" }: { userRole?: string }) {
         </button>
 
         {/* Brand Header with Finsocap Favicon & Mobile Close Button */}
-        <div className={`flex items-center justify-between h-[64px] 2xl:h-[74px] border-b border-slate-100 dark:border-slate-800/80 ${isCollapsed ? "lg:justify-center px-4 lg:px-2" : "px-4 2xl:px-5"}`}>
+        <div className={`flex items-center justify-between h-[74px] border-b border-slate-100 dark:border-slate-800/80 ${isCollapsed ? "lg:justify-center px-4 lg:px-2" : "px-5"}`}>
           {/* Mobile Close Button (<lg screens) */}
           <button
             type="button"
@@ -289,7 +289,7 @@ export default function Sidebar({ userRole = "ADMIN" }: { userRole?: string }) {
           </button>
         {isCollapsed ? (
           <Link href="/dashboard" className="flex items-center justify-center group" title="Finsocap Financial Services">
-            <div className="w-9 h-9 2xl:w-10 2xl:h-10 rounded-xl overflow-hidden bg-white dark:bg-slate-800 border border-slate-200/80 dark:border-slate-700 shadow-xs flex items-center justify-center p-1 group-hover:scale-105 transition-transform">
+            <div className="w-10 h-10 rounded-xl overflow-hidden bg-white dark:bg-slate-800 border border-slate-200/80 dark:border-slate-700 shadow-xs flex items-center justify-center p-1 group-hover:scale-105 transition-transform">
               <img 
                 src={getAssetUrl("/apple-touch-icon.png")} 
                 alt="Finsocap Favicon" 
@@ -303,9 +303,9 @@ export default function Sidebar({ userRole = "ADMIN" }: { userRole?: string }) {
             </div>
           </Link>
         ) : (
-          <Link href="/dashboard" className="flex items-center gap-2.5 2xl:gap-3 overflow-hidden group">
+          <Link href="/dashboard" className="flex items-center gap-3 overflow-hidden group">
             {/* Official Finsocap Favicon Logo */}
-            <div className="w-9 h-9 2xl:w-11 2xl:h-11 rounded-xl overflow-hidden bg-white dark:bg-slate-800 border border-slate-200/80 dark:border-slate-700 shadow-xs flex items-center justify-center p-1 shrink-0 group-hover:scale-105 transition-transform">
+            <div className="w-10 h-10 lg:w-12 lg:h-12 rounded-xl overflow-hidden bg-white dark:bg-slate-800 border border-slate-200/80 dark:border-slate-700 shadow-xs flex items-center justify-center p-1 shrink-0 group-hover:scale-105 transition-transform">
               <img 
                 src={getAssetUrl("/apple-touch-icon.png")} 
                 alt="Finsocap Favicon" 
@@ -318,7 +318,7 @@ export default function Sidebar({ userRole = "ADMIN" }: { userRole?: string }) {
               />
             </div>
             <div className="flex flex-col justify-center">
-              <span className="font-black text-slate-900 dark:text-white text-lg 2xl:text-[24px] tracking-tight leading-none">
+              <span className="font-black text-slate-900 dark:text-white text-xl sm:text-2xl lg:text-[26px] tracking-tight leading-none">
                 Finsocap
               </span>
             </div>
@@ -327,12 +327,12 @@ export default function Sidebar({ userRole = "ADMIN" }: { userRole?: string }) {
       </div>
 
       {/* Navigation */}
-      <nav className={`flex-1 px-2.5 2xl:px-3 flex flex-col justify-between overflow-y-auto custom-slim-scrollbar py-1.5 2xl:py-2 ${isCollapsed ? "px-2" : ""}`}>
+      <nav className={`flex-1 px-3 flex flex-col justify-between overflow-y-auto custom-slim-scrollbar py-2 ${isCollapsed ? "px-2" : ""}`}>
         {/* Top Section: Nav Items */}
-        <div className="space-y-1 2xl:space-y-2">
+        <div className="space-y-1.5 2xl:space-y-2">
           {/* Core Operations Section */}
           {!isCollapsed && (
-            <div className="pt-1 pb-0.5 px-3 2xl:px-3.5">
+            <div className="pt-1.5 pb-1 px-3.5">
               <span className="text-[10px] font-black uppercase tracking-wider text-slate-400 dark:text-slate-500">
                 Core Operations
               </span>
@@ -349,15 +349,15 @@ export default function Sidebar({ userRole = "ADMIN" }: { userRole?: string }) {
                 href={item.href}
                 onClick={() => setOptimisticHref(item.href)}
                 title={isCollapsed ? item.label : ""}
-                className={`flex items-center justify-between py-2 2xl:py-3 rounded-xl transition-all duration-200 cursor-pointer ${
-                  isCollapsed ? "justify-center px-0" : "px-3 2xl:px-3.5"
+                className={`flex items-center justify-between py-3 2xl:py-3.5 rounded-xl transition-all duration-200 cursor-pointer ${
+                  isCollapsed ? "justify-center px-0" : "px-3.5"
                 } ${
                   active
                     ? "bg-gradient-to-r from-blue-600 via-indigo-600 to-blue-700 text-white font-bold shadow-md shadow-blue-500/25 border border-blue-400/20 scale-[1.01]"
                     : "text-slate-600 dark:text-slate-400 hover:bg-slate-100/80 dark:hover:bg-slate-800/60 hover:text-slate-900 dark:hover:text-white font-semibold"
                 }`}
               >
-                <div className="flex items-center gap-2.5 2xl:gap-3">
+                <div className="flex items-center gap-3">
                   <Icon className={`w-4 h-4 shrink-0 ${active ? "text-white" : "text-slate-500 dark:text-slate-400"}`} />
                   {!isCollapsed && <span className="text-xs">{item.label}</span>}
                 </div>
@@ -374,13 +374,13 @@ export default function Sidebar({ userRole = "ADMIN" }: { userRole?: string }) {
 
           {/* Reports Header */}
           {!isCollapsed ? (
-            <div className="pt-2 2xl:pt-5 pb-0.5 px-3 2xl:px-3.5">
+            <div className="pt-5 2xl:pt-6 pb-1 px-3.5">
               <span className="text-[10px] font-black uppercase tracking-wider text-slate-400 dark:text-slate-500">
                 Analytics & Reports
               </span>
             </div>
           ) : (
-            <div className="my-2 border-t border-slate-200 dark:border-slate-800" />
+            <div className="my-2.5 border-t border-slate-200 dark:border-slate-800" />
           )}
 
           {reportNavItems.map((item) => {
@@ -406,15 +406,15 @@ export default function Sidebar({ userRole = "ADMIN" }: { userRole?: string }) {
                   }
                 }}
                 title={isCollapsed ? item.label : ""}
-                className={`flex items-center justify-between py-2 2xl:py-3 rounded-xl transition-all duration-200 cursor-pointer ${
-                  isCollapsed ? "justify-center px-0" : "px-3 2xl:px-3.5"
+                className={`flex items-center justify-between py-3 2xl:py-3.5 rounded-xl transition-all duration-200 cursor-pointer ${
+                  isCollapsed ? "justify-center px-0" : "px-3.5"
                 } ${
                   active
                     ? "bg-gradient-to-r from-blue-600 via-indigo-600 to-blue-700 text-white font-bold shadow-md shadow-blue-500/25 border border-blue-400/20 scale-[1.01]"
                     : "text-slate-600 dark:text-slate-400 hover:bg-slate-100/80 dark:hover:bg-slate-800/60 hover:text-slate-900 dark:hover:text-white font-semibold"
                 }`}
               >
-                <div className="flex items-center gap-2.5 2xl:gap-3">
+                <div className="flex items-center gap-3">
                   <Icon className={`w-4 h-4 shrink-0 ${active ? "text-white" : "text-slate-500 dark:text-slate-400"}`} />
                   {!isCollapsed && <span className="text-xs">{item.label}</span>}
                 </div>
@@ -423,15 +423,14 @@ export default function Sidebar({ userRole = "ADMIN" }: { userRole?: string }) {
           })}
         </div>
 
-        {/* Bottom Section: Live Weather & Forecast Widget (Compact on standard laptop screens) */}
-        <div className={`mt-auto pt-2 pb-1 ${isCollapsed ? "px-1" : ""}`}>
+        {/* Bottom Section: Live Weather & Forecast Widget */}
+        <div className={`mt-auto pt-3 pb-1 ${isCollapsed ? "px-1" : ""}`}>
           <WeatherWidgetCard isCollapsed={isCollapsed} />
         </div>
       </nav>
 
-      {/* Bottom: Logout Button (Temporary Red Pill Matching Message Center dimensions) */}
-      <div className={`p-2.5 2xl:p-3 border-t border-slate-200/90 dark:border-slate-800/90 ${isCollapsed ? "px-2" : ""}`}>
-        {/* Red Logout Button in exact width and height */}
+      {/* Bottom: Logout Button */}
+      <div className={`p-3 border-t border-slate-200/90 dark:border-slate-800/90 ${isCollapsed ? "px-2" : ""}`}>
         {!isCollapsed ? (
           <button
             type="button"
@@ -442,22 +441,22 @@ export default function Sidebar({ userRole = "ADMIN" }: { userRole?: string }) {
               } catch (e) {}
               router.push("/dashboard/login");
             }}
-            className="w-full relative overflow-hidden flex items-center justify-between p-2 2xl:p-3 rounded-2xl border border-red-500/30 bg-gradient-to-r from-red-600 via-rose-600 to-red-700 hover:from-red-700 hover:to-rose-800 text-white shadow-md shadow-red-500/20 transition-all duration-300 group cursor-pointer hover:scale-[1.01]"
+            className="w-full relative overflow-hidden flex items-center justify-between p-3 rounded-2xl border border-red-500/30 bg-gradient-to-r from-red-600 via-rose-600 to-red-700 hover:from-red-700 hover:to-rose-800 text-white shadow-md shadow-red-500/20 transition-all duration-300 group cursor-pointer hover:scale-[1.01]"
           >
-            <div className="flex items-center gap-2 2xl:gap-2.5 relative z-10">
-              <div className="relative w-7 h-7 2xl:w-9 2xl:h-9 rounded-xl flex items-center justify-center shrink-0 shadow-sm bg-white/20 text-white ring-1 2xl:ring-2 ring-white/30 transition-transform duration-300 group-hover:scale-105">
-                <LogOut className="w-3.5 h-3.5 2xl:w-4 2xl:h-4" />
+            <div className="flex items-center gap-2.5 relative z-10">
+              <div className="relative w-9 h-9 rounded-xl flex items-center justify-center shrink-0 shadow-sm bg-white/20 text-white ring-2 ring-white/30 transition-transform duration-300 group-hover:scale-105">
+                <LogOut className="w-4 h-4" />
               </div>
               <div className="flex flex-col min-w-0 text-left">
-                <span className="text-[10px] 2xl:text-[11px] font-black uppercase tracking-wider leading-tight text-white">
+                <span className="text-[11px] font-black uppercase tracking-wider leading-tight text-white">
                   LOGOUT
                 </span>
-                <span className="text-[9px] 2xl:text-[10px] font-bold mt-0.5 truncate text-red-100">
+                <span className="text-[10px] font-bold mt-0.5 truncate text-red-100">
                   Exit Dashboard Session
                 </span>
               </div>
             </div>
-            <ChevronRight className="w-3.5 h-3.5 2xl:w-4 2xl:h-4 shrink-0 transition-transform duration-300 group-hover:translate-x-0.5 relative z-10 text-white" />
+            <ChevronRight className="w-4 h-4 shrink-0 transition-transform duration-300 group-hover:translate-x-0.5 relative z-10 text-white" />
           </button>
         ) : (
           <button

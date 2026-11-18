@@ -33,6 +33,7 @@ import PartnerRequestDetailModal from "./PartnerRequestDetailModal";
 import NewApplicationModal from "./NewApplicationModal";
 import DraftsLockerModal from "./DraftsLockerModal";
 import CustomerPicker from "./CustomerPicker";
+import { toTitleCase } from "@/lib/formatters";
 
 const STATUS_FILTERS = [
   { value: "ALL", label: "All Requests" },
@@ -313,12 +314,12 @@ export default function PartnerRequestsDashboard() {
 
                       <td className="py-3.5 px-4">
                         <span className="font-bold text-slate-900 dark:text-white block">
-                          {r.customerName || `Customer #${r.customerId}`}
+                          {toTitleCase(r.customerName) || `Customer #${r.customerId}`}
                         </span>
                       </td>
 
                       <td className="py-3.5 px-4 font-semibold text-slate-800 dark:text-slate-200">
-                        {r.serviceName}
+                        {toTitleCase(r.serviceName)}
                       </td>
 
                       <td className="py-3.5 px-4">
@@ -331,12 +332,12 @@ export default function PartnerRequestsDashboard() {
                         }`}>
                           {isPendingClient && <AlertCircle className="w-3 h-3" />}
                           {isCompleted && <CheckCircle2 className="w-3 h-3" />}
-                          <span>{r.status}</span>
+                          <span>{toTitleCase(r.status)}</span>
                         </span>
                       </td>
 
                       <td className="py-3.5 px-4 text-slate-600 dark:text-slate-400 font-medium">
-                        {r.assignmentStatus || "UNASSIGNED"}
+                        {toTitleCase(r.assignmentStatus || "UNASSIGNED")}
                       </td>
 
                       <td className="py-3.5 px-4 text-slate-500 font-mono text-[11px]">

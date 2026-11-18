@@ -16,7 +16,7 @@ import {
 } from "lucide-react";
 import { partnerPortalService, PartnerCustomerItem } from "@/lib/api/partnerPortalService";
 import { partnerMockData, isPartnerMockEnabled } from "@/lib/api/partnerMocks";
-import { formatIndianPhoneNumber, formatName } from "@/lib/formatters";
+import { formatIndianPhoneNumber, formatName, toTitleCase } from "@/lib/formatters";
 
 interface CustomerPickerProps {
   selectedCustomer: PartnerCustomerItem | null;
@@ -138,13 +138,13 @@ export default function CustomerPicker({ selectedCustomer, onSelectCustomer }: C
             </div>
             <div>
               <div className="flex items-center gap-2">
-                <span className="font-extrabold text-slate-900 dark:text-white text-xs">{selectedCustomer.name}</span>
+                <span className="font-extrabold text-slate-900 dark:text-white text-xs">{toTitleCase(selectedCustomer.name)}</span>
                 <span className="text-[10px] font-bold text-blue-700 bg-blue-100/70 px-2 py-0.5 rounded-md">
                   ID #{selectedCustomer.id}
                 </span>
               </div>
               <p className="text-[11px] text-slate-500 mt-0.5">
-                {selectedCustomer.businessName || "Direct Entity"} &bull; {selectedCustomer.phone}
+                {toTitleCase(selectedCustomer.businessName) || "Direct Entity"} &bull; {selectedCustomer.phone}
               </p>
             </div>
           </div>
@@ -276,9 +276,9 @@ export default function CustomerPicker({ selectedCustomer, onSelectCustomer }: C
                       className="w-full p-2.5 text-left hover:bg-blue-50/70 dark:hover:bg-blue-950/30 flex items-center justify-between transition-colors cursor-pointer"
                     >
                       <div>
-                        <span className="font-bold text-slate-900 dark:text-white text-xs block">{c.name}</span>
+                        <span className="font-bold text-slate-900 dark:text-white text-xs block">{toTitleCase(c.name)}</span>
                         <span className="text-[11px] text-slate-400">
-                          {c.businessName || "Direct"} &bull; {c.phone}
+                          {toTitleCase(c.businessName) || "Direct"} &bull; {c.phone}
                         </span>
                       </div>
                       <span className="text-[10px] font-bold text-blue-600 bg-blue-50 px-2 py-0.5 rounded-md">

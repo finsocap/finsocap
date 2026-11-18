@@ -1,7 +1,7 @@
 import { useSyncExternalStore, useCallback, useMemo, useEffect } from "react";
 import { apiClient } from "./api/apiClient";
 import { ApiResponse, BackendTask, PartnerSummary, ClientProfile, Specialist, CatalogService, LicenceReportMetrics } from "@/types/api";
-import { getDeterministicPartnerKyc, mapBackendTaskStatus } from "./formatters";
+import { getDeterministicPartnerKyc, mapBackendTaskStatus, toTitleCase } from "./formatters";
 
 export interface ServiceModel {
   id: number;
@@ -231,20 +231,20 @@ export async function fetchLiveDbData(): Promise<void> {
           return {
             id: bt.taskId || `T-${bt.id}`,
             numericId: bt.id,
-            partner: bt.partnerName || "HQ",
+            partner: toTitleCase(bt.partnerName || "HQ"),
             partnerPhone: bt.partnerContact || "",
-            client: bt.clientName || "",
+            client: toTitleCase(bt.clientName || ""),
             phone: bt.contactNumber || "",
-            business: bt.nameOfBusiness || bt.clientName || "",
-            category: bt.taskCategory || "General",
-            service: bt.serviceName || "",
+            business: toTitleCase(bt.nameOfBusiness || bt.clientName || ""),
+            category: toTitleCase(bt.taskCategory || "General"),
+            service: toTitleCase(bt.serviceName || ""),
             status: mappedStatus as TaskModel["status"],
             date: bt.taskDate || "Today",
             due: bt.dueDate || "",
-            assignee: bt.assignedToName || "",
+            assignee: toTitleCase(bt.assignedToName || ""),
             assigneeId: bt.assignedToId || null,
             priority: (bt.priority === "URGENT" || bt.priority === "HIGH" ? "High" : "Normal") as TaskModel["priority"],
-            sales: bt.partnerName || "Admin",
+            sales: toTitleCase(bt.partnerName || "Admin"),
             comments: bt.adminRemarks ? [bt.adminRemarks] : [],
             files: [],
           };
@@ -262,17 +262,20 @@ export async function fetchLiveDbData(): Promise<void> {
           const partnerCode = p.partnerId || `P-${p.id}`;
           const kyc = getDeterministicPartnerKyc(partnerCode, p.name, p.phone);
 
+          const formattedName = toTitleCase(p.name);
+          const formattedCity = toTitleCase(city);
+          const formattedState = toTitleCase(state);
           return {
             id: String(p.id),
             partnerId: partnerCode,
-            name: p.name,
-            shortName: `${partnerCode} • ${p.name}`,
+            name: formattedName,
+            shortName: `${partnerCode} • ${formattedName}`,
             email: p.email,
             phone: p.phone,
-            city,
-            state,
+            city: formattedCity,
+            state: formattedState,
             status: statusMapped,
-            tier: p.franchiseTier?.replace(/_/g, " ") || "Gold Franchise",
+            tier: toTitleCase(p.franchiseTier?.replace(/_/g, " ") || "Gold Franchise"),
             leadsCount: p.totalCasesSubmitted || 0,
             revenueStr: `₹${((p.totalEarnedCommission || 0) / 1000).toFixed(1)}k`,
             activeTasks: p.activeTasks || 0,
@@ -291,10 +294,10 @@ export async function fetchLiveDbData(): Promise<void> {
       if (clientsRes.status === "fulfilled" && clientsRes.value?.success && Array.isArray(clientsRes.value.data)) {
         newClients = clientsRes.value.data.map((c) => ({
           id: String(c.id),
-          name: c.name,
+          name: toTitleCase(c.name),
           phone: c.phone,
-          business: c.businessName || c.name,
-          partner: c.partnerName || c.partnerCode || "Direct",
+          business: toTitleCase(c.businessName || c.name),
+          partner: toTitleCase(c.partnerName || c.partnerCode || "Direct"),
           tasks: c.serviceCases || 0,
           last: "Active",
           status: c.latestStatus || "Active",
@@ -305,12 +308,12 @@ export async function fetchLiveDbData(): Promise<void> {
       if (specialistsRes.status === "fulfilled" && specialistsRes.value?.success && Array.isArray(specialistsRes.value.data)) {
         newUsers = specialistsRes.value.data.map((s) => ({
           id: s.id,
-          name: s.fullName,
+          name: toTitleCase(s.fullName),
           email: s.email,
-          role: s.designation || "Specialist",
-          dept: s.department ? s.department.charAt(0) + s.department.slice(1).toLowerCase() : "Operations",
-          skill: (s.competencies || []).join(", ") || "General",
-          skills: s.competencies || [],
+          role: toTitleCase(s.designation || "Specialist"),
+          dept: toTitleCase(s.department ? s.department.replace(/_/g, " ") : "Operations"),
+          skill: (s.competencies || []).map((comp) => toTitleCase(comp)).join(", ") || "General",
+          skills: (s.competencies || []).map((comp) => toTitleCase(comp)),
           phone: s.phone || "",
           status: "Active",
           tasks: s.activeTasks || 0,
@@ -322,8 +325,8 @@ export async function fetchLiveDbData(): Promise<void> {
       if (servicesRes.status === "fulfilled" && servicesRes.value?.success && Array.isArray(servicesRes.value.data)) {
         newServices = servicesRes.value.data.map((s) => ({
           id: s.id,
-          name: s.name,
-          category: (s.category || "General").replace(/_/g, " "),
+          name: toTitleCase(s.name),
+          category: toTitleCase((s.category || "General").replace(/_/g, " ")),
           recurring: false,
           frequency: "One Time",
           price: s.startingClientPrice || 0,
@@ -381,13 +384,13 @@ export async function fetchLiveDbData(): Promise<void> {
           id: matchedLicence ? String(matchedLicence.id) : String(task.numericId || task.id),
           task: task.id,
           taskId: task.id,
-          partner: realPartner,
+          partner: toTitleCase(realPartner),
           partnerPhone: resolvedPartnerPhone,
-          client: realClient,
+          client: toTitleCase(realClient),
           phone: resolvedClientPhone,
-          type: matchedLicence?.serviceCategory || task.category || "Standard Licence",
-          category: realCategory,
-          service: realService,
+          type: toTitleCase(matchedLicence?.serviceCategory || task.category || "Standard Licence"),
+          category: toTitleCase(realCategory),
+          service: toTitleCase(realService),
           number: realLicenceNum,
           issue: matchedLicence?.issueDate || task.date || new Date().toISOString().slice(0, 10),
           expiry: matchedLicence?.expiryDate || "2028-11-04",
@@ -396,7 +399,7 @@ export async function fetchLiveDbData(): Promise<void> {
           status: "Active" as const,
           url: true,
           files: 1,
-          assignedTo: task.assignee || realPartner,
+          assignedTo: toTitleCase(task.assignee || realPartner),
         };
       });
 
@@ -441,15 +444,17 @@ export function useCrmStore() {
 
   // Actions
   const addService = useCallback((service: Omit<ServiceModel, "id">) => {
+    const formattedName = toTitleCase(service.name);
+    const formattedCategory = toTitleCase(service.category);
     updateStore((prev) => {
       const nextId = prev.services.reduce((m, s) => Math.max(m, s.id), 0) + 1;
       return {
         ...prev,
-        services: [{ ...service, id: nextId }, ...prev.services],
+        services: [{ ...service, name: formattedName, category: formattedCategory, id: nextId }, ...prev.services],
       };
     });
     apiClient.post("/services", {
-      name: service.name,
+      name: formattedName,
       category: service.category.toUpperCase().replace(/\s+/g, "_"),
       startingClientPrice: service.price,
       partnerCommission: Math.round(service.price * 0.3),
@@ -458,13 +463,16 @@ export function useCrmStore() {
   }, []);
 
   const updateService = useCallback((id: number, patch: Partial<ServiceModel>) => {
+    const formattedPatch = { ...patch };
+    if (patch.name) formattedPatch.name = toTitleCase(patch.name);
+    if (patch.category) formattedPatch.category = toTitleCase(patch.category);
     updateStore((prev) => ({
       ...prev,
-      services: prev.services.map((s) => (s.id === id ? { ...s, ...patch } : s)),
+      services: prev.services.map((s) => (s.id === id ? { ...s, ...formattedPatch } : s)),
     }));
     apiClient.put(`/services/${id}`, {
       ...(patch.price !== undefined ? { startingClientPrice: patch.price } : {}),
-      ...(patch.name ? { name: patch.name } : {}),
+      ...(formattedPatch.name ? { name: formattedPatch.name } : {}),
     }).catch(() => {});
   }, []);
 
@@ -501,6 +509,13 @@ export function useCrmStore() {
       const now = new Date().toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" });
       const newTask: TaskModel = {
         ...task,
+        partner: toTitleCase(task.partner),
+        client: toTitleCase(task.client),
+        business: toTitleCase(task.business || task.client),
+        category: toTitleCase(task.category),
+        service: toTitleCase(task.service),
+        assignee: toTitleCase(task.assignee),
+        sales: toTitleCase(task.sales),
         id: newId,
         date: now,
         comments: [],
@@ -681,10 +696,19 @@ export function useCrmStore() {
   }, []);
 
   const addUser = useCallback((user: Omit<UserModel, "id" | "tasks" | "status">) => {
+    const formattedName = toTitleCase(user.name);
+    const formattedRole = toTitleCase(user.role);
+    const formattedDept = toTitleCase(user.dept);
+    const formattedSkills = (user.skills || [user.skill]).map((sk) => toTitleCase(sk));
     updateStore((prev) => {
       const nextId = prev.users.reduce((m, u) => Math.max(m, u.id), 0) + 1;
       const newUser: UserModel = {
         ...user,
+        name: formattedName,
+        role: formattedRole,
+        dept: formattedDept,
+        skill: formattedSkills.join(", "),
+        skills: formattedSkills,
         id: nextId,
         tasks: 0,
         status: "Active",
@@ -695,13 +719,13 @@ export function useCrmStore() {
       };
     });
     apiClient.post("/team/specialists", {
-      fullName: user.name,
+      fullName: formattedName,
       email: user.email || `${user.name.toLowerCase().replace(/\s+/g, ".")}@finsocap.com`,
       phone: user.phone,
       department: user.dept.toUpperCase(),
-      designation: user.role,
+      designation: formattedRole,
       maxCapacity: 15,
-      competencies: user.skills || [user.skill],
+      competencies: formattedSkills,
     }).catch(() => {});
   }, []);
 
@@ -736,9 +760,15 @@ export function useCrmStore() {
   }, []);
 
   const addClient = useCallback((client: { name: string; phone: string; business: string; partner: string }) => {
+    const formattedName = toTitleCase(client.name);
+    const formattedBusiness = toTitleCase(client.business);
+    const formattedPartner = toTitleCase(client.partner);
     updateStore((prev) => {
       const newClient: ClientModel = {
-        ...client,
+        name: formattedName,
+        phone: client.phone,
+        business: formattedBusiness,
+        partner: formattedPartner,
         tasks: 0,
         last: "Today",
         status: "New",
@@ -749,19 +779,24 @@ export function useCrmStore() {
       };
     });
     apiClient.post("/clients", {
-      name: client.name,
+      name: formattedName,
       phone: client.phone,
-      email: `${client.name.toLowerCase().replace(/\s+/g, "")}@client.com`,
-      businessName: client.business,
+      email: `${formattedName.toLowerCase().replace(/\s+/g, "")}@client.com`,
+      businessName: formattedBusiness,
       constitutionType: "PROPRIETORSHIP",
     }).catch(() => {});
   }, []);
 
   const updateClient = useCallback((oldName: string, updates: Partial<ClientModel>) => {
+    const formattedUpdates = { ...updates };
+    if (updates.name) formattedUpdates.name = toTitleCase(updates.name);
+    if (updates.business) formattedUpdates.business = toTitleCase(updates.business);
+    if (updates.partner) formattedUpdates.partner = toTitleCase(updates.partner);
+
     updateStore((prev) => {
       const updatedManual = prev.manualClients.map((c) => {
         if (c.name.toLowerCase() === oldName.toLowerCase()) {
-          return { ...c, ...updates };
+          return { ...c, ...formattedUpdates };
         }
         return c;
       });
@@ -770,10 +805,10 @@ export function useCrmStore() {
         if (t.client.toLowerCase() === oldName.toLowerCase()) {
           return {
             ...t,
-            client: updates.name || t.client,
-            phone: updates.phone || t.phone,
-            business: updates.business || t.business,
-            partner: updates.partner || t.partner,
+            client: formattedUpdates.name || t.client,
+            phone: formattedUpdates.phone || t.phone,
+            business: formattedUpdates.business || t.business,
+            partner: formattedUpdates.partner || t.partner,
           };
         }
         return t;
@@ -814,16 +849,22 @@ export function useCrmStore() {
   }, [data.manualClients, data.tasks]);
 
   const addPartner = useCallback(async (partner: Omit<PartnerModel, "id" | "leadsCount" | "revenueStr" | "activeTasks">) => {
-    const fallbackKyc = getDeterministicPartnerKyc(partner.partnerId, partner.name, partner.phone);
+    const formattedName = toTitleCase(partner.name);
+    const formattedCity = toTitleCase(partner.city);
+    const formattedState = toTitleCase(partner.state);
+    const formattedShop = toTitleCase(partner.shopName);
+    const formattedTier = toTitleCase(partner.tier || "Gold Franchise");
+
+    const fallbackKyc = getDeterministicPartnerKyc(partner.partnerId, formattedName, partner.phone);
     const payload = {
-      name: partner.name,
-      email: partner.email || `${partner.name.toLowerCase().replace(/\s+/g, ".")}@branch.com`,
+      name: formattedName,
+      email: partner.email || `${formattedName.toLowerCase().replace(/\s+/g, ".")}@branch.com`,
       phone: partner.phone,
       password: partner.password || "Partner@123",
       temporaryPassword: partner.password || "Partner@123",
       address: partner.currentAddress || partner.completeShopAddress || "Office Address",
-      hubLocation: `${partner.city}, ${partner.state}`,
-      franchiseTier: (partner.tier || "GOLD_FRANCHISE").toUpperCase().replace(/\s+/g, "_"),
+      hubLocation: `${formattedCity}, ${formattedState}`,
+      franchiseTier: formattedTier.toUpperCase().replace(/\s+/g, "_"),
       panNumber: partner.panNumber || fallbackKyc.panNumber,
       adhaarNumber: partner.adhaarNumber || fallbackKyc.adhaarNumber,
     };
@@ -846,6 +887,12 @@ export function useCrmStore() {
       const partnerId = partner.partnerId?.trim() || `P-${100 + prev.partners.length + 1}`;
       const newPartner: PartnerModel = {
         ...partner,
+        name: formattedName,
+        city: formattedCity,
+        state: formattedState,
+        shopName: formattedShop,
+        tier: formattedTier,
+        shortName: `${partnerId} • ${formattedName}`,
         id: generatedId,
         partnerId,
         leadsCount: 0,
@@ -862,11 +909,22 @@ export function useCrmStore() {
   }, []);
 
   const updatePartner = useCallback((partnerId: string, updates: Partial<PartnerModel>) => {
+    const formattedUpdates = { ...updates };
+    if (updates.name) formattedUpdates.name = toTitleCase(updates.name);
+    if (updates.city) formattedUpdates.city = toTitleCase(updates.city);
+    if (updates.state) formattedUpdates.state = toTitleCase(updates.state);
+    if (updates.shopName) formattedUpdates.shopName = toTitleCase(updates.shopName);
+    if (updates.tier) formattedUpdates.tier = toTitleCase(updates.tier);
+
     updateStore((prev) => ({
       ...prev,
       partners: prev.partners.map((p) =>
         p.partnerId === partnerId || p.id === partnerId
-          ? { ...p, ...updates }
+          ? { 
+              ...p, 
+              ...formattedUpdates,
+              shortName: `${p.partnerId} • ${formattedUpdates.name || p.name}` 
+            }
           : p
       ),
     }));

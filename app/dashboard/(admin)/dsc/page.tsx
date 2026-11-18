@@ -142,6 +142,7 @@ const mockDscList: DscItem[] = [
 ];
 
 import { useToast } from "@/components/Global/ToastNotification";
+import { toTitleCase } from "@/lib/formatters";
 
 export default function DscPage() {
   const toast = useToast();
@@ -476,10 +477,10 @@ export default function DscPage() {
                           </div>
                           <div>
                             <span className="font-black text-slate-900 dark:text-white block group-hover:text-blue-600 dark:group-hover:text-sky-400 transition-colors">
-                              {item.holderName}
+                              {toTitleCase(item.holderName)}
                             </span>
                             <span className="text-[11px] text-slate-400 block truncate max-w-[180px]">
-                              {item.businessName}
+                              {toTitleCase(item.businessName)}
                             </span>
                           </div>
                         </div>

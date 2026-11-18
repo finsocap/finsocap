@@ -9,6 +9,7 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import { fetchWithCache, getCachedData, clearCachedData } from "@/lib/clientCache";
+import { toTitleCase } from "@/lib/formatters";
 
 type Blog = {
   id: string;
@@ -766,7 +767,7 @@ export default function BlogsPage() {
                     {/* Category Badge */}
                     <td className="px-6 py-4">
                       <span className="inline-flex px-3 py-1 rounded-full text-[11px] font-bold bg-blue-50 text-blue-700 border border-blue-200/60 shadow-xs">
-                        {getCategoryName(blog.category)}
+                        {toTitleCase(getCategoryName(blog.category))}
                       </span>
                     </td>
 
@@ -777,7 +778,7 @@ export default function BlogsPage() {
                           {blog.author?.name ? blog.author.name.charAt(0).toUpperCase() : "S"}
                         </div>
                         <span className="font-semibold text-slate-700">
-                          {blog.author?.name || "Editorial Team"}
+                          {toTitleCase(blog.author?.name || "Editorial Team")}
                         </span>
                       </div>
                     </td>

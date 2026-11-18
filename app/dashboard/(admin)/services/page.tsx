@@ -7,8 +7,10 @@ import {
   Trash2, Clock, CheckCircle2, AlertCircle, X, Sparkles,
   IndianRupee, Layers, Check, PowerOff, AlertTriangle, Loader2, ArrowRight,
   FileText, ExternalLink, Video, Download, HelpCircle, ShieldCheck,
-  Tag, RefreshCw, Calendar, TrendingUp, Landmark, ChevronDown, ChevronRight, BarChart3
+  Tag, RefreshCw, Calendar, TrendingUp, Landmark, ChevronDown, ChevronRight, BarChart3,
+  Printer, MapPin, Mail, Phone
 } from "lucide-react";
+import { getAssetUrl } from "@/lib/brandConfig";
 import UniversalFilePreviewModal from "@/components/Dashboard/UniversalFilePreviewModal";
 import { downloadFile } from "@/lib/fileViewer";
 import { ServiceModel } from "@/lib/crmStore";
@@ -20,6 +22,7 @@ import AnimatedCounter from "@/components/Global/AnimatedCounter";
 import PageBanner from "@/components/Dashboard/PageBanner";
 import { useToast } from "@/components/Global/ToastNotification";
 import ModalHeaderBanner from "@/components/Dashboard/ModalHeaderBanner";
+import { toTitleCase } from "@/lib/formatters";
 
 const DEFAULT_CATEGORIES = [
   "Food & Beverage",
@@ -486,9 +489,9 @@ export default function ServicesPage() {
       />
 
       {/* Services Rate Card & Category Breakdown Infographic */}
-      <ServicesInfographic services={apiServices} tasks={apiTasks} />
-
-      {/* 2. Modern Pill Tabs Switcher matching Reference */}
+      <div className="no-print">
+        <ServicesInfographic services={apiServices} tasks={apiTasks} />
+      </div>
       <div className="p-1.5 bg-white dark:bg-[#0c1427] rounded-2xl border border-slate-200/80 dark:border-slate-800/80 shadow-xs flex items-center gap-1.5 overflow-x-auto no-scrollbar">
         {[
           { key: "All Services", count: tabCounts.all },
@@ -565,20 +568,22 @@ export default function ServicesPage() {
           </select>
         </div>
 
-        {(search || selectedCategory !== "ALL" || selectedStatus !== "ALL" || activeTab !== "All Services") && (
-          <button
-            onClick={() => {
-              setSearch("");
-              setSelectedCategory("ALL");
-              setSelectedStatus("ALL");
-              setActiveTab("All Services");
-            }}
-            className="btn-glass-modern text-xs py-2 px-3.5 cursor-pointer whitespace-nowrap flex items-center gap-1.5 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800"
-          >
-            <RotateCcw className="w-3.5 h-3.5" />
-            <span>Clear</span>
-          </button>
-        )}
+        <div className="flex items-center gap-2">
+          {(search || selectedCategory !== "ALL" || selectedStatus !== "ALL" || activeTab !== "All Services") && (
+            <button
+              onClick={() => {
+                setSearch("");
+                setSelectedCategory("ALL");
+                setSelectedStatus("ALL");
+                setActiveTab("All Services");
+              }}
+              className="btn-glass-modern text-xs py-2 px-3.5 cursor-pointer whitespace-nowrap flex items-center gap-1.5 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800"
+            >
+              <RotateCcw className="w-3.5 h-3.5" />
+              <span>Clear</span>
+            </button>
+          )}
+        </div>
       </div>
 
       {/* Loading & Error / Auth Token Status */}
@@ -673,11 +678,11 @@ export default function ServicesPage() {
                       {i + 1}
                     </td>
                     <td className="py-3.5 px-4 font-bold text-slate-900 dark:text-white">
-                      {s.name}
+                      {toTitleCase(s.name)}
                     </td>
                     <td className="py-3.5 px-4">
                       <span className={`inline-block px-2.5 py-0.5 rounded-md font-bold text-[10px] border ${getCategoryColor(s.category)}`}>
-                        {s.category}
+                        {toTitleCase(s.category)}
                       </span>
                     </td>
                     <td className="py-3.5 px-4 text-center">
@@ -690,7 +695,7 @@ export default function ServicesPage() {
                       </span>
                     </td>
                     <td className="py-3.5 px-4 text-slate-600 dark:text-slate-400 font-semibold">
-                      {s.frequency}
+                      {toTitleCase(s.frequency)}
                     </td>
                     {!["STAFF", "SPECIALIST", "EXECUTIVE"].includes(userRole.toUpperCase()) && (
                       <td className="py-3.5 px-4 font-black text-slate-900 dark:text-white">
@@ -717,7 +722,7 @@ export default function ServicesPage() {
                           : "bg-amber-50 text-amber-700 dark:bg-amber-950/60 dark:text-amber-400 border border-amber-200 dark:border-amber-800"
                       }`}>
                         <span className={`w-1.5 h-1.5 rounded-full ${s.status === "Active" ? "bg-emerald-500 animate-pulse" : "bg-amber-500"}`} />
-                        {s.status}
+                        {toTitleCase(s.status)}
                       </span>
                     </td>
                     <td className="py-3.5 px-4 text-center">
@@ -1165,42 +1170,70 @@ export default function ServicesPage() {
         </div>
       )}
 
-      {/* Modal: View Service - Pixel-Perfect Premium Design Matching Reference */}
+      {/* Modal: View Service - Compact, Balanced & Pixel-Perfect Design */}
       {viewingService && (
-        <div className="fixed inset-0 z-[9999] flex items-center justify-center p-3 sm:p-5 lg:p-6 bg-slate-900/60 backdrop-blur-sm animate-in fade-in">
-          <div className="bg-white dark:bg-[#0c1427] border border-slate-200 dark:border-slate-800 rounded-3xl p-5 sm:p-7 w-full max-w-4xl shadow-2xl relative space-y-4 max-h-[92vh] overflow-y-auto no-scrollbar my-auto">
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center p-3 sm:p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in">
+          <div 
+            id="service-specification-dossier"
+            className="bg-white dark:bg-[#0c1427] border border-slate-200 dark:border-slate-800 rounded-2xl p-4 sm:p-5 w-full max-w-3xl shadow-2xl relative space-y-3.5 max-h-[88vh] overflow-y-auto no-scrollbar my-auto"
+          >
             
+            {/* Print-Only Professional Centered Letterhead with Finsocap Logo & Website URL */}
+            <div className="hidden print:flex flex-col items-center justify-center pb-4 mb-2 border-b-2 border-slate-200 text-center">
+              <img 
+                src={getAssetUrl("/Finsocap_logo.png")} 
+                alt="Finsocap Logo" 
+                className="h-12 w-auto object-contain mx-auto"
+              />
+              <a 
+                href="https://www.finsocap.com" 
+                target="_blank" 
+                rel="noreferrer" 
+                className="text-xs font-bold text-blue-600 hover:underline tracking-wide mt-1.5 font-mono"
+              >
+                www.finsocap.com
+              </a>
+            </div>
+
             {/* 1. Header Banner with Vibrant Gradient */}
-            <div className="relative overflow-hidden rounded-2xl bg-gradient-to-r from-blue-600 via-indigo-600 to-sky-500 p-4 sm:p-5 text-white shadow-md">
+            <div className="service-dossier-banner relative overflow-hidden rounded-xl bg-gradient-to-r from-blue-700 via-indigo-700 to-sky-600 p-3.5 sm:p-4 text-white shadow-md">
               <div className="flex items-center justify-between gap-3">
-                <div className="flex items-center gap-3.5 min-w-0">
-                  <div className="w-12 h-12 rounded-xl bg-white/20 backdrop-blur-md flex items-center justify-center text-white shrink-0 shadow-inner">
-                    <Layers className="w-6 h-6" />
+                <div className="flex items-center gap-3 min-w-0">
+                  <div className="w-10 h-10 rounded-lg bg-white/20 backdrop-blur-md flex items-center justify-center text-white shrink-0 shadow-inner">
+                    <Layers className="w-5 h-5" />
                   </div>
                   <div className="min-w-0">
-                    <span className="text-[10px] tracking-wider uppercase font-bold text-blue-100 block">
+                    <span className="text-[10px] tracking-wider uppercase font-black text-blue-100 block">
                       SERVICE SPECIFICATIONS
                     </span>
-                    <h3 className="text-xl sm:text-2xl font-black text-white truncate leading-tight">
+                    <h3 className="text-xl sm:text-2xl font-black text-white truncate leading-tight drop-shadow-xs">
                       {viewingService.name}
                     </h3>
-                    <p className="text-xs text-blue-100/90 font-medium mt-0.5 truncate flex items-center gap-1.5">
-                      <Clock className="w-3 h-3 shrink-0" />
+                    <p className="text-xs text-blue-100 font-semibold mt-0.5 truncate flex items-center gap-1.5">
+                      <Clock className="w-3.5 h-3.5 shrink-0" />
                       <span>{viewingService.category.toUpperCase()}: Processing SLA: {viewingService.time} · Recurring ({viewingService.recurring ? viewingService.frequency : "One Time"})</span>
                     </p>
                   </div>
                 </div>
 
                 <div className="flex items-center gap-2 shrink-0">
-                  <span className="px-3 py-1 rounded-full text-xs font-bold bg-white text-emerald-600 flex items-center gap-1.5 shadow-xs">
-                    <span className="w-2 h-2 rounded-full bg-emerald-500" />
-                    <span>{viewingService.status}</span>
+                  <span className="service-status-pill px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-white text-emerald-600 flex items-center gap-1.5 shadow-xs">
+                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
+                    <span className="text-emerald-700 font-extrabold">{viewingService.status}</span>
                   </span>
                   <button
-                    onClick={() => setViewingService(null)}
-                    className="w-8 h-8 rounded-full bg-white/20 hover:bg-white/30 text-white flex items-center justify-center transition-colors cursor-pointer"
+                    type="button"
+                    onClick={() => window.print()}
+                    className="no-print w-7 h-7 rounded-full bg-white/20 hover:bg-white/30 text-white flex items-center justify-center transition-colors cursor-pointer"
+                    title="Print or Save as PDF"
                   >
-                    <X className="w-4 h-4" />
+                    <Printer className="w-3.5 h-3.5" />
+                  </button>
+                  <button
+                    onClick={() => setViewingService(null)}
+                    className="no-print w-7 h-7 rounded-full bg-white/20 hover:bg-white/30 text-white flex items-center justify-center transition-colors cursor-pointer"
+                  >
+                    <X className="w-3.5 h-3.5" />
                   </button>
                 </div>
               </div>
@@ -1208,72 +1241,72 @@ export default function ServicesPage() {
 
             {/* 2. Overview & Executive Summary Card */}
             {viewingService.description && (
-              <div className="relative overflow-hidden rounded-2xl bg-gradient-to-r from-sky-50/70 via-blue-50/50 to-indigo-50/60 dark:from-slate-900 dark:to-slate-800/80 border border-blue-100/80 dark:border-slate-800 p-4 sm:p-5 flex items-center justify-between gap-4 shadow-2xs">
-                <div className="flex items-start gap-3 min-w-0">
-                  <div className="w-8 h-8 rounded-xl bg-blue-600/10 dark:bg-blue-500/20 text-blue-600 dark:text-sky-400 flex items-center justify-center shrink-0 mt-0.5">
-                    <BarChart3 className="w-4 h-4" />
+              <div className="relative overflow-hidden rounded-xl bg-gradient-to-r from-sky-50/70 via-blue-50/50 to-indigo-50/60 dark:from-slate-900 dark:to-slate-800/80 border border-blue-100/80 dark:border-slate-800 p-3 sm:p-3.5 flex items-center justify-between gap-3 shadow-2xs">
+                <div className="flex items-start gap-2.5 min-w-0">
+                  <div className="w-7 h-7 rounded-lg bg-blue-600/10 dark:bg-blue-500/20 text-blue-600 dark:text-sky-400 flex items-center justify-center shrink-0 mt-0.5">
+                    <BarChart3 className="w-3.5 h-3.5" />
                   </div>
                   <div className="min-w-0">
-                    <span className="text-xs font-black text-blue-900 dark:text-sky-300 block">
+                    <span className="text-[11px] font-black text-blue-900 dark:text-sky-300 block">
                       Overview &amp; Executive Summary
                     </span>
-                    <p className="text-xs sm:text-sm text-slate-700 dark:text-slate-300 font-medium leading-relaxed mt-0.5">
+                    <p className="text-xs text-slate-700 dark:text-slate-300 font-medium leading-relaxed mt-0.5">
                       {viewingService.description}
                     </p>
                   </div>
                 </div>
 
                 {/* Decorative Right Illustration Icon */}
-                <div className="hidden sm:flex items-center justify-center w-12 h-12 rounded-2xl bg-white/80 dark:bg-slate-800 border border-blue-200/50 dark:border-slate-700 text-blue-500 shrink-0 opacity-80">
-                  <FileText className="w-6 h-6 text-blue-400" />
+                <div className="hidden sm:flex items-center justify-center w-9 h-9 rounded-xl bg-white/80 dark:bg-slate-800 border border-blue-200/50 dark:border-slate-700 text-blue-500 shrink-0 opacity-80">
+                  <FileText className="w-4 h-4 text-blue-400" />
                 </div>
               </div>
             )}
 
             {/* 3. Service Breakdown & Operational Metrics Section */}
-            <div className="space-y-2.5">
-              <div className="flex items-center gap-2 text-slate-900 dark:text-white">
-                <Boxes className="w-4 h-4 text-blue-600 dark:text-sky-400" />
-                <h4 className="text-xs font-black uppercase tracking-wider">
+            <div className="space-y-2">
+              <div className="flex items-center gap-1.5 text-slate-900 dark:text-white">
+                <Boxes className="w-3.5 h-3.5 text-blue-600 dark:text-sky-400" />
+                <h4 className="text-[11px] font-black uppercase tracking-wider">
                   Service Breakdown &amp; Operational Metrics
                 </h4>
               </div>
 
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
                 {/* Category Card */}
-                <div className="p-3.5 rounded-2xl bg-white dark:bg-slate-900/90 border border-slate-200/80 dark:border-slate-800 flex items-center gap-3 shadow-2xs">
-                  <div className="w-9 h-9 rounded-xl bg-purple-50 dark:bg-purple-950/60 text-purple-600 dark:text-purple-400 flex items-center justify-center shrink-0">
-                    <Tag className="w-4 h-4" />
+                <div className="p-2.5 rounded-xl bg-white dark:bg-slate-900/90 border border-slate-200/80 dark:border-slate-800 flex items-center gap-2.5 shadow-2xs">
+                  <div className="w-7 h-7 rounded-lg bg-purple-50 dark:bg-purple-950/60 text-purple-600 dark:text-purple-400 flex items-center justify-center shrink-0">
+                    <Tag className="w-3.5 h-3.5" />
                   </div>
                   <div className="min-w-0">
-                    <span className="text-[10px] uppercase font-bold text-slate-400 block">Category</span>
-                    <span className="text-xs sm:text-sm font-black text-slate-900 dark:text-white truncate block">
+                    <span className="text-[9px] uppercase font-bold text-slate-400 block">Category</span>
+                    <span className="text-xs font-black text-slate-900 dark:text-white truncate block">
                       {viewingService.category}
                     </span>
                   </div>
                 </div>
 
                 {/* Recurring Card */}
-                <div className="p-3.5 rounded-2xl bg-white dark:bg-slate-900/90 border border-slate-200/80 dark:border-slate-800 flex items-center gap-3 shadow-2xs">
-                  <div className="w-9 h-9 rounded-xl bg-sky-50 dark:bg-sky-950/60 text-sky-600 dark:text-sky-400 flex items-center justify-center shrink-0">
-                    <RefreshCw className="w-4 h-4" />
+                <div className="p-2.5 rounded-xl bg-white dark:bg-slate-900/90 border border-slate-200/80 dark:border-slate-800 flex items-center gap-2.5 shadow-2xs">
+                  <div className="w-7 h-7 rounded-lg bg-sky-50 dark:bg-sky-950/60 text-sky-600 dark:text-sky-400 flex items-center justify-center shrink-0">
+                    <RefreshCw className="w-3.5 h-3.5" />
                   </div>
                   <div className="min-w-0">
-                    <span className="text-[10px] uppercase font-bold text-slate-400 block">Recurring</span>
-                    <span className="text-xs sm:text-sm font-black text-slate-900 dark:text-white truncate block">
+                    <span className="text-[9px] uppercase font-bold text-slate-400 block">Recurring</span>
+                    <span className="text-xs font-black text-slate-900 dark:text-white truncate block">
                       {viewingService.recurring ? `Yes (${viewingService.frequency})` : "One Time"}
                     </span>
                   </div>
                 </div>
 
                 {/* Processing SLA Card */}
-                <div className="p-3.5 rounded-2xl bg-white dark:bg-slate-900/90 border border-slate-200/80 dark:border-slate-800 flex items-center gap-3 shadow-2xs">
-                  <div className="w-9 h-9 rounded-xl bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400 flex items-center justify-center shrink-0">
-                    <Calendar className="w-4 h-4" />
+                <div className="p-2.5 rounded-xl bg-white dark:bg-slate-900/90 border border-slate-200/80 dark:border-slate-800 flex items-center gap-2.5 shadow-2xs">
+                  <div className="w-7 h-7 rounded-lg bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400 flex items-center justify-center shrink-0">
+                    <Calendar className="w-3.5 h-3.5" />
                   </div>
                   <div className="min-w-0">
-                    <span className="text-[10px] uppercase font-bold text-slate-400 block">Processing SLA</span>
-                    <span className="text-xs sm:text-sm font-black text-slate-900 dark:text-white truncate block">
+                    <span className="text-[9px] uppercase font-bold text-slate-400 block">Processing SLA</span>
+                    <span className="text-xs font-black text-slate-900 dark:text-white truncate block">
                       {viewingService.time}
                     </span>
                   </div>
@@ -1281,25 +1314,25 @@ export default function ServicesPage() {
 
                 {/* Client Price Card (Admin Only) */}
                 {!["STAFF", "SPECIALIST", "EXECUTIVE"].includes(userRole.toUpperCase()) ? (
-                  <div className="p-3.5 rounded-2xl bg-emerald-50/50 dark:bg-emerald-950/20 border border-emerald-200/70 dark:border-emerald-900/40 flex items-center gap-3 shadow-2xs">
-                    <div className="w-9 h-9 rounded-xl bg-emerald-100 dark:bg-emerald-900/60 text-emerald-700 dark:text-emerald-300 flex items-center justify-center shrink-0">
-                      <IndianRupee className="w-4 h-4" />
+                  <div className="p-2.5 rounded-xl bg-emerald-50/50 dark:bg-emerald-950/20 border border-emerald-200/70 dark:border-emerald-900/40 flex items-center gap-2.5 shadow-2xs">
+                    <div className="w-7 h-7 rounded-lg bg-emerald-100 dark:bg-emerald-900/60 text-emerald-700 dark:text-emerald-300 flex items-center justify-center shrink-0">
+                      <IndianRupee className="w-3.5 h-3.5" />
                     </div>
                     <div className="min-w-0">
-                      <span className="text-[10px] uppercase font-bold text-emerald-700 dark:text-emerald-400 block">Client Price</span>
-                      <span className="text-xs sm:text-sm font-black text-emerald-700 dark:text-emerald-300 truncate block">
+                      <span className="text-[9px] uppercase font-bold text-emerald-700 dark:text-emerald-400 block">Client Price</span>
+                      <span className="text-xs font-black text-emerald-700 dark:text-emerald-300 truncate block">
                         {money(viewingService.price)}
                       </span>
                     </div>
                   </div>
                 ) : (
-                  <div className="p-3.5 rounded-2xl bg-white dark:bg-slate-900/90 border border-slate-200/80 dark:border-slate-800 flex items-center gap-3 shadow-2xs">
-                    <div className="w-9 h-9 rounded-xl bg-emerald-50 dark:bg-emerald-950/60 text-emerald-600 dark:text-emerald-400 flex items-center justify-center shrink-0">
-                      <CheckCircle2 className="w-4 h-4" />
+                  <div className="p-2.5 rounded-xl bg-white dark:bg-slate-900/90 border border-slate-200/80 dark:border-slate-800 flex items-center gap-2.5 shadow-2xs">
+                    <div className="w-7 h-7 rounded-lg bg-emerald-50 dark:bg-emerald-950/60 text-emerald-600 dark:text-emerald-400 flex items-center justify-center shrink-0">
+                      <CheckCircle2 className="w-3.5 h-3.5" />
                     </div>
                     <div className="min-w-0">
-                      <span className="text-[10px] uppercase font-bold text-slate-400 block">Status</span>
-                      <span className="text-xs sm:text-sm font-black text-emerald-600 dark:text-emerald-400 truncate block">
+                      <span className="text-[9px] uppercase font-bold text-slate-400 block">Status</span>
+                      <span className="text-xs font-black text-emerald-600 dark:text-emerald-400 truncate block">
                         {viewingService.status}
                       </span>
                     </div>
@@ -1309,26 +1342,26 @@ export default function ServicesPage() {
 
               {/* Second Row for Partner Profit & Government Fee (Admin Only) */}
               {!["STAFF", "SPECIALIST", "EXECUTIVE"].includes(userRole.toUpperCase()) && (
-                <div className="grid grid-cols-2 gap-3">
-                  <div className="p-3.5 rounded-2xl bg-white dark:bg-slate-900/90 border border-slate-200/80 dark:border-slate-800 flex items-center gap-3 shadow-2xs">
-                    <div className="w-9 h-9 rounded-xl bg-blue-50 dark:bg-blue-950/60 text-blue-600 dark:text-sky-400 flex items-center justify-center shrink-0">
-                      <TrendingUp className="w-4 h-4" />
+                <div className="grid grid-cols-2 gap-2.5">
+                  <div className="p-2.5 rounded-xl bg-white dark:bg-slate-900/90 border border-slate-200/80 dark:border-slate-800 flex items-center gap-2.5 shadow-2xs">
+                    <div className="w-7 h-7 rounded-lg bg-blue-50 dark:bg-blue-950/60 text-blue-600 dark:text-sky-400 flex items-center justify-center shrink-0">
+                      <TrendingUp className="w-3.5 h-3.5" />
                     </div>
                     <div className="min-w-0">
-                      <span className="text-[10px] uppercase font-bold text-slate-400 block">Partner Profit</span>
-                      <span className="text-xs sm:text-sm font-black text-blue-600 dark:text-sky-400 truncate block">
+                      <span className="text-[9px] uppercase font-bold text-slate-400 block">Partner Profit</span>
+                      <span className="text-xs font-black text-blue-600 dark:text-sky-400 truncate block">
                         {money(viewingService.partnerProfit || 0)}
                       </span>
                     </div>
                   </div>
 
-                  <div className="p-3.5 rounded-2xl bg-white dark:bg-slate-900/90 border border-slate-200/80 dark:border-slate-800 flex items-center gap-3 shadow-2xs">
-                    <div className="w-9 h-9 rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 flex items-center justify-center shrink-0">
-                      <Landmark className="w-4 h-4" />
+                  <div className="p-2.5 rounded-xl bg-white dark:bg-slate-900/90 border border-slate-200/80 dark:border-slate-800 flex items-center gap-2.5 shadow-2xs">
+                    <div className="w-7 h-7 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 flex items-center justify-center shrink-0">
+                      <Landmark className="w-3.5 h-3.5" />
                     </div>
                     <div className="min-w-0">
-                      <span className="text-[10px] uppercase font-bold text-slate-400 block">Government Fee</span>
-                      <span className="text-xs sm:text-sm font-black text-slate-900 dark:text-white truncate block">
+                      <span className="text-[9px] uppercase font-bold text-slate-400 block">Government Fee</span>
+                      <span className="text-xs font-black text-slate-900 dark:text-white truncate block">
                         {money(viewingService.gov)}
                       </span>
                     </div>
@@ -1337,23 +1370,23 @@ export default function ServicesPage() {
               )}
             </div>
 
-            {/* 4. Year-wise Fee Structure & Pricing Tiers (Matching Reference with Stamp & Coins) */}
+            {/* 4. Year-wise Fee Structure & Pricing Tiers */}
             {!["STAFF", "SPECIALIST", "EXECUTIVE"].includes(userRole.toUpperCase()) && viewingService.yearWiseFeesEnabled && viewingService.yearWiseFees && viewingService.yearWiseFees.length > 0 && (
-              <div className="relative overflow-hidden rounded-2xl bg-gradient-to-r from-blue-50/70 via-indigo-50/40 to-white dark:from-slate-900 dark:to-slate-900/60 border border-indigo-100 dark:border-slate-800 p-4 sm:p-5 shadow-2xs">
-                <div className="flex items-center gap-2 text-indigo-900 dark:text-indigo-300 mb-3">
-                  <Calendar className="w-4 h-4 text-indigo-600 dark:text-indigo-400" />
-                  <span className="text-xs font-black uppercase tracking-wider">
+              <div className="relative overflow-hidden rounded-xl bg-gradient-to-r from-blue-50/70 via-indigo-50/40 to-white dark:from-slate-900 dark:to-slate-900/60 border border-indigo-100 dark:border-slate-800 p-3 shadow-2xs">
+                <div className="flex items-center gap-1.5 text-indigo-900 dark:text-indigo-300 mb-2">
+                  <Calendar className="w-3.5 h-3.5 text-indigo-600 dark:text-indigo-400" />
+                  <span className="text-[11px] font-black uppercase tracking-wider">
                     Year-wise Fee Structure &amp; Pricing Tiers
                   </span>
                 </div>
 
-                <div className="flex flex-wrap items-center gap-2.5">
+                <div className="flex flex-wrap items-center gap-2">
                   {viewingService.yearWiseFees.map((yf: any, idx: number) => (
-                    <div key={idx} className="flex items-center gap-3 p-2.5 px-4 rounded-xl bg-white dark:bg-slate-800 border border-slate-200/80 dark:border-slate-700 text-xs shadow-2xs">
-                      <span className="font-extrabold text-slate-900 dark:text-white text-xs">{yf.year} Year(s)</span>
-                      <span className="text-slate-500 font-mono text-[11px]">Gov: ₹{yf.governmentFee}</span>
-                      <span className="text-slate-500 font-mono text-[11px]">Prof: ₹{yf.professionalFee}</span>
-                      <span className="px-2 py-0.5 rounded-md font-black bg-emerald-50 text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-400 border border-emerald-200">
+                    <div key={idx} className="flex items-center gap-2.5 p-2 px-3 rounded-lg bg-white dark:bg-slate-800 border border-slate-200/80 dark:border-slate-700 text-xs shadow-2xs">
+                      <span className="font-extrabold text-slate-900 dark:text-white text-[11px]">{yf.year} Year(s)</span>
+                      <span className="text-slate-500 font-mono text-[10px]">Gov: ₹{yf.governmentFee}</span>
+                      <span className="text-slate-500 font-mono text-[10px]">Prof: ₹{yf.professionalFee}</span>
+                      <span className="px-1.5 py-0.5 rounded-md font-black text-[10px] bg-emerald-50 text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-400 border border-emerald-200">
                         ₹{yf.total}
                       </span>
                     </div>
@@ -1362,31 +1395,31 @@ export default function ServicesPage() {
               </div>
             )}
 
-            {/* 5. Stacked Full-Width Sections: Content / Detailed Information (Top) & Documents & Checklist (Bottom) */}
-            <div className="space-y-4">
+            {/* 5. Stacked Full-Width Sections */}
+            <div className="space-y-3">
               
-              {/* Content / Detailed Information (Full Width with elegant scroll & clear typography) */}
-              <div className="p-4 sm:p-5 rounded-2xl bg-white dark:bg-slate-900/90 border border-slate-200/80 dark:border-slate-800 shadow-2xs space-y-3">
-                <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800/80 pb-2.5">
-                  <div className="flex items-center gap-2 text-blue-900 dark:text-sky-300 font-black text-xs uppercase tracking-wider">
-                    <FileText className="w-4 h-4 text-blue-600 dark:text-sky-400" />
+              {/* Content / Detailed Information */}
+              <div className="p-3.5 rounded-xl bg-white dark:bg-slate-900/90 border border-slate-200/80 dark:border-slate-800 shadow-2xs space-y-2">
+                <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800/80 pb-2">
+                  <div className="flex items-center gap-1.5 text-blue-900 dark:text-sky-300 font-black text-[11px] uppercase tracking-wider">
+                    <FileText className="w-3.5 h-3.5 text-blue-600 dark:text-sky-400" />
                     <span>Content / Detailed Information</span>
                   </div>
-                  <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">
+                  <span className="text-[9px] font-bold text-slate-400 uppercase tracking-wider">
                     Scroll to read
                   </span>
                 </div>
                 
-                <div className="p-4 rounded-xl bg-slate-50/80 dark:bg-slate-800/60 border border-slate-200/60 dark:border-slate-700 max-h-56 overflow-y-auto overscroll-contain pr-3 scrollbar-thin scrollbar-thumb-slate-300 dark:scrollbar-thumb-slate-600">
-                  <div className="flex items-start gap-3">
-                    <FileText className="w-4 h-4 text-blue-500 shrink-0 mt-0.5" />
+                <div className="p-3 rounded-lg bg-slate-50/80 dark:bg-slate-800/60 border border-slate-200/60 dark:border-slate-700 max-h-40 overflow-y-auto overscroll-contain pr-2 scrollbar-thin scrollbar-thumb-slate-300 dark:scrollbar-thumb-slate-600">
+                  <div className="flex items-start gap-2.5">
+                    <FileText className="w-3.5 h-3.5 text-blue-500 shrink-0 mt-0.5" />
                     {viewingService.contentDetails && /<[a-z][\s\S]*>/i.test(viewingService.contentDetails) ? (
                       <div 
-                        className="prose prose-sm dark:prose-invert max-w-none text-xs sm:text-sm text-slate-700 dark:text-slate-300 font-medium leading-relaxed overflow-hidden break-words [&>p]:mb-2 [&>p]:text-xs sm:[&>p]:text-sm [&>p]:text-slate-700 dark:[&>p]:text-slate-300 [&>p]:leading-relaxed [&>ul]:list-disc [&>ul]:pl-5 [&>ul]:mb-2 [&>ol]:list-decimal [&>ol]:pl-5 [&>ol]:mb-2 [&>li]:mb-1 [&>li]:text-xs sm:[&>li]:text-sm [&>li]:text-slate-700 dark:[&>li]:text-slate-300"
+                        className="prose prose-xs dark:prose-invert max-w-none text-xs text-slate-700 dark:text-slate-300 font-medium leading-relaxed overflow-hidden break-words [&>p]:mb-1.5 [&>p]:text-xs [&>p]:text-slate-700 dark:[&>p]:text-slate-300 [&>p]:leading-relaxed [&>ul]:list-disc [&>ul]:pl-4 [&>ul]:mb-1.5 [&>ol]:list-decimal [&>ol]:pl-4 [&>ol]:mb-1.5 [&>li]:mb-0.5 [&>li]:text-xs [&>li]:text-slate-700 dark:[&>li]:text-slate-300"
                         dangerouslySetInnerHTML={{ __html: viewingService.contentDetails }}
                       />
                     ) : (
-                      <span className="text-xs sm:text-sm text-slate-700 dark:text-slate-300 font-medium leading-relaxed whitespace-pre-wrap">
+                      <span className="text-xs text-slate-700 dark:text-slate-300 font-medium leading-relaxed whitespace-pre-wrap">
                         {viewingService.contentDetails || "Standard statutory corporate compliance filing and service overview."}
                       </span>
                     )}
@@ -1394,29 +1427,29 @@ export default function ServicesPage() {
                 </div>
               </div>
 
-              {/* Documents & Checklist (Full Width Grid) */}
-              <div className="p-4 sm:p-5 rounded-2xl bg-white dark:bg-slate-900/90 border border-slate-200/80 dark:border-slate-800 shadow-2xs space-y-3">
-                <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800/80 pb-2.5">
-                  <div className="flex items-center gap-2 text-emerald-900 dark:text-emerald-300 font-black text-xs uppercase tracking-wider">
-                    <CheckCircle2 className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
+              {/* Documents & Checklist */}
+              <div className="p-3.5 rounded-xl bg-white dark:bg-slate-900/90 border border-slate-200/80 dark:border-slate-800 shadow-2xs space-y-2">
+                <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800/80 pb-2">
+                  <div className="flex items-center gap-1.5 text-emerald-900 dark:text-emerald-300 font-black text-[11px] uppercase tracking-wider">
+                    <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
                     <span>Documents &amp; Checklist</span>
                   </div>
                 </div>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                   {viewingService.requiredDocuments && viewingService.requiredDocuments.length > 0 ? (
                     viewingService.requiredDocuments.map((doc: any, idx: number) => (
-                      <div key={idx} className="flex items-center justify-between p-3 rounded-xl bg-slate-50/80 dark:bg-slate-800/60 border border-slate-200/60 dark:border-slate-700 text-xs">
-                        <div className="flex items-center gap-2.5 min-w-0 pr-2">
-                          <span className="w-2 h-2 rounded-full bg-emerald-500 shrink-0" />
-                          <span className="font-semibold text-slate-800 dark:text-slate-200 truncate">
+                      <div key={idx} className="flex items-center justify-between p-2.5 rounded-lg bg-slate-50/80 dark:bg-slate-800/60 border border-slate-200/60 dark:border-slate-700 text-xs">
+                        <div className="flex items-center gap-2 min-w-0 pr-2">
+                          <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 shrink-0" />
+                          <span className="font-semibold text-slate-800 dark:text-slate-200 truncate text-[11px]">
                             {typeof doc === "string" ? doc : doc.name}
                           </span>
                         </div>
-                        <CheckCircle2 className="w-4 h-4 text-emerald-600 dark:text-emerald-400 shrink-0 opacity-80" />
+                        <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400 shrink-0 opacity-80" />
                       </div>
                     ))
                   ) : (
-                    <div className="col-span-2 p-3 rounded-xl bg-slate-50/80 dark:bg-slate-800/60 border border-slate-200/60 dark:border-slate-700 text-xs text-slate-400 italic">
+                    <div className="col-span-2 p-2.5 rounded-lg bg-slate-50/80 dark:bg-slate-800/60 border border-slate-200/60 dark:border-slate-700 text-xs text-slate-400 italic">
                       No specific documents attached.
                     </div>
                   )}
@@ -1427,17 +1460,16 @@ export default function ServicesPage() {
 
             {/* 6. Frequently Asked Questions (FAQs) Accordion Card */}
             {viewingService.faqs && viewingService.faqs.length > 0 && (
-              <div className="p-4 sm:p-5 rounded-2xl bg-white dark:bg-slate-900/90 border border-slate-200/80 dark:border-slate-800 shadow-2xs space-y-3">
-                <div className="flex items-center gap-2 text-purple-900 dark:text-purple-300 font-black text-xs uppercase tracking-wider">
-                  <HelpCircle className="w-4 h-4 text-purple-600 dark:text-purple-400" />
+              <div className="p-3.5 rounded-xl bg-white dark:bg-slate-900/90 border border-slate-200/80 dark:border-slate-800 shadow-2xs space-y-2">
+                <div className="flex items-center gap-1.5 text-purple-900 dark:text-purple-300 font-black text-[11px] uppercase tracking-wider">
+                  <HelpCircle className="w-3.5 h-3.5 text-purple-600 dark:text-purple-400" />
                   <span>Frequently Asked Questions (FAQs)</span>
                 </div>
-                <div className="space-y-2">
+                <div className="space-y-1.5">
                   {viewingService.faqs.map((faqItem: any, idx: number) => {
                     let q = typeof faqItem === "object" ? faqItem.question : faqItem;
                     let a = typeof faqItem === "object" ? faqItem.answer : "";
                     
-                    // Strip duplicate leading "Q." or "Q:" if user/backend added it
                     if (typeof q === "string") {
                       q = q.replace(/^Q[\.\:\s]+/i, "").trim();
                     }
@@ -1446,19 +1478,19 @@ export default function ServicesPage() {
                     }
 
                     return (
-                      <div key={idx} className="flex items-start justify-between p-3.5 rounded-xl bg-slate-50/80 dark:bg-slate-800/60 border border-slate-200/60 dark:border-slate-700 text-xs">
-                        <div className="space-y-1">
-                          <p className="font-bold text-slate-900 dark:text-white">
+                      <div key={idx} className="flex items-start justify-between p-2.5 rounded-lg bg-slate-50/80 dark:bg-slate-800/60 border border-slate-200/60 dark:border-slate-700 text-xs">
+                        <div className="space-y-0.5">
+                          <p className="font-bold text-slate-900 dark:text-white text-[11px]">
                             <span className="text-purple-600 dark:text-purple-400 font-black mr-1">Q.</span>
                             {q}
                           </p>
                           {a && (
-                            <p className="text-slate-600 dark:text-slate-300 pl-4 font-medium leading-relaxed">
+                            <p className="text-slate-600 dark:text-slate-300 pl-3.5 font-medium leading-relaxed text-[11px]">
                               {a}
                             </p>
                           )}
                         </div>
-                        <ChevronRight className="w-4 h-4 text-slate-400 shrink-0 mt-0.5" />
+                        <ChevronRight className="w-3.5 h-3.5 text-slate-400 shrink-0 mt-0.5" />
                       </div>
                     );
                   })}
@@ -1466,19 +1498,19 @@ export default function ServicesPage() {
               </div>
             )}
 
-            {/* 7. Official Links, Tutorials & Knowledge Base Section */}
-            <div className="space-y-2.5">
-              <div className="flex items-center gap-2 text-slate-900 dark:text-white">
-                <ExternalLink className="w-4 h-4 text-blue-600 dark:text-sky-400" />
-                <h4 className="text-xs font-black uppercase tracking-wider">
+            {/* 7. Official Links, Tutorials & Knowledge Base Section (Hidden in Print/PDF as requested) */}
+            <div className="space-y-2 no-print">
+              <div className="flex items-center gap-1.5 text-slate-900 dark:text-white">
+                <ExternalLink className="w-3.5 h-3.5 text-blue-600 dark:text-sky-400" />
+                <h4 className="text-[11px] font-black uppercase tracking-wider">
                   Official Links, Tutorials &amp; Knowledge Base
                 </h4>
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
                 {/* Official Government Portals Card */}
-                <div className="p-4 rounded-2xl bg-blue-50/40 dark:bg-slate-900/80 border border-blue-100 dark:border-slate-800 space-y-2.5 shadow-2xs">
-                  <div className="flex items-center gap-2 text-blue-900 dark:text-sky-300 font-bold text-xs">
+                <div className="p-3 rounded-xl bg-blue-50/40 dark:bg-slate-900/80 border border-blue-100 dark:border-slate-800 space-y-2 shadow-2xs">
+                  <div className="flex items-center gap-1.5 text-blue-900 dark:text-sky-300 font-bold text-[11px]">
                     <span>🌐</span>
                     <span>Official Government Portals</span>
                   </div>
@@ -1489,25 +1521,25 @@ export default function ServicesPage() {
                         href={link}
                         target="_blank"
                         rel="noreferrer"
-                        className="flex items-center justify-between p-3 rounded-xl bg-white dark:bg-slate-800 border border-slate-200/70 dark:border-slate-700 text-blue-600 dark:text-sky-400 hover:border-blue-400 text-xs font-bold transition-all shadow-2xs"
+                        className="flex items-center justify-between p-2 rounded-lg bg-white dark:bg-slate-800 border border-slate-200/70 dark:border-slate-700 text-blue-600 dark:text-sky-400 hover:border-blue-400 text-[11px] font-bold transition-all shadow-2xs"
                       >
-                        <div className="flex items-center gap-2 truncate pr-2">
-                          <ExternalLink className="w-3.5 h-3.5 shrink-0" />
+                        <div className="flex items-center gap-1.5 truncate pr-2">
+                          <ExternalLink className="w-3 h-3 shrink-0" />
                           <span className="truncate">{link}</span>
                         </div>
-                        <ExternalLink className="w-3.5 h-3.5 shrink-0 text-slate-400" />
+                        <ExternalLink className="w-3 h-3 shrink-0 text-slate-400" />
                       </a>
                     ))
                   ) : (
-                    <div className="p-3 rounded-xl bg-white dark:bg-slate-800 border border-slate-200/70 text-xs text-slate-400 italic">
+                    <div className="p-2.5 rounded-lg bg-white dark:bg-slate-800 border border-slate-200/70 text-[11px] text-slate-400 italic">
                       No government portal link registered.
                     </div>
                   )}
                 </div>
 
                 {/* Study Material & SOP Guidelines Card */}
-                <div className="p-4 rounded-2xl bg-indigo-50/40 dark:bg-slate-900/80 border border-indigo-100 dark:border-slate-800 space-y-2.5 shadow-2xs">
-                  <div className="flex items-center gap-2 text-indigo-900 dark:text-indigo-300 font-bold text-xs">
+                <div className="p-3 rounded-xl bg-indigo-50/40 dark:bg-slate-900/80 border border-indigo-100 dark:border-slate-800 space-y-2 shadow-2xs">
+                  <div className="flex items-center gap-1.5 text-indigo-900 dark:text-indigo-300 font-bold text-[11px]">
                     <span>▶️</span>
                     <span>Study Material &amp; SOP Guideline (Files &amp; Attachments)</span>
                   </div>
@@ -1518,21 +1550,21 @@ export default function ServicesPage() {
                       return (
                         <div
                           key={idx}
-                          className="flex items-center justify-between p-3 rounded-xl bg-white dark:bg-slate-800 border border-slate-200/70 dark:border-slate-700 text-xs shadow-2xs"
+                          className="flex items-center justify-between p-2 rounded-lg bg-white dark:bg-slate-800 border border-slate-200/70 dark:border-slate-700 text-xs shadow-2xs"
                         >
-                          <div className="flex items-center gap-2 min-w-0 pr-2">
-                            <FileText className="w-4 h-4 text-blue-500 shrink-0" />
-                            <span className="font-bold text-slate-800 dark:text-slate-200 truncate">{title}</span>
+                          <div className="flex items-center gap-1.5 min-w-0 pr-2">
+                            <FileText className="w-3.5 h-3.5 text-blue-500 shrink-0" />
+                            <span className="font-bold text-slate-800 dark:text-slate-200 truncate text-[11px]">{title}</span>
                           </div>
-                          <div className="flex items-center gap-2 shrink-0">
+                          <div className="flex items-center gap-1.5 shrink-0">
                             {fileUrl && fileUrl !== "#" && (
                               <button
                                 type="button"
                                 onClick={() => downloadFile(fileUrl, title.endsWith(".pdf") ? title : `${title}.pdf`)}
-                                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs shadow-xs transition-colors cursor-pointer"
+                                className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md bg-blue-600 hover:bg-blue-700 text-white font-bold text-[11px] shadow-xs transition-colors cursor-pointer"
                                 title="Download PDF"
                               >
-                                <Download className="w-3.5 h-3.5" />
+                                <Download className="w-3 h-3" />
                                 <span>Download</span>
                               </button>
                             )}
@@ -1541,7 +1573,7 @@ export default function ServicesPage() {
                       );
                     })
                   ) : (
-                    <div className="p-3 rounded-xl bg-white dark:bg-slate-800 border border-slate-200/70 text-xs text-slate-400 italic">
+                    <div className="p-2.5 rounded-lg bg-white dark:bg-slate-800 border border-slate-200/70 text-[11px] text-slate-400 italic">
                       No SOP files attached.
                     </div>
                   )}
@@ -1549,8 +1581,63 @@ export default function ServicesPage() {
               </div>
             </div>
 
+            {/* Print-Only Detailed Contact Us Block (Always pinned to bottom) */}
+            <div className="hidden print:block print-footer">
+              <div className="flex items-center justify-between pb-1.5 border-b border-slate-200">
+                <span className="text-[11px] font-black text-slate-900 tracking-tight uppercase">
+                  Contact Finsocap Financial Solutions
+                </span>
+                <span className="text-[9px] text-slate-400 font-semibold">
+                  ISO 9001:2015 Verified Platform
+                </span>
+              </div>
+              
+              <div className="grid grid-cols-3 gap-3 pt-1 text-slate-700">
+                {/* Address */}
+                <div className="flex items-start gap-1.5">
+                  <div className="w-4 h-4 rounded-md bg-emerald-50 text-emerald-600 flex items-center justify-center shrink-0 mt-0.5 border border-emerald-200">
+                    <MapPin className="w-2.5 h-2.5" />
+                  </div>
+                  <p className="font-semibold text-[9px] leading-tight text-slate-800">
+                    717/F-2, Anmol Apartments, Radha Krishna Marg, Ghaziabad, UP, 201005
+                  </p>
+                </div>
+
+                {/* Email */}
+                <div className="flex items-center gap-1.5">
+                  <div className="w-4 h-4 rounded-md bg-emerald-50 text-emerald-600 flex items-center justify-center shrink-0 border border-emerald-200">
+                    <Mail className="w-2.5 h-2.5" />
+                  </div>
+                  <div>
+                    <span className="block text-[8px] text-slate-400 uppercase font-bold">Email</span>
+                    <a href="mailto:info@finsocap.com" className="font-bold text-[10px] text-slate-900">
+                      info@finsocap.com
+                    </a>
+                  </div>
+                </div>
+
+                {/* Phone */}
+                <div className="flex items-center gap-1.5">
+                  <div className="w-4 h-4 rounded-md bg-emerald-50 text-emerald-600 flex items-center justify-center shrink-0 border border-emerald-200">
+                    <Phone className="w-2.5 h-2.5" />
+                  </div>
+                  <div>
+                    <span className="block text-[8px] text-slate-400 uppercase font-bold">Hotline</span>
+                    <a href="tel:+919873207632" className="font-bold text-[10px] text-slate-900">
+                      +91 98732 07632
+                    </a>
+                  </div>
+                </div>
+              </div>
+
+              <div className="mt-1 pt-1 border-t border-slate-100 flex items-center justify-between text-[8px] text-slate-400 font-medium">
+                <span>© {new Date().getFullYear()} Finsocap Financial Solutions Private Limited. All rights reserved.</span>
+                <span className="font-mono">www.finsocap.com • Confidential Dossier</span>
+              </div>
+            </div>
+
             {/* Footer with Close Button */}
-            <div className="flex justify-end pt-3 border-t border-slate-100 dark:border-slate-800">
+            <div className="no-print flex items-center justify-end pt-3 border-t border-slate-100 dark:border-slate-800">
               <button
                 onClick={() => setViewingService(null)}
                 className="px-6 py-2 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-xs font-bold text-slate-700 dark:text-slate-200 cursor-pointer transition-colors"

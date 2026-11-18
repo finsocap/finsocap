@@ -22,6 +22,7 @@ import WeatherWidgetCard from "@/components/Dashboard/WeatherWidgetCard";
 import TaskIdBadge from "@/components/Dashboard/TaskIdBadge";
 import { useCrmStore, fetchLiveDbData } from "@/lib/crmStore";
 import { isDateWithinRange, getCurrentMonthRangeLabel } from "@/lib/dateRangeHelper";
+import { toTitleCase } from "@/lib/formatters";
 
 export default function DashboardHome() {
   const [dateRange, setDateRange] = useState(() => getCurrentMonthRangeLabel());
@@ -144,8 +145,7 @@ export default function DashboardHome() {
           return false;
         }
         return true;
-      })
-      .slice(0, 8);
+      });
   }, [tasks, selectedPartner, dateRange]);
 
   // Filtered Activities
@@ -161,18 +161,27 @@ export default function DashboardHome() {
         }
         return true;
       })
-      .slice(0, 8)
-      .map((t) => ({
-        id: t.id,
-        initials: (t.assignee || "TM").slice(0, 2).toUpperCase(),
-        name: t.assignee || "Unassigned",
-        role: "Member",
-        text: `${t.service} - ${t.status}`,
-        time: t.date || "Today",
-        color: "bg-blue-600 text-white",
-        branch: t.partner || "HQ",
-        partner: t.partner,
-      }));
+      .map((t) => {
+        const isUnassigned = !t.assignee || t.assignee.toLowerCase().includes("unassign");
+        return {
+          id: t.id,
+          initials: isUnassigned ? "UA" : (t.assignee || "TM").slice(0, 2).toUpperCase(),
+          name: isUnassigned ? "Unassigned" : t.assignee,
+          role: "Member",
+          text: `${t.service} - ${t.status}`,
+          time: t.date || "Today",
+          color: isUnassigned ? "bg-rose-100 text-rose-600 dark:bg-rose-950/60 dark:text-rose-400 border border-rose-200 dark:border-rose-800" : "bg-blue-600 text-white",
+          branch: t.partner || "HQ",
+          partner: t.partner,
+          isUnassigned,
+        };
+      })
+      .sort((a, b) => {
+        // Unassigned items first at the top
+        if (a.isUnassigned && !b.isUnassigned) return -1;
+        if (!a.isUnassigned && b.isUnassigned) return 1;
+        return 0;
+      });
   }, [tasks, selectedPartner, dateRange]);
 
   const handleResetFilters = () => {
@@ -316,10 +325,10 @@ export default function DashboardHome() {
       </div>
 
       {/* 3. Classic View: Charts & Task Summary */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-3.5 2xl:gap-4 items-stretch">
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 items-stretch">
 
         {/* Col 1: Leads & Revenue Overview (5 cols) */}
-        <div className="lg:col-span-5 h-[290px] xl:h-[310px] 2xl:h-[340px]">
+        <div className="lg:col-span-5 h-[340px]">
           <LeadsRevenueChart
             selectedBranch={selectedPartner}
             dateRange={dateRange}
@@ -327,16 +336,16 @@ export default function DashboardHome() {
         </div>
 
         {/* Col 2: Service-wise Distribution (4 cols) */}
-        <div className="lg:col-span-4 h-[290px] xl:h-[310px] 2xl:h-[340px]">
+        <div className="lg:col-span-4 h-[340px]">
           <ServiceDistributionDonut
             selectedBranch={selectedPartner}
           />
         </div>
 
         {/* Col 3: Task Summary (3 cols) matching Reference Screenshot */}
-        <div className="lg:col-span-3 h-[290px] xl:h-[310px] 2xl:h-[340px] bg-white dark:bg-[#0c1427] rounded-3xl border border-slate-200/90 dark:border-slate-800 p-4 2xl:p-5 shadow-sm flex flex-col justify-between relative">
-          <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800/80 pb-2.5 2xl:pb-3">
-            <h3 className="font-black text-slate-900 dark:text-white text-sm 2xl:text-base tracking-tight">
+        <div className="lg:col-span-3 h-[340px] bg-white dark:bg-[#0c1427] rounded-3xl border border-slate-200/90 dark:border-slate-800 p-5 shadow-sm flex flex-col justify-between relative">
+          <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800/80 pb-3">
+            <h3 className="font-black text-slate-900 dark:text-white text-base tracking-tight">
               Task Summary
             </h3>
 
@@ -492,77 +501,80 @@ export default function DashboardHome() {
           </div>
 
           <div className="overflow-x-auto flex-1">
-            <table className="w-full text-left border-collapse text-xs">
-              <thead>
-                <tr className="border-b border-slate-100 dark:border-slate-800 text-[11px] font-bold text-slate-400 bg-slate-50/50 dark:bg-slate-900/50">
-                  <th className="py-2.5 px-4">Task ID</th>
-                  <th className="py-2.5 px-4">Client Name</th>
-                  <th className="py-2.5 px-4">Service</th>
-                  <th className="py-2.5 px-4">Partner</th>
-                  <th className="py-2.5 px-4">Status</th>
-                  <th className="py-2.5 px-4 text-right">Date</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100 dark:divide-slate-800/60 font-medium">
-                {filteredRecentTasks.length === 0 ? (
-                  <tr>
-                    <td colSpan={6} className="py-8 text-center text-slate-400 font-medium">
-                      No service requests recorded yet
-                    </td>
+            {/* Exactly 5 items visible in container with sleek custom scrollbar */}
+            <div className="max-h-[295px] overflow-y-auto custom-slim-scrollbar">
+              <table className="w-full text-left border-collapse text-xs">
+                <thead className="sticky top-0 z-10">
+                  <tr className="border-b border-slate-100 dark:border-slate-800 text-[11px] font-bold text-slate-400 bg-slate-50/95 dark:bg-slate-900/95 backdrop-blur-xs">
+                    <th className="py-2.5 px-4">Task ID</th>
+                    <th className="py-2.5 px-4">Client Name</th>
+                    <th className="py-2.5 px-4">Service</th>
+                    <th className="py-2.5 px-4">Partner</th>
+                    <th className="py-2.5 px-4">Status</th>
+                    <th className="py-2.5 px-4 text-right">Date</th>
                   </tr>
-                ) : (
-                  filteredRecentTasks.map((t: any, idx: number) => {
-                    const taskIdVal = t.id || `#${idx + 1}`;
+                </thead>
+                <tbody className="divide-y divide-slate-100 dark:divide-slate-800/60 font-medium">
+                  {filteredRecentTasks.length === 0 ? (
+                    <tr>
+                      <td colSpan={6} className="py-12 text-center text-slate-400 font-medium">
+                        No service requests recorded yet
+                      </td>
+                    </tr>
+                  ) : (
+                    filteredRecentTasks.map((t: any, idx: number) => {
+                      const taskIdVal = t.id || `#${idx + 1}`;
 
-                    return (
-                      <tr
-                        key={t.id || idx}
-                        className="hover:bg-slate-50/80 dark:hover:bg-slate-800/50 transition-colors"
-                      >
-                        <td className="py-2.5 px-4 whitespace-nowrap">
-                          <TaskIdBadge
-                            id={taskIdVal}
-                            href={`/dashboard/tasks/${t.numericId || t.id}`}
-                          />
-                        </td>
-                        <td className="py-2.5 px-4">
-                          <span className="font-bold text-slate-900 dark:text-white block">
-                            {t.client || "Client"}
-                          </span>
-                          {t.phone && (
-                            <span className="text-[10px] text-slate-400 dark:text-slate-500 font-medium">
-                              {t.phone}
+                      return (
+                        <tr
+                          key={t.id || idx}
+                          className="h-[52px] hover:bg-slate-50/80 dark:hover:bg-slate-800/50 transition-colors"
+                        >
+                          <td className="py-2 px-4 whitespace-nowrap">
+                            <TaskIdBadge
+                              id={taskIdVal}
+                              href={`/dashboard/tasks/${t.numericId || t.id}`}
+                            />
+                          </td>
+                          <td className="py-2 px-4">
+                            <span className="font-bold text-slate-900 dark:text-white block text-xs">
+                              {toTitleCase(t.client || "Client")}
                             </span>
-                          )}
-                        </td>
-                        <td className="py-2.5 px-4 text-slate-700 dark:text-slate-300 font-medium">
-                          {t.service || "-"}
-                        </td>
-                        <td className="py-2.5 px-4">
-                          <span className="text-[10px] font-bold text-amber-700 dark:text-amber-400 bg-amber-500/10 px-2 py-0.5 rounded-md border border-amber-500/20">
-                            {t.partner || "HQ"}
-                          </span>
-                        </td>
-                        <td className="py-2.5 px-4">
-                          <span className={`inline-flex whitespace-nowrap px-2 py-0.5 rounded-md font-bold text-[10px] ${getStatusBadge(t.status || "Pending")}`}>
-                            {t.status || "Pending"}
-                          </span>
-                        </td>
-                        <td className="py-2.5 px-4 text-right text-slate-500 dark:text-slate-400 font-semibold text-[11px]">
-                          {t.date || "Today"}
-                        </td>
-                      </tr>
-                    );
-                  })
-                )}
-              </tbody>
-            </table>
+                            {t.phone && (
+                              <span className="text-[10px] text-slate-400 dark:text-slate-500 font-mono">
+                                {t.phone}
+                              </span>
+                            )}
+                          </td>
+                          <td className="py-2 px-4 text-slate-700 dark:text-slate-300 font-medium truncate max-w-[170px]" title={t.service}>
+                            {toTitleCase(t.service || "-")}
+                          </td>
+                          <td className="py-2 px-4">
+                            <span className="text-[10px] font-bold text-amber-700 dark:text-amber-400 bg-amber-500/10 px-2 py-0.5 rounded-md border border-amber-500/20 whitespace-nowrap">
+                              {toTitleCase(t.partner || "HQ")}
+                            </span>
+                          </td>
+                          <td className="py-2 px-4">
+                            <span className={`inline-flex whitespace-nowrap px-2 py-0.5 rounded-md font-bold text-[10px] ${getStatusBadge(t.status || "Pending")}`}>
+                              {toTitleCase(t.status || "Pending")}
+                            </span>
+                          </td>
+                          <td className="py-2 px-4 text-right text-slate-500 dark:text-slate-400 font-semibold text-[11px] whitespace-nowrap font-mono">
+                            {t.date || "Today"}
+                          </td>
+                        </tr>
+                      );
+                    })
+                  )}
+                </tbody>
+              </table>
+            </div>
           </div>
         </div>
 
         {/* Right: Team Activity (5 cols) matching Reference Screenshot */}
-        <div className="lg:col-span-5 bg-white dark:bg-[#0c1427] rounded-2xl border border-slate-200/90 dark:border-slate-800 shadow-sm p-4 sm:p-5 flex flex-col">
-          <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800/80 pb-2">
+        <div className="lg:col-span-5 bg-white dark:bg-[#0c1427] rounded-2xl border border-slate-200/90 dark:border-slate-800 shadow-sm overflow-hidden flex flex-col">
+          <div className="p-4 sm:p-5 flex items-center justify-between border-b border-slate-100 dark:border-slate-800/80">
             <div className="flex items-center gap-2">
               <h3 className="font-black text-slate-900 dark:text-white text-sm sm:text-base tracking-tight">
                 Team Activity
@@ -583,54 +595,70 @@ export default function DashboardHome() {
           </div>
 
           <div className="overflow-x-auto flex-1">
-            <table className="w-full text-left border-collapse text-xs">
-              <thead>
-                <tr className="border-b border-slate-100 dark:border-slate-800 text-[11px] font-bold text-slate-400">
-                  <th className="py-2 px-2">User</th>
-                  <th className="py-2 px-2">Role</th>
-                  <th className="py-2 px-2">Activity</th>
-                  <th className="py-2 px-2 text-right">Time</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100 dark:divide-slate-800/60 font-medium">
-                {filteredActivities.length === 0 ? (
-                  <tr>
-                    <td colSpan={4} className="py-8 text-center text-slate-400 font-medium">
-                      No recent activities recorded yet
-                    </td>
+            {/* Exactly 5 items visible in container with sleek custom scrollbar */}
+            <div className="max-h-[295px] overflow-y-auto custom-slim-scrollbar">
+              <table className="w-full text-left border-collapse text-xs">
+                <thead className="sticky top-0 z-10">
+                  <tr className="border-b border-slate-100 dark:border-slate-800 text-[11px] font-bold text-slate-400 bg-slate-50/95 dark:bg-slate-900/95 backdrop-blur-xs">
+                    <th className="py-2.5 px-4">User</th>
+                    <th className="py-2.5 px-4">Role</th>
+                    <th className="py-2.5 px-4">Activity</th>
+                    <th className="py-2.5 px-4 text-right">Time</th>
                   </tr>
-                ) : (
-                  filteredActivities.map((act) => (
-                    <tr key={act.id} className="hover:bg-slate-50/80 dark:hover:bg-slate-800/50 transition-colors">
-                      <td className="py-2 px-2">
-                        <div className="flex items-center gap-2">
-                          <div className={`w-6 h-6 rounded-full flex items-center justify-center font-bold text-[9px] shrink-0 ${act.color}`}>
-                            {act.initials}
-                          </div>
-                          <div className="overflow-hidden">
-                            <span className="font-bold text-slate-900 dark:text-white truncate block max-w-[85px] text-[11px]">
-                              {act.name}
-                            </span>
-                            <span className="text-[9px] text-slate-400 truncate block">
-                              {act.branch}
-                            </span>
-                          </div>
-                        </div>
-                      </td>
-                      <td className="py-2 px-2 text-slate-500 dark:text-slate-400 text-[11px]">
-                        {act.role}
-                      </td>
-                      <td className="py-2 px-2 text-slate-600 dark:text-slate-300 text-[11px] truncate max-w-[150px]">
-                        {act.text}
-                      </td>
-                      <td className="py-2 px-2 text-right text-slate-400 text-[10px] font-semibold whitespace-nowrap">
-                        {act.time}
+                </thead>
+                <tbody className="divide-y divide-slate-100 dark:divide-slate-800/60 font-medium">
+                  {filteredActivities.length === 0 ? (
+                    <tr>
+                      <td colSpan={4} className="py-12 text-center text-slate-400 font-medium">
+                        No recent activities recorded yet
                       </td>
                     </tr>
-                  ))
-                )}
-              </tbody>
-            </table>
+                  ) : (
+                    filteredActivities.map((act) => (
+                      <tr
+                        key={act.id}
+                        className={`h-[52px] transition-colors ${
+                          act.isUnassigned
+                            ? "bg-rose-50/40 hover:bg-rose-50/80 dark:bg-rose-950/20 dark:hover:bg-rose-950/40"
+                            : "hover:bg-slate-50/80 dark:hover:bg-slate-800/50"
+                        }`}
+                      >
+                        <td className="py-2 px-4 whitespace-nowrap">
+                          <div className="flex items-center gap-2">
+                            <div className={`w-6 h-6 rounded-full flex items-center justify-center font-bold text-[9px] shrink-0 ${act.color}`}>
+                              {act.initials}
+                            </div>
+                            <div className="overflow-hidden">
+                              <span
+                                className={`font-bold truncate block max-w-[95px] text-[11px] ${
+                                  act.isUnassigned
+                                    ? "text-rose-600 dark:text-rose-400"
+                                    : "text-slate-900 dark:text-white"
+                                }`}
+                              >
+                                {act.name}
+                              </span>
+                              <span className="text-[9px] text-slate-400 truncate block">
+                                {act.branch}
+                              </span>
+                            </div>
+                          </div>
+                        </td>
+                        <td className="py-2 px-4 text-slate-500 dark:text-slate-400 text-[11px] whitespace-nowrap">
+                          {act.role}
+                        </td>
+                        <td className="py-2 px-4 text-slate-600 dark:text-slate-300 text-[11px] truncate max-w-[140px]" title={act.text}>
+                          {act.text}
+                        </td>
+                        <td className="py-2 px-4 text-right text-slate-400 text-[10px] font-semibold whitespace-nowrap font-mono">
+                          {act.time}
+                        </td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
+            </div>
           </div>
         </div>
 

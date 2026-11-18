@@ -21,6 +21,7 @@ import {
 import AnimatedCounter from "@/components/Global/AnimatedCounter";
 import PageBanner from "@/components/Dashboard/PageBanner";
 import { useCrmStore } from "@/lib/crmStore";
+import { toTitleCase } from "@/lib/formatters";
 
 interface RoleDashboardViewProps {
   userRole: "STAFF" | "SPECIALIST" | "EXECUTIVE";
@@ -122,7 +123,7 @@ export default function RoleDashboardView({ userRole, currentUser }: RoleDashboa
         icon={Briefcase}
         badge={`Finsocap ${userRole} Workspace`}
         badgeMeta="Role-Secured Operational Intelligence"
-        title={`Welcome back, ${currentUser?.name || userRole}`}
+        title={`Welcome back, ${toTitleCase(currentUser?.name) || userRole}`}
         description={`Your personal dashboard displaying your active works, client assignments, task pipeline velocity, and team performance.`}
         bottomMeta={`${stats.totalWorks} Total Works • ${stats.openTasks} Active Assigned Cases • Live Synchronized`}
       />

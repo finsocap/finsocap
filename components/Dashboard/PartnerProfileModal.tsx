@@ -24,6 +24,7 @@ import {
 import ModalHeaderBanner from "@/components/Dashboard/ModalHeaderBanner";
 import { PartnerProfileData } from "@/lib/api/partnerPortalService";
 import { apiClient } from "@/lib/api/apiClient";
+import { toTitleCase } from "@/lib/formatters";
 
 interface PartnerProfileModalProps {
   profile: PartnerProfileData;

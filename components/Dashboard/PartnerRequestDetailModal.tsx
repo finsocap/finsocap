@@ -28,6 +28,7 @@ import {
   PartnerServiceRequestHistory 
 } from "@/lib/api/partnerPortalService";
 import { useToast } from "@/components/Global/ToastNotification";
+import { toTitleCase } from "@/lib/formatters";
 import PartnerChatDrawer from "./PartnerChatDrawer";
 import DocumentRequestsModal from "./DocumentRequestsModal";
 import TaskFilesModal from "./TaskFilesModal";
@@ -117,8 +118,8 @@ export default function PartnerRequestDetailModal({
             <ModalHeaderBanner
               icon={FileText}
               badge="SERVICE REQUEST LIFECYCLE"
-              title={detail ? `${detail.serviceName} · #${detail.requestCode || detail.id}` : `Request #${requestId}`}
-              description={detail ? `Customer: ${detail.customerName || "Customer"}` : "Service request tracker"}
+              title={detail ? `${toTitleCase(detail.serviceName)} · #${detail.requestCode || detail.id}` : `Request #${requestId}`}
+              description={detail ? `Customer: ${toTitleCase(detail.customerName) || "Customer"}` : "Service request tracker"}
               badgeTag="Op 20 & 22"
               onClose={onClose}
             />
@@ -234,11 +235,11 @@ export default function PartnerRequestDetailModal({
                     <div className="space-y-2 text-slate-600 dark:text-slate-300">
                       <div className="flex items-center justify-between">
                         <span className="text-slate-400">Service:</span>
-                        <span className="font-bold text-slate-900 dark:text-white">{detail.serviceName}</span>
+                        <span className="font-bold text-slate-900 dark:text-white">{toTitleCase(detail.serviceName)}</span>
                       </div>
                       <div className="flex items-center justify-between">
                         <span className="text-slate-400">Customer:</span>
-                        <span className="font-semibold text-slate-900 dark:text-white">{detail.customerName || `Customer #${detail.customerId}`}</span>
+                        <span className="font-semibold text-slate-900 dark:text-white">{toTitleCase(detail.customerName) || `Customer #${detail.customerId}`}</span>
                       </div>
                       <div className="flex items-center justify-between">
                         <span className="text-slate-400">Created:</span>
@@ -251,7 +252,7 @@ export default function PartnerRequestDetailModal({
                       {detail.assignedToName && (
                         <div className="flex items-center justify-between">
                           <span className="text-slate-400">Assigned Specialist:</span>
-                          <span className="font-bold text-blue-600 dark:text-sky-300">{detail.assignedToName}</span>
+                          <span className="font-bold text-blue-600 dark:text-sky-300">{toTitleCase(detail.assignedToName)}</span>
                         </div>
                       )}
                     </div>

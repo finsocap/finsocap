@@ -28,6 +28,7 @@ import {
   ExternalLink,
 } from "lucide-react";
 import PageBanner from "@/components/Dashboard/PageBanner";
+import { toTitleCase } from "@/lib/formatters";
 import AnimatedCounter from "@/components/Global/AnimatedCounter";
 import {
   TaskPaymentRequestItem,
@@ -414,13 +415,13 @@ export default function PaymentVerificationsPage() {
                         <TaskIdBadge id={req.requestCode || `#${req.taskId}`} />
                       </td>
                       <td className="py-3 px-3.5 font-bold text-slate-900 dark:text-white">
-                        {req.serviceName}
+                        {toTitleCase(req.serviceName)}
                       </td>
                       <td className="py-3 px-3.5 text-slate-700 dark:text-slate-300">
-                        {req.partnerName}
+                        {toTitleCase(req.partnerName)}
                       </td>
                       <td className="py-3 px-3.5 text-slate-600 dark:text-slate-400">
-                        {req.customerName}
+                        {toTitleCase(req.customerName)}
                       </td>
                       <td className="py-3 px-3.5 font-black text-slate-900 dark:text-white">
                         ₹{req.amount?.toLocaleString("en-IN")}
@@ -438,7 +439,7 @@ export default function PaymentVerificationsPage() {
                               req.status === "COMPLETED" ? "bg-emerald-500" : "bg-amber-500 animate-pulse"
                             }`}
                           />
-                          {req.status}
+                          {toTitleCase(req.status)}
                         </span>
                       </td>
                       <td className="py-3 px-3.5 font-mono text-[11px] text-slate-600 dark:text-slate-400">
@@ -536,17 +537,17 @@ export default function PaymentVerificationsPage() {
                         <TaskIdBadge id={task.requestCode || `#${task.id}`} href={`/dashboard/tasks/${task.id}`} />
                       </td>
                       <td className="py-3 px-3.5 font-bold text-slate-900 dark:text-white">
-                        {task.serviceName || task.service || "Service"}
+                        {toTitleCase(task.serviceName || task.service || "Service")}
                       </td>
                       <td className="py-3 px-3.5 text-slate-700 dark:text-slate-300">
-                        {task.partnerName || task.partner || "—"}
+                        {toTitleCase(task.partnerName || task.partner || "—")}
                       </td>
                       <td className="py-3 px-3.5 text-slate-600 dark:text-slate-400">
-                        {task.customerName || task.client || "—"}
+                        {toTitleCase(task.customerName || task.client || "—")}
                       </td>
                       <td className="py-3 px-3.5">
                         <span className="inline-block px-2.5 py-0.5 rounded-full text-[10px] font-black bg-emerald-50 text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-400 border border-emerald-300/40">
-                          COMPLETED
+                          Completed
                         </span>
                       </td>
                       <td className="py-3 px-3.5 text-right">

@@ -18,6 +18,7 @@ import { useCrmStore, LicenceModel, fetchLiveDbData } from "@/lib/crmStore";
 import { useToast } from "@/components/Global/ToastNotification";
 import ModalHeaderBanner from "@/components/Dashboard/ModalHeaderBanner";
 import { isDateWithinRange, getCurrentMonthRangeLabel } from "@/lib/dateRangeHelper";
+import { toTitleCase } from "@/lib/formatters";
 
 // ============================================================================
 // DATA MODELS & MOCK DATA (100% Exact Match with User Screenshots)
@@ -1222,7 +1223,7 @@ function ReportsPageContent() {
                             <span className={`w-6 h-6 rounded-full flex items-center justify-center font-bold text-[9px] shrink-0 ${emp.avatarColor}`}>
                               {emp.initials}
                             </span>
-                            <span className="font-bold text-slate-900 dark:text-white">{emp.name}</span>
+                            <span className="font-bold text-slate-900 dark:text-white">{toTitleCase(emp.name)}</span>
                           </div>
                         </td>
                         <td className="py-3.5 px-3 text-center font-bold text-slate-900 dark:text-white whitespace-nowrap">{emp.assigned}</td>
@@ -1702,7 +1703,7 @@ function ReportsPageContent() {
                                   <span className={`w-6 h-6 rounded-full flex items-center justify-center font-bold text-[9px] shrink-0 ${s.avatarColor}`}>
                                     {s.initials}
                                   </span>
-                                  <span className="font-bold text-slate-900 dark:text-white">{s.name}</span>
+                                  <span className="font-bold text-slate-900 dark:text-white">{toTitleCase(s.name)}</span>
                                 </div>
                               </td>
                               <td className="py-3.5 px-3 text-center font-semibold whitespace-nowrap">{s.clients}</td>
@@ -1998,7 +1999,7 @@ function ReportsPageContent() {
                         {lic.assignedTo && lic.assignedTo !== "-" ? (
                           <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full font-bold text-[10px] bg-purple-50 text-purple-700 dark:bg-purple-950/60 dark:text-purple-300 border border-purple-200/60 dark:border-purple-800/60">
                             <Users className="w-3 h-3 text-purple-500" />
-                            <span>{lic.assignedTo}</span>
+                            <span>{toTitleCase(lic.assignedTo)}</span>
                           </span>
                         ) : (
                           <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md font-bold text-[10px] bg-slate-100 text-slate-500 dark:bg-slate-800 dark:text-slate-400">
@@ -2006,9 +2007,9 @@ function ReportsPageContent() {
                           </span>
                         )}
                       </td>
-                      <td className="py-3 px-3 font-bold text-slate-900 dark:text-white">{lic.partnerName}</td>
+                      <td className="py-3 px-3 font-bold text-slate-900 dark:text-white">{toTitleCase(lic.partnerName)}</td>
                       <td className="py-3 px-3 text-slate-500">{lic.partnerNumber}</td>
-                      <td className="py-3 px-3 font-bold text-slate-900 dark:text-white">{lic.clientName}</td>
+                      <td className="py-3 px-3 font-bold text-slate-900 dark:text-white">{toTitleCase(lic.clientName)}</td>
                       <td className="py-3 px-3 text-slate-500">{lic.clientNumber}</td>
                       <td className="py-3 px-3">
                         <span className={`px-2.5 py-0.5 rounded-md text-[10px] font-bold border ${
@@ -2016,15 +2017,15 @@ function ReportsPageContent() {
                             ? "bg-amber-50 text-amber-700 dark:bg-amber-950/70 dark:text-amber-300 border-amber-200/60 dark:border-amber-800"
                             : "bg-sky-50 text-sky-700 dark:bg-sky-950/70 dark:text-sky-300 border-sky-200/60 dark:border-sky-800"
                         }`}>
-                          {lic.licenceType}
+                          {toTitleCase(lic.licenceType)}
                         </span>
                       </td>
                       <td className="py-3 px-3">
                         <span className="px-2 py-0.5 rounded-md text-[10px] font-bold bg-amber-50 text-amber-700 dark:bg-amber-950/70 dark:text-amber-300">
-                          {lic.taskCategory}
+                          {toTitleCase(lic.taskCategory)}
                         </span>
                       </td>
-                      <td className="py-3 px-3 text-purple-600 dark:text-purple-400 font-semibold">{lic.serviceName}</td>
+                      <td className="py-3 px-3 text-purple-600 dark:text-purple-400 font-semibold">{toTitleCase(lic.serviceName)}</td>
                       <td className="py-3 px-3 font-mono font-bold text-slate-700 dark:text-slate-300">{lic.licenceNumber}</td>
                       <td className="py-3 px-3 text-slate-500">{lic.issueDate}</td>
                       <td className="py-3 px-3 font-bold text-slate-800 dark:text-slate-200">{lic.expiryDate}</td>

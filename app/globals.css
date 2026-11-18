@@ -917,133 +917,207 @@ select:disabled {
 }
 
 /* ============================================================================
-   RESPONSIVE AUTO-SCALING FOR WINDOWS & 125%/150% DPI DISPLAYS
-   Prevents oversized typography, cards, and sidebar on typical Windows 1080p
-   screens (effective viewport 1280px-1536px due to Windows display scaling).
-   Preserves crisp 1:1 display on Mac Retina and large 2K/4K external monitors.
+   GLOBAL OS-BASED DUAL DESIGN SYSTEM (PROFILES: macOS vs Windows)
+   - [data-os="macos"]: 100% Native Spacious Retina Layout (MacBook Baseline).
+   - [data-os="windows"]: Proportional compact profile optimized for Windows 1080p
+     125%/150% scaling, preventing oversized typography, cards, and sidebar clipping.
    ============================================================================ */
-@media screen and (min-width: 1024px) and (max-width: 1536px) {
-  html {
-    font-size: 13px;
-  }
 
-  /* Automatically scale down oversized action buttons, trigger pills, and filter bars across all dashboard pages */
-  button.h-11,
-  a.h-11,
-  div.h-11,
-  select.h-11,
-  input.h-11 {
-    height: 2.25rem !important; /* ~36px to match sidebar item heights */
-    min-height: 2.25rem !important;
-    padding-top: 0.35rem !important;
-    padding-bottom: 0.35rem !important;
-    font-size: 0.78rem !important;
-  }
+/* 1. Default & macOS Profile Design Tokens */
+:root,
+html[data-os="macos"] {
+  --fs-sidebar-w: 16rem; /* 256px */
+  --fs-topbar-h: 74px;
+  --fs-chart-h: 340px;
+  --fs-btn-h: 2.75rem; /* 44px */
+}
 
-  button.h-12,
-  a.h-12,
-  div.h-12,
-  input.h-12 {
-    height: 2.35rem !important;
-    min-height: 2.35rem !important;
-    padding-top: 0.35rem !important;
-    padding-bottom: 0.35rem !important;
-  }
+/* 2. Windows Profile Design Tokens & Scaling */
+html[data-os="windows"] {
+  --fs-sidebar-w: 15rem; /* 240px */
+  --fs-topbar-h: 64px;
+  --fs-chart-h: 295px;
+  --fs-btn-h: 2.25rem; /* 36px */
 
-  /* Compact primary and action buttons for Windows laptops */
-  .btn-primary-vibrant,
-  .btn-emerald-vibrant,
-  .btn-purple-vibrant,
-  .btn-danger-vibrant,
-  .btn-glass-modern,
-  button:has(svg.lucide-download),
-  a:has(svg.lucide-download),
-  button:has(svg.lucide-plus),
-  a:has(svg.lucide-plus),
-  button:has(svg.lucide-user-plus),
-  a:has(svg.lucide-user-plus) {
-    height: 2.25rem !important; /* Exactly 36px - matching sidebar item height */
-    min-height: 2.25rem !important;
-    padding-top: 0.35rem !important;
-    padding-bottom: 0.35rem !important;
-    padding-left: 0.85rem !important;
-    padding-right: 0.85rem !important;
-    font-size: 0.75rem !important;
-    font-weight: 700 !important;
-    border-radius: 8px !important;
-    gap: 0.4rem !important;
-  }
+  /* Scale base rem typography proportionally on Windows 1080p desktop/laptop screens */
+  font-size: 13.8px;
+}
 
-  /* Scale icons inside buttons to stay sleek and aligned with text */
-  .btn-primary-vibrant svg,
-  .btn-emerald-vibrant svg,
-  .btn-purple-vibrant svg,
-  .btn-danger-vibrant svg,
-  .btn-glass-modern svg,
-  button:has(svg.lucide-download) svg,
-  button:has(svg.lucide-plus) svg,
-  button:has(svg.lucide-user-plus) svg {
-    width: 0.875rem !important; /* 14px */
-    height: 0.875rem !important;
-  }
-
-  /* Compact padding for buttons with py-3, py-3.5 or py-4 */
-  button.py-3,
-  a.py-3,
-  button.py-3\.5,
-  a.py-3\.5,
-  button.py-4,
-  a.py-4 {
-    padding-top: 0.4rem !important;
-    padding-bottom: 0.4rem !important;
-    font-size: 0.78rem !important;
-  }
-
-  /* Scale large action icon circles across all pages (Tasks, Partners, Team, Clients, etc.) */
-  div.w-11.h-11,
-  span.w-11.h-11,
-  button.w-11.h-11,
-  div.w-12.h-12,
-  span.w-12.h-12,
-  button.w-12.h-12 {
-    width: 2.25rem !important;
-    height: 2.25rem !important;
-  }
-
-  div.w-11.h-11 svg,
-  span.w-11.h-11 svg,
-  button.w-11.h-11 svg,
-  div.w-12.h-12 svg,
-  span.w-12.h-12 svg,
-  button.w-12.h-12 svg {
-    width: 1.15rem !important;
-    height: 1.15rem !important;
+@media screen and (min-width: 1024px) and (max-width: 1400px) {
+  html[data-os="windows"] {
+    font-size: 12.8px;
   }
 }
 
-@media screen and (min-width: 1024px) and (max-width: 1366px) {
-  html {
-    font-size: 12.2px;
-  }
+/* Windows-specific compact controls */
+html[data-os="windows"] header {
+  height: 64px !important;
+}
 
-  button.h-11,
-  a.h-11,
-  div.h-11,
-  select.h-11,
-  input.h-11 {
-    height: 2.25rem !important;
-    min-height: 2.25rem !important;
-    padding-top: 0.3rem !important;
-    padding-bottom: 0.3rem !important;
-    font-size: 0.75rem !important;
+html[data-os="windows"] aside.lg\:w-64 {
+  width: 15rem !important;
+}
+
+html[data-os="windows"] .btn-primary-vibrant,
+html[data-os="windows"] .btn-emerald-vibrant,
+html[data-os="windows"] .btn-purple-vibrant,
+html[data-os="windows"] .btn-danger-vibrant,
+html[data-os="windows"] .btn-glass-modern {
+  height: 2.25rem !important;
+  min-height: 2.25rem !important;
+  padding-top: 0.35rem !important;
+  padding-bottom: 0.35rem !important;
+  font-size: 0.78rem !important;
+}
+
+/* Pulsing opacity animation for Task Row Left Status Border */
+@keyframes borderPulseOpacity {
+  0%, 100% {
+    border-left-color: rgba(var(--indicator-rgb, 59, 130, 246), 0.25);
+  }
+  50% {
+    border-left-color: rgba(var(--indicator-rgb, 59, 130, 246), 1);
   }
 }
 
-@media screen and (min-width: 1024px) and (max-width: 1200px) {
-  html {
-    font-size: 11.8px;
+.task-status-border-pulse {
+  animation: borderPulseOpacity 2.6s ease-in-out infinite;
+}
+
+/* Print to PDF Styling for Service Specification Dossier */
+@media print {
+  @page {
+    size: A4 portrait;
+    margin: 8mm 10mm 8mm 10mm;
+  }
+
+  html, body {
+    background: #ffffff !important;
+    color: #0f172a !important;
+    height: auto !important;
+    min-height: 100% !important;
+    overflow: visible !important;
+  }
+
+  /* Hide sidebar, topbar, background aura & normal page chrome */
+  aside,
+  nav,
+  header,
+  .no-print,
+  div[class*="pointer-events-none fixed inset-0"] {
+    display: none !important;
+  }
+
+  /* Unhide printable containers and all their parents */
+  body,
+  #__next,
+  main,
+  div {
+    overflow: visible !important;
+    height: auto !important;
+  }
+
+  /* When printing single service modal: ONLY show the service specification dossier */
+  body:has(#service-specification-dossier) > *:not(:has(#service-specification-dossier)),
+  body:has(#service-specification-dossier) aside,
+  body:has(#service-specification-dossier) nav,
+  body:has(#service-specification-dossier) header,
+  body:has(#service-specification-dossier) main > *:not(:has(#service-specification-dossier)) {
+    display: none !important;
+  }
+
+  body:has(#service-specification-dossier) .space-y-6 > *:not(:has(#service-specification-dossier)) {
+    display: none !important;
+  }
+
+  body:has(#service-specification-dossier) .fixed.inset-0 {
+    position: static !important;
+    display: block !important;
+    background: transparent !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    overflow: visible !important;
+  }
+
+  #service-specification-dossier {
+    display: flex !important;
+    flex-direction: column !important;
+    min-height: calc(100vh - 16mm) !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    overflow: visible !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    box-shadow: none !important;
+    border: none !important;
+    background: #ffffff !important;
+    color: #0f172a !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+
+  /* Force Service Header Banner to retain crisp contrast and color in print */
+  #service-specification-dossier .service-dossier-banner {
+    background: linear-gradient(135deg, #1e3a8a, #2563eb, #0284c7) !important;
+    color: #ffffff !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+    padding: 16px 20px !important;
+    border-radius: 12px !important;
+  }
+
+  #service-specification-dossier .service-dossier-banner h3 {
+    color: #ffffff !important;
+    font-size: 20px !important;
+    font-weight: 900 !important;
+    opacity: 1 !important;
+    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.25) !important;
+  }
+
+  #service-specification-dossier .service-dossier-banner span,
+  #service-specification-dossier .service-dossier-banner p {
+    color: #eff6ff !important;
+    opacity: 1 !important;
+  }
+
+  /* Status badge inside banner */
+  #service-specification-dossier .service-status-pill {
+    background: #ffffff !important;
+    color: #047857 !important;
+    font-weight: 800 !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+
+  #service-specification-dossier .service-status-pill span {
+    color: #047857 !important;
+  }
+
+  /* Prevent awkward page break inside single service sections */
+  #service-specification-dossier > div:not(.print-footer) {
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+
+  /* Footer pushed directly to the absolute bottom of page */
+  #service-specification-dossier .print-footer {
+    margin-top: auto !important;
+    padding-top: 12px !important;
+    border-top: 2px solid #cbd5e1 !important;
+    width: 100% !important;
+    break-inside: avoid !important;
+    page-break-inside: avoid !important;
+    background: #ffffff !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+
+  .no-print {
+    display: none !important;
   }
 }
+
+
 
 
 

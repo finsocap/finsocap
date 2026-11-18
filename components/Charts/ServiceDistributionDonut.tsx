@@ -101,14 +101,14 @@ export default function ServiceDistributionDonut({
   ];
 
   return (
-    <div className="bg-white dark:bg-[#0c1427] rounded-3xl border border-slate-200/90 dark:border-slate-800 p-4 2xl:p-5 shadow-sm h-full flex flex-col justify-between relative overflow-hidden transition-all">
+    <div className="bg-white dark:bg-[#0c1427] rounded-3xl border border-slate-200/90 dark:border-slate-800 p-5 shadow-sm h-full flex flex-col justify-between relative overflow-hidden transition-all">
       {/* 1. Header Bar: Product Statistic + Today Filter */}
       <div className="flex items-start justify-between">
         <div>
-          <h2 className="text-sm 2xl:text-base font-black text-slate-900 dark:text-white tracking-tight leading-tight">
+          <h2 className="text-base font-black text-slate-900 dark:text-white tracking-tight leading-tight">
             Product Statistic
           </h2>
-          <p className="text-[11px] 2xl:text-xs font-semibold text-slate-400 dark:text-slate-500 mt-0.5">
+          <p className="text-xs font-semibold text-slate-400 dark:text-slate-500 mt-0.5">
             Track your product sales
           </p>
         </div>
@@ -154,10 +154,10 @@ export default function ServiceDistributionDonut({
       </div>
 
       {/* 2. Concentric Radial Progress Arcs + Big Total Product Sales */}
-      <div className="grid grid-cols-12 items-center gap-2 2xl:gap-3 my-auto py-1 2xl:py-2">
+      <div className="grid grid-cols-12 items-center gap-3 my-auto py-2">
         {/* Left Side: Concentric Rings (Outer, Middle, Inner) */}
         <div className="col-span-6 flex items-center justify-center">
-          <div className="relative w-32 h-32 2xl:w-40 2xl:h-40 flex items-center justify-center">
+          <div className="relative w-40 h-40 flex items-center justify-center">
             <svg
               viewBox="0 0 180 180"
               className="w-full h-full transform -rotate-140 overflow-visible"
