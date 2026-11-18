@@ -919,8 +919,8 @@ select:disabled {
 /* ============================================================================
    GLOBAL OS-BASED DUAL DESIGN SYSTEM (PROFILES: macOS vs Windows)
    - [data-os="macos"]: 100% Native Spacious Retina Layout (MacBook Baseline).
-   - [data-os="windows"]: Proportional compact profile optimized for Windows 1080p
-     125%/150% scaling, preventing oversized typography, cards, and sidebar clipping.
+   - [data-os="windows"]: Calibrated compact profile designed for Windows 1080p
+     laptops (effective viewport 1280px-1536px at 125%/150% DPI scaling).
    ============================================================================ */
 
 /* 1. Default & macOS Profile Design Tokens */
@@ -932,42 +932,151 @@ html[data-os="macos"] {
   --fs-btn-h: 2.75rem; /* 44px */
 }
 
-/* 2. Windows Profile Design Tokens & Scaling */
+/* 2. Windows Profile Design Tokens & Comprehensive Compact Scaling */
 html[data-os="windows"] {
   --fs-sidebar-w: 15rem; /* 240px */
   --fs-topbar-h: 64px;
-  --fs-chart-h: 295px;
+  --fs-chart-h: 290px;
   --fs-btn-h: 2.25rem; /* 36px */
 
-  /* Scale base rem typography proportionally on Windows 1080p desktop/laptop screens */
-  font-size: 13.8px;
+  /* Scale base rem typography & dimensions for Windows 1080p laptop displays */
+  font-size: 13px !important;
 }
 
-@media screen and (min-width: 1024px) and (max-width: 1400px) {
+@media screen and (min-width: 1024px) and (max-width: 1366px) {
   html[data-os="windows"] {
-    font-size: 12.8px;
+    font-size: 12.2px !important;
   }
 }
 
-/* Windows-specific compact controls */
+@media screen and (min-width: 1024px) and (max-width: 1200px) {
+  html[data-os="windows"] {
+    font-size: 11.8px !important;
+  }
+}
+
+/* Windows: Compact Topbar & Sidebar */
 html[data-os="windows"] header {
   height: 64px !important;
+  padding-left: 1.25rem !important;
+  padding-right: 1.25rem !important;
 }
 
 html[data-os="windows"] aside.lg\:w-64 {
   width: 15rem !important;
 }
 
-html[data-os="windows"] .btn-primary-vibrant,
-html[data-os="windows"] .btn-emerald-vibrant,
-html[data-os="windows"] .btn-purple-vibrant,
-html[data-os="windows"] .btn-danger-vibrant,
-html[data-os="windows"] .btn-glass-modern {
-  height: 2.25rem !important;
+html[data-os="windows"] aside .h-\[74px\] {
+  height: 64px !important;
+}
+
+/* Windows: Compact Navigation Links & Section Padding */
+html[data-os="windows"] aside nav a {
+  padding-top: 0.5rem !important;
+  padding-bottom: 0.5rem !important;
+}
+
+/* Windows: Compact Weather Widget */
+html[data-os="windows"] aside .h-\[180px\] {
+  height: 110px !important;
+}
+
+/* Windows: Scale down oversized action buttons, trigger pills, and filter bars across all dashboard pages */
+html[data-os="windows"] button.h-11,
+html[data-os="windows"] a.h-11,
+html[data-os="windows"] div.h-11,
+html[data-os="windows"] select.h-11,
+html[data-os="windows"] input.h-11 {
+  height: 2.25rem !important; /* Exactly 36px */
   min-height: 2.25rem !important;
   padding-top: 0.35rem !important;
   padding-bottom: 0.35rem !important;
   font-size: 0.78rem !important;
+}
+
+html[data-os="windows"] button.h-12,
+html[data-os="windows"] a.h-12,
+html[data-os="windows"] div.h-12,
+html[data-os="windows"] input.h-12 {
+  height: 2.35rem !important;
+  min-height: 2.35rem !important;
+  padding-top: 0.35rem !important;
+  padding-bottom: 0.35rem !important;
+}
+
+/* Windows: Compact primary and action buttons */
+html[data-os="windows"] .btn-primary-vibrant,
+html[data-os="windows"] .btn-emerald-vibrant,
+html[data-os="windows"] .btn-purple-vibrant,
+html[data-os="windows"] .btn-danger-vibrant,
+html[data-os="windows"] .btn-glass-modern,
+html[data-os="windows"] button:has(svg.lucide-download),
+html[data-os="windows"] a:has(svg.lucide-download),
+html[data-os="windows"] button:has(svg.lucide-plus),
+html[data-os="windows"] a:has(svg.lucide-plus),
+html[data-os="windows"] button:has(svg.lucide-user-plus),
+html[data-os="windows"] a:has(svg.lucide-user-plus) {
+  height: 2.25rem !important; /* 36px */
+  min-height: 2.25rem !important;
+  padding-top: 0.35rem !important;
+  padding-bottom: 0.35rem !important;
+  padding-left: 0.85rem !important;
+  padding-right: 0.85rem !important;
+  font-size: 0.75rem !important;
+  font-weight: 700 !important;
+  border-radius: 8px !important;
+  gap: 0.4rem !important;
+}
+
+/* Windows: Scale icons inside action buttons */
+html[data-os="windows"] .btn-primary-vibrant svg,
+html[data-os="windows"] .btn-emerald-vibrant svg,
+html[data-os="windows"] .btn-purple-vibrant svg,
+html[data-os="windows"] .btn-danger-vibrant svg,
+html[data-os="windows"] .btn-glass-modern svg,
+html[data-os="windows"] button:has(svg.lucide-download) svg,
+html[data-os="windows"] button:has(svg.lucide-plus) svg,
+html[data-os="windows"] button:has(svg.lucide-user-plus) svg {
+  width: 0.875rem !important; /* 14px */
+  height: 0.875rem !important;
+}
+
+/* Windows: Compact padding for buttons with py-3, py-3.5 or py-4 */
+html[data-os="windows"] button.py-3,
+html[data-os="windows"] a.py-3,
+html[data-os="windows"] button.py-3\.5,
+html[data-os="windows"] a.py-3\.5,
+html[data-os="windows"] button.py-4,
+html[data-os="windows"] a.py-4 {
+  padding-top: 0.4rem !important;
+  padding-bottom: 0.4rem !important;
+  font-size: 0.78rem !important;
+}
+
+/* Windows: Scale large action icon circles across all pages (Tasks, Partners, Team, Clients) */
+html[data-os="windows"] div.w-11.h-11,
+html[data-os="windows"] span.w-11.h-11,
+html[data-os="windows"] button.w-11.h-11,
+html[data-os="windows"] div.w-12.h-12,
+html[data-os="windows"] span.w-12.h-12,
+html[data-os="windows"] button.w-12.h-12 {
+  width: 2.25rem !important;
+  height: 2.25rem !important;
+}
+
+html[data-os="windows"] div.w-11.h-11 svg,
+html[data-os="windows"] span.w-11.h-11 svg,
+html[data-os="windows"] button.w-11.h-11 svg,
+html[data-os="windows"] div.w-12.h-12 svg,
+html[data-os="windows"] span.w-12.h-12 svg,
+html[data-os="windows"] button.w-12.h-12 svg {
+  width: 1.15rem !important;
+  height: 1.15rem !important;
+}
+
+/* Windows: Compact card padding & heights */
+html[data-os="windows"] .h-\[340px\] {
+  height: 290px !important;
 }
 
 /* Pulsing opacity animation for Task Row Left Status Border */
