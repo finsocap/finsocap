@@ -123,8 +123,19 @@ export default function TasksPage() {
   const formatShortTaskId = (id: string) => {
     if (!id) return "";
     const clean = id.trim();
-    if (clean.length <= 12) return clean;
-    return `${clean.slice(0, 10)}...`;
+    let prefix = "";
+    let rest = clean;
+    if (clean.startsWith("T-")) {
+      prefix = "T-";
+      rest = clean.slice(2);
+    } else if (clean.startsWith("#")) {
+      prefix = "#";
+      rest = clean.slice(1);
+    }
+    if (rest.length > 4) {
+      return `${prefix}${rest.slice(0, 4)}...`;
+    }
+    return clean;
   };
 
   const showToast = (msg: string) => {

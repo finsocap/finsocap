@@ -94,15 +94,24 @@ export function validateEmail(email: string): { isValid: boolean; error?: string
 export function formatIndianPhoneNumber(phone: string): string {
   if (!phone) return "";
 
-  // Strip all non-digit characters except a leading '+'
+  // Strip all non-digit characters
   let digits = phone.replace(/\D/g, "");
 
-  // If starts with 91 and has 12 digits, strip country code to get 10 digits
-  if (digits.length === 12 && digits.startsWith("91")) {
+  // If user pasted or typed with leading 91 (country code) and has 12 digits total
+  if (digits.length >= 12 && digits.startsWith("91")) {
     digits = digits.slice(2);
-  } else if (digits.length === 11 && digits.startsWith("0")) {
+  } else if (digits.length >= 11 && digits.startsWith("0")) {
     // Leading 0 (trunk code)
     digits = digits.slice(1);
+  }
+
+  // Strictly enforce max 10 Indian mobile digits
+  if (digits.length > 10) {
+    digits = digits.slice(0, 10);
+  }
+
+  if (digits.length === 0) {
+    return "";
   }
 
   // Format 10 digits as +91 XXXXX XXXXX
@@ -111,20 +120,10 @@ export function formatIndianPhoneNumber(phone: string): string {
   }
 
   // For partial typing:
-  if (digits.length > 0 && digits.length <= 5) {
+  if (digits.length <= 5) {
     return `+91 ${digits}`;
   }
-  if (digits.length > 5 && digits.length < 10) {
-    return `+91 ${digits.slice(0, 5)} ${digits.slice(5)}`;
-  }
-
-  // If longer than 10 digits and not 12, return with +91 if not present
-  if (digits.length > 10) {
-    const mainDigits = digits.slice(-10);
-    return `+91 ${mainDigits.slice(0, 5)} ${mainDigits.slice(5)}`;
-  }
-
-  return phone.trim();
+  return `+91 ${digits.slice(0, 5)} ${digits.slice(5)}`;
 }
 
 /**

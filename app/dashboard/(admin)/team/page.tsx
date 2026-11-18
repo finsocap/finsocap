@@ -28,7 +28,8 @@ import {
   Check,
   Copy,
   Zap,
-  Plus
+  Plus,
+  AlertCircle
 } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -72,6 +73,14 @@ export default function TeamPage() {
   const [departmentsList, setDepartmentsList] = useState<Array<{ id: number; name: string }>>([]);
   const [servicesList, setServicesList] = useState<CatalogService[]>([]);
   const [isSubmittingEnroll, setIsSubmittingEnroll] = useState(false);
+
+  // Status Change Confirmation Modal (Prevents accidental deactivations)
+  const [confirmToggleUser, setConfirmToggleUser] = useState<{
+    id: string | number;
+    name: string;
+    currentStatus: string;
+    email: string;
+  } | null>(null);
 
   const fetchTeamApiData = useCallback(async () => {
     try {
@@ -188,10 +197,48 @@ export default function TeamPage() {
     });
   }, [users, selectedDept, selectedRole, selectedStatus, search]);
 
-  const handleToggle = (userId: string | number, name: string, currentStatus: string) => {
+  const handleToggle = (userId: string | number, name: string, currentStatus: string, email?: string) => {
+    // If deactivating, open professional confirmation modal first to prevent accidental actions
+    if (currentStatus === "Active") {
+      setConfirmToggleUser({ id: userId, name, currentStatus, email: email || "" });
+      return;
+    }
+
+    // Direct reactivation
+    performToggleStatus(userId, name, currentStatus, email);
+  };
+
+  const performToggleStatus = (userId: string | number, name: string, currentStatus: string, email?: string) => {
     toggleUserStatus(userId);
+
+    // Sync to cross-tab storage for immediate lockout
+    if (typeof window !== "undefined") {
+      try {
+        const storedList = JSON.parse(localStorage.getItem("finsocap_deactivated_accounts") || "[]");
+        let nextList: string[] = Array.isArray(storedList) ? [...storedList] : [];
+        const identifiers = [
+          String(userId).trim(),
+          name.trim().toLowerCase(),
+          (email || "").trim().toLowerCase()
+        ].filter(Boolean);
+
+        if (currentStatus === "Active") {
+          // Deactivating: Add identifiers
+          identifiers.forEach(id => {
+            if (!nextList.includes(id)) nextList.push(id);
+          });
+        } else {
+          // Reactivating: Remove identifiers
+          nextList = nextList.filter(id => !identifiers.includes(id));
+        }
+
+        localStorage.setItem("finsocap_deactivated_accounts", JSON.stringify(nextList));
+      } catch (e) {}
+    }
+
+    setConfirmToggleUser(null);
     showToast(
-      `${name} is now ${currentStatus === "Active" ? "deactivated" : "reactivated"}.`
+      `${name} has been ${currentStatus === "Active" ? "deactivated and restricted from workspace" : "reactivated successfully"}.`
     );
   };
 
@@ -201,12 +248,15 @@ export default function TeamPage() {
     setFormEmail(user.email || `${user.name.toLowerCase().replace(/\s+/g, ".")}@finsocap.com`);
     setFormPassword(user.password || "Password@123");
     setFormDesignation(user.role);
-    setFormRole("STAFF");
     setFormDept(user.dept);
     const matchedDept = departmentsList.find(
       (d) => d.name.toLowerCase() === (user.dept || "").toLowerCase()
     );
-    if (matchedDept) setFormDeptId(matchedDept.id);
+    if (matchedDept) {
+      setFormDeptId(matchedDept.id);
+    } else if (departmentsList.length > 0) {
+      setFormDeptId(departmentsList[0].id);
+    }
 
     setFormPhone(user.phone);
     setSelectedSkills(user.skills && user.skills.length > 0 ? user.skills : [user.skill]);
@@ -339,14 +389,21 @@ export default function TeamPage() {
       .filter((s) => selectedServiceIds.includes(s.id))
       .map((s) => s.name);
 
+    const cleanPhone = formPhone.trim();
+    const formattedPhone = cleanPhone ? (cleanPhone.startsWith("+91") ? cleanPhone : `+91 ${cleanPhone.slice(0, 5)} ${cleanPhone.slice(5)}`.trim()) : editingUser.phone;
+    const targetDeptId = formDeptId || departmentsList[0]?.id || 1;
+
     // Call live API PUT /api/admin/team/specialists/{id}
     try {
-      const targetDeptId = formDeptId || departmentsList[0]?.id || 1;
       await apiClient.put(`/team/specialists/${editingUser.id}`, {
         fullName: formName.trim(),
         designation: formDesignation.trim(),
         departmentId: targetDeptId,
+        department: formDept.toUpperCase(),
+        email: formEmail.trim(),
+        phone: normalizePhoneForBackend(formPhone),
         serviceIds: selectedServiceIds,
+        competencies: chosenCompetencies.length > 0 ? chosenCompetencies : (selectedSkills.length > 0 ? selectedSkills : [editingUser.skill]),
       });
       fetchTeamApiData();
     } catch (err) {
@@ -361,7 +418,7 @@ export default function TeamPage() {
       dept: formDept,
       skill: chosenCompetencies.length > 0 ? chosenCompetencies.join(", ") : (selectedSkills.length > 0 ? selectedSkills.join(", ") : editingUser.skill),
       skills: chosenCompetencies.length > 0 ? chosenCompetencies : (selectedSkills.length > 0 ? selectedSkills : editingUser.skills),
-      phone: formPhone.trim() || editingUser.phone,
+      phone: formattedPhone,
     });
 
     setIsEditModalOpen(false);
@@ -721,31 +778,47 @@ export default function TeamPage() {
                       </td>
 
                       {/* Actions: Admin Only */}
-                      {!["STAFF", "SPECIALIST", "EXECUTIVE"].includes(userRole) && (
-                        <td className="py-3.5 px-5 text-right whitespace-nowrap">
-                          <div className="flex items-center justify-end gap-1.5">
-                            <button
-                              type="button"
-                              onClick={() => openEditUserModal(user)}
-                              className="p-1.5 text-slate-400 hover:text-blue-600 dark:hover:text-sky-400 hover:bg-blue-50 dark:hover:bg-blue-950/60 rounded-lg transition-colors cursor-pointer"
-                              title="Edit Credentials & Profile"
-                            >
-                              <Edit2 className="w-3.5 h-3.5" />
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => handleToggle(user.id, user.name, user.status)}
-                              className={`px-2.5 py-1 rounded-lg text-xs font-bold transition-all cursor-pointer ${
-                                user.status === "Active"
-                                  ? "text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/40 border border-rose-200 dark:border-rose-900"
-                                  : "text-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-900"
-                              }`}
-                            >
-                              {user.status === "Active" ? "Deactivate" : "Activate"}
-                            </button>
-                          </div>
-                        </td>
-                      )}
+                      {!["STAFF", "SPECIALIST", "EXECUTIVE"].includes(userRole) && (() => {
+                        const isSelfAdmin =
+                          (currentUser?.email && user.email && currentUser.email.toLowerCase() === user.email.toLowerCase()) ||
+                          (currentUser?.name && user.name && currentUser.name.toLowerCase() === user.name.toLowerCase()) ||
+                          (user.role && user.role.toUpperCase() === "ADMINISTRATOR" && currentUser?.role?.toUpperCase() === "ADMIN");
+
+                        return (
+                          <td className="py-3.5 px-5 text-right whitespace-nowrap">
+                            <div className="flex items-center justify-end gap-1.5">
+                              <button
+                                type="button"
+                                onClick={() => openEditUserModal(user)}
+                                className="p-1.5 text-slate-400 hover:text-blue-600 dark:hover:text-sky-400 hover:bg-blue-50 dark:hover:bg-blue-950/60 rounded-lg transition-colors cursor-pointer"
+                                title="Edit Credentials & Profile"
+                              >
+                                <Edit2 className="w-3.5 h-3.5" />
+                              </button>
+                              {isSelfAdmin ? (
+                                <span
+                                  className="px-2.5 py-1 rounded-lg text-[11px] font-bold text-slate-400 dark:text-slate-500 bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 cursor-not-allowed select-none"
+                                  title="Admin account cannot be deactivated"
+                                >
+                                  Primary Admin
+                                </span>
+                              ) : (
+                                <button
+                                  type="button"
+                                  onClick={() => handleToggle(user.id, user.name, user.status, user.email)}
+                                  className={`px-2.5 py-1 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                                    user.status === "Active"
+                                      ? "text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/40 border border-rose-200 dark:border-rose-900"
+                                      : "text-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-900"
+                                  }`}
+                                >
+                                  {user.status === "Active" ? "Deactivate" : "Activate"}
+                                </button>
+                              )}
+                            </div>
+                          </td>
+                        );
+                      })()}
 
                     </tr>
                   );
@@ -1039,8 +1112,9 @@ export default function TeamPage() {
                 <NameInput
                   label="Designation"
                   required
-                  value={formRole}
-                  onChange={setFormRole}
+                  value={formDesignation}
+                  onChange={setFormDesignation}
+                  placeholder="e.g. Chartered Accountant"
                   isBusinessName={true}
                 />
                 <div>
@@ -1048,14 +1122,28 @@ export default function TeamPage() {
                     Department
                   </label>
                   <select
-                    value={formDept}
-                    onChange={(e) => setFormDept(e.target.value)}
-                    className="w-full px-3.5 py-2 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-semibold focus:outline-none"
+                    value={formDeptId}
+                    onChange={(e) => {
+                      const id = Number(e.target.value);
+                      setFormDeptId(id);
+                      const found = departmentsList.find((d) => d.id === id);
+                      if (found) setFormDept(found.name);
+                    }}
+                    className="w-full px-3.5 py-2 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-semibold focus:outline-none cursor-pointer"
                   >
-                    <option value="Accounting">Accounting</option>
-                    <option value="Legal">Legal</option>
-                    <option value="Corporate Compliance">Corporate Compliance</option>
-                    <option value="Operations">Operations</option>
+                    {departmentsList.length > 0 ? (
+                      departmentsList.map((d) => (
+                        <option key={d.id} value={d.id}>
+                          {d.name}
+                        </option>
+                      ))
+                    ) : (
+                      <>
+                        <option value={1}>Accounting</option>
+                        <option value={2}>Legal</option>
+                        <option value={3}>Operations</option>
+                      </>
+                    )}
                   </select>
                 </div>
               </div>
@@ -1152,6 +1240,63 @@ export default function TeamPage() {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* Modal: Confirmation for Deactivation */}
+      {confirmToggleUser && (
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-in fade-in">
+          <div className="bg-white dark:bg-[#0c1427] border border-rose-200/80 dark:border-rose-900/40 rounded-3xl p-6 w-full max-w-md shadow-2xl relative flex flex-col space-y-4 animate-in zoom-in-95">
+            <div className="flex items-start gap-3.5">
+              <div className="w-12 h-12 rounded-2xl bg-rose-50 dark:bg-rose-950/60 border border-rose-200 dark:border-rose-800 flex items-center justify-center shrink-0">
+                <AlertCircle className="w-6 h-6 text-rose-600 dark:text-rose-400" />
+              </div>
+              <div className="flex-1">
+                <div className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md bg-rose-100 dark:bg-rose-950/80 text-rose-700 dark:text-rose-300 text-[10px] font-black uppercase tracking-wider mb-1">
+                  Access Restriction
+                </div>
+                <h3 className="text-base font-extrabold text-slate-900 dark:text-white">
+                  Deactivate Staff Access?
+                </h3>
+                <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 leading-relaxed">
+                  Are you sure you want to deactivate <span className="font-bold text-slate-800 dark:text-slate-200">{confirmToggleUser.name}</span>?
+                </p>
+              </div>
+            </div>
+
+            <div className="bg-amber-50/70 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800/60 rounded-2xl p-3 text-xs text-amber-800 dark:text-amber-200 space-y-1">
+              <p className="font-bold">Immediate workspace restriction:</p>
+              <ul className="list-disc list-inside space-y-0.5 text-[11px] text-amber-700 dark:text-amber-300">
+                <li>A permanent lockout notification will appear on their screen.</li>
+                <li>They will be barred from viewing records or updating tasks.</li>
+                <li>You can reactivate this profile anytime from this directory.</li>
+              </ul>
+            </div>
+
+            <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-100 dark:border-slate-800">
+              <button
+                type="button"
+                onClick={() => setConfirmToggleUser(null)}
+                className="px-4 py-2 rounded-xl text-xs font-bold bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={() =>
+                  performToggleStatus(
+                    confirmToggleUser.id,
+                    confirmToggleUser.name,
+                    confirmToggleUser.currentStatus,
+                    confirmToggleUser.email
+                  )
+                }
+                className="px-4 py-2 rounded-xl text-xs font-bold bg-rose-600 hover:bg-rose-700 active:scale-95 text-white transition-all shadow-md shadow-rose-500/20 cursor-pointer"
+              >
+                Yes, Deactivate Staff
+              </button>
+            </div>
           </div>
         </div>
       )}

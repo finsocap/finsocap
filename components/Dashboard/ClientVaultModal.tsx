@@ -26,6 +26,8 @@ import {
 } from "lucide-react";
 import { ClientModel, TaskModel, useCrmStore } from "@/lib/crmStore";
 import ModalHeaderBanner from "@/components/Dashboard/ModalHeaderBanner";
+import UniversalFilePreviewModal from "@/components/Dashboard/UniversalFilePreviewModal";
+import { downloadFile } from "@/lib/fileViewer";
 
 export interface ClientDocument {
   id: string;
@@ -37,6 +39,7 @@ export interface ClientDocument {
   uploadedBy: string;
   verified: boolean;
   serviceTag?: string;
+  fileUrl?: string;
 }
 
 interface ClientVaultModalProps {
@@ -58,6 +61,16 @@ export default function ClientVaultModal({ client, onClose }: ClientVaultModalPr
   const [selectedCategory, setSelectedCategory] = useState<string>("ALL");
   const [copiedKey, setCopiedKey] = useState<string | null>(null);
 
+  const [previewDoc, setPreviewDoc] = useState<{
+    isOpen: boolean;
+    title: string;
+    fileName: string;
+    fileUrl?: string;
+    uploadedBy?: string;
+    uploadDate?: string;
+    category?: string;
+  } | null>(null);
+
   // Client-specific tasks from CRM store
   const clientTasks = useMemo(() => {
     return tasks.filter(
@@ -69,41 +82,111 @@ export default function ClientVaultModal({ client, onClose }: ClientVaultModalPr
 
   // Local storage persisted documents for this client
   const storageKey = `finsocap_vault_${client.name.toLowerCase().replace(/\s+/g, "_")}`;
-  const [documents, setDocuments] = useState<ClientDocument[]>(() => {
-    let savedDocs: ClientDocument[] = [];
-    if (typeof window !== "undefined") {
+  const [documents, setDocuments] = useState<ClientDocument[]>([]);
+  const [isLoadingDocs, setIsLoadingDocs] = useState(true);
+
+  // Live Backend Fetch: Fetch all service requests/documents & licences for this client
+  React.useEffect(() => {
+    let isCancelled = false;
+
+    async function loadClientVaultData() {
+      setIsLoadingDocs(true);
+      const docsList: ClientDocument[] = [];
+
       try {
-        const saved = localStorage.getItem(storageKey);
-        if (saved) {
-          savedDocs = JSON.parse(saved);
+        // 1. Fetch live uploaded task deliverables/certificates from backend API
+        for (const t of clientTasks) {
+          const numId = t.numericId || parseInt(String(t.id).replace(/\D/g, ""), 10);
+          if (numId) {
+            try {
+              const res = await fetch(`/api/proxy/admin/service-requests/${numId}/documents`, { cache: "no-store" });
+              if (res.ok) {
+                const json = await res.json();
+                if (json?.success && Array.isArray(json.data)) {
+                  json.data.forEach((d: any) => {
+                    const isCert = d.documentType === "CERTIFICATE";
+                    docsList.push({
+                      id: `live-doc-${d.id}`,
+                      name: d.title || d.fileName || "Certificate.pdf",
+                      category: isCert ? "Compliance Licences" : "Service Deliverables",
+                      uploadDate: d.createdAt ? new Date(d.createdAt).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" }) : t.date || "Recent",
+                      size: d.sizeBytes ? `${(d.sizeBytes / (1024 * 1024)).toFixed(1)} MB` : "1.8 MB",
+                      format: (d.contentType?.includes("png") ? "PNG" : d.contentType?.includes("jpg") || d.contentType?.includes("jpeg") ? "JPG" : "PDF") as any,
+                      uploadedBy: d.uploadedByRole ? `${d.uploadedByRole} (${d.uploadedBy || "Staff"})` : "Staff Deliverable",
+                      verified: true,
+                      serviceTag: t.service,
+                      fileUrl: `/api/proxy/admin/service-requests/${numId}/documents/${d.id}?inline=true`,
+                    });
+                  });
+                }
+              }
+            } catch (err) {
+              console.warn("[ClientVault] Task docs fetch error:", err);
+            }
+          }
         }
-      } catch (e) {}
+
+        // 2. Fetch live compliance licences from reports/licences
+        try {
+          const licRes = await fetch("/api/proxy/reports/licences", { cache: "no-store" });
+          if (licRes.ok) {
+            const licJson = await licRes.json();
+            if (licJson?.success && Array.isArray(licJson.data?.rows)) {
+              licJson.data.rows
+                .filter((r: any) => 
+                  r.clientName?.toLowerCase().trim() === client.name.toLowerCase().trim() ||
+                  clientTasks.some((ct) => ct.id === r.taskId || `T-${ct.numericId}` === r.taskId)
+                )
+                .forEach((lic: any) => {
+                  const licDocName = `${lic.licenceType || "Licence"}_${lic.licenceNumber || "Cert"}.pdf`;
+                  if (!docsList.some((d) => d.name === licDocName)) {
+                    docsList.push({
+                      id: `lic-doc-${lic.id}`,
+                      name: licDocName,
+                      category: "Compliance Licences",
+                      uploadDate: lic.issueDate || "Recent",
+                      size: "2.1 MB",
+                      format: "PDF",
+                      uploadedBy: lic.partnerName || "Official Authority",
+                      verified: true,
+                      serviceTag: lic.serviceName || "Compliance Licence",
+                      fileUrl: lic.certificateUrl ? `/api/proxy${lic.certificateUrl}` : undefined,
+                    });
+                  }
+                });
+            }
+          }
+        } catch (licErr) {
+          console.warn("[ClientVault] Licence rows fetch error:", licErr);
+        }
+
+        // 3. Merge locally persisted manual uploads if not duplicate
+        if (typeof window !== "undefined") {
+          try {
+            const saved = localStorage.getItem(storageKey);
+            if (saved) {
+              const parsed: ClientDocument[] = JSON.parse(saved);
+              parsed.forEach((sd) => {
+                if (!docsList.some((d) => d.name === sd.name)) {
+                  docsList.push(sd);
+                }
+              });
+            }
+          } catch (e) {}
+        }
+      } finally {
+        if (!isCancelled) {
+          setDocuments(docsList);
+          setIsLoadingDocs(false);
+        }
+      }
     }
 
-    // Automatically import documents uploaded in real tasks for this client (e.g. from service requests)
-    const taskDocs: ClientDocument[] = [];
-    clientTasks.forEach((t) => {
-      if (Array.isArray(t.files) && t.files.length > 0) {
-        t.files.forEach((f, idx) => {
-          if (!savedDocs.some((d) => d.name === f)) {
-            taskDocs.push({
-              id: `task-doc-${t.id}-${idx}`,
-              name: f,
-              category: "Service Deliverables",
-              uploadDate: t.date || "Recent",
-              size: "1.2 MB",
-              format: "PDF",
-              uploadedBy: t.partner || "Franchise Partner",
-              verified: true,
-              serviceTag: t.service,
-            });
-          }
-        });
-      }
-    });
-
-    return [...taskDocs, ...savedDocs];
-  });
+    loadClientVaultData();
+    return () => {
+      isCancelled = true;
+    };
+  }, [client.name, clientTasks, storageKey]);
 
   const saveDocs = (newDocs: ClientDocument[]) => {
     setDocuments(newDocs);
@@ -390,22 +473,35 @@ export default function ClientVaultModal({ client, onClose }: ClientVaultModalPr
 
                       <div className="flex items-center gap-1 shrink-0 opacity-80 group-hover:opacity-100">
                         <button
-                          onClick={() => alert(`Previewing secure document: ${doc.name}`)}
-                          className="p-1.5 rounded-lg text-slate-400 hover:text-blue-600 hover:bg-blue-50 transition-colors"
-                          title="Preview"
+                          type="button"
+                          onClick={() =>
+                            setPreviewDoc({
+                              isOpen: true,
+                              title: doc.category || "Client Document Dossier",
+                              fileName: doc.name,
+                              fileUrl: doc.fileUrl,
+                              uploadedBy: doc.uploadedBy,
+                              uploadDate: doc.uploadDate,
+                              category: doc.category,
+                            })
+                          }
+                          className="p-1.5 rounded-lg text-slate-400 hover:text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-950/60 transition-colors cursor-pointer"
+                          title="Preview Document"
                         >
                           <Eye className="w-4 h-4" />
                         </button>
                         <button
-                          onClick={() => alert(`Downloading verified attachment: ${doc.name}`)}
-                          className="p-1.5 rounded-lg text-slate-400 hover:text-emerald-600 hover:bg-emerald-50 transition-colors"
-                          title="Download"
+                          type="button"
+                          onClick={() => downloadFile(doc.fileUrl, doc.name)}
+                          className="p-1.5 rounded-lg text-slate-400 hover:text-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-950/60 transition-colors cursor-pointer"
+                          title="Download Document"
                         >
                           <Download className="w-4 h-4" />
                         </button>
                         <button
+                          type="button"
                           onClick={() => handleDeleteDoc(doc.id)}
-                          className="p-1.5 rounded-lg text-slate-300 hover:text-rose-600 hover:bg-rose-50 transition-colors"
+                          className="p-1.5 rounded-lg text-slate-300 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/60 transition-colors cursor-pointer"
                           title="Delete from Vault"
                         >
                           <Trash2 className="w-4 h-4" />
@@ -546,6 +642,20 @@ export default function ClientVaultModal({ client, onClose }: ClientVaultModalPr
           </button>
         </div>
       </div>
+
+      {/* Universal Preview Modal for Client Vault Documents */}
+      {previewDoc && (
+        <UniversalFilePreviewModal
+          isOpen={previewDoc.isOpen}
+          onClose={() => setPreviewDoc(null)}
+          title={previewDoc.title}
+          fileName={previewDoc.fileName}
+          fileUrl={previewDoc.fileUrl}
+          uploadedBy={previewDoc.uploadedBy}
+          uploadDate={previewDoc.uploadDate}
+          category={previewDoc.category}
+        />
+      )}
     </div>
   );
 }

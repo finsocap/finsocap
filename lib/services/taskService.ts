@@ -206,7 +206,7 @@ export const taskService = {
                     ? new Date(d.createdAt).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" })
                     : "Recent",
                   uploadedBy: d.uploadedByRole || "STAFF",
-                  fileUrl: d.downloadPath ? `/api/proxy${d.downloadPath}?inline=true` : "#",
+                  fileUrl: `/api/proxy/admin/service-requests/${numericSrId}/documents/${d.id}?inline=true`,
                   source: "STAFF_ADMIN" as const,
                   category: d.documentType || "Official Output / Certificate",
                 }));

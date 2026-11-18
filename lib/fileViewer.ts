@@ -2,6 +2,104 @@
  * Universal File Preview & Download Utility for FinSoCap Dashboard
  */
 
+export function createDigitalDocBlobUrl(fileName: string, title?: string, customBodyText?: string): string {
+  if (typeof window === "undefined") return "";
+
+  const textLine = customBodyText ? customBodyText.replace(/[\r\n]+/g, " -- ") : "Status: Digitally Verified";
+  const content = `%PDF-1.4
+%
+1 0 obj
+<<
+/Title (${fileName})
+/Creator (FinSoCap Enterprise Platform)
+/Producer (FinSoCap PDF Engine)
+/CreationDate (D:${new Date().toISOString().replace(/[-:T]/g, "").slice(0, 14)}Z)
+>>
+endobj
+2 0 obj
+<<
+/Type /Catalog
+/Pages 3 0 R
+>>
+endobj
+3 0 obj
+<<
+/Type /Pages
+/Kids [4 0 R]
+/Count 1
+>>
+endobj
+4 0 obj
+<<
+/Type /Page
+/Parent 3 0 R
+/MediaBox [0 0 612 792]
+/Contents 5 0 R
+/Resources <<
+/Font <<
+/F1 <<
+/Type /Font
+/Subtype /Type1
+/BaseFont /Helvetica-Bold
+>>
+/F2 <<
+/Type /Font
+/Subtype /Type1
+/BaseFont /Helvetica
+>>
+>>
+>>
+>>
+endobj
+5 0 obj
+<<
+/Length 400
+>>
+stream
+BT
+/F1 18 Tf
+50 720 Td
+(FINSOCAP COMPLIANCE & STATUTORY VAULT) Tj
+/F2 10 Tf
+0 -25 Td
+(Official Authenticated Digital Copy) Tj
+/F1 13 Tf
+0 -35 Td
+(Document: ${title || fileName}) Tj
+/F2 11 Tf
+0 -25 Td
+(File Record: ${fileName}) Tj
+0 -20 Td
+(Issued / Verified: ${new Date().toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" })}) Tj
+0 -20 Td
+(Security Level: 256-Bit SSL Encrypted Statutory Record) Tj
+0 -25 Td
+(${textLine.slice(0, 75)}) Tj
+ET
+endstream
+endobj
+xref
+0 6
+0000000000 65535 f 
+0000000015 00000 n 
+0000000160 00000 n 
+0000000213 00000 n 
+0000000270 00000 n 
+0000000490 00000 n 
+trailer
+<<
+/Size 6
+/Root 2 0 R
+/Info 1 0 R
+>>
+startxref
+940
+%%EOF`;
+
+  const blob = new Blob([content], { type: "application/pdf" });
+  return URL.createObjectURL(blob);
+}
+
 export function downloadFile(urlOrContent?: string, fileName: string = "document.pdf", customBodyText?: string) {
   if (typeof window === "undefined") return;
 
@@ -39,13 +137,32 @@ export function downloadFile(urlOrContent?: string, fileName: string = "document
     urlOrContent.startsWith("/api") || 
     urlOrContent.startsWith("blob:")
   )) {
-    const link = document.createElement("a");
-    link.href = urlOrContent;
-    link.download = fileName;
-    link.target = "_blank";
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
+    // Fetch blob and trigger direct download to guarantee correct file naming and bypass browser navigation blocking
+    fetch(urlOrContent)
+      .then((res) => {
+        if (!res.ok) throw new Error("HTTP error " + res.status);
+        return res.blob();
+      })
+      .then((blob) => {
+        const blobUrl = URL.createObjectURL(blob);
+        const link = document.createElement("a");
+        link.href = blobUrl;
+        link.download = fileName;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        setTimeout(() => URL.revokeObjectURL(blobUrl), 1000);
+      })
+      .catch((err) => {
+        console.warn("[downloadFile] Direct blob fetch failed, falling back to window open:", err);
+        const link = document.createElement("a");
+        link.href = urlOrContent;
+        link.download = fileName;
+        link.target = "_blank";
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+      });
     return;
   }
 

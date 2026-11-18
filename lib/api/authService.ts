@@ -24,6 +24,11 @@ export const authService = {
       if (res.success && res.data?.token) {
         setAuthToken(res.data.token);
         if (typeof window !== "undefined") {
+          // Clear any stale local overrides on fresh login
+          try {
+            localStorage.removeItem("finsocap_profile_data");
+          } catch (e) {}
+
           const session = {
             token: res.data.token,
             user: {

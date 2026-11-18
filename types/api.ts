@@ -130,7 +130,7 @@ export interface PartnerMetrics {
 }
 
 export type FranchiseTier = "STANDARD_FRANCHISE" | "GOLD_FRANCHISE" | "PLATINUM_FRANCHISE" | string;
-export type PartnerStatus = "PENDING" | "APPROVED" | "REJECTED" | "SUSPENDED";
+export type PartnerStatus = "PENDING" | "APPROVED" | "REJECTED" | "DEACTIVATED" | "ACTIVE" | string;
 
 export interface PartnerSummary {
   id: number;

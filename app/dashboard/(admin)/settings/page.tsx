@@ -18,8 +18,8 @@ export default function SettingsPage() {
   };
 
   // Profile & Security State
-  const [profileName, setProfileName] = useState("Universal Admin");
-  const [profileEmail, setProfileEmail] = useState("admin@gmail.com");
+  const [profileName, setProfileName] = useState("");
+  const [profileEmail, setProfileEmail] = useState("");
   const [profileRole, setProfileRole] = useState("ADMIN");
   const [memberSince] = useState("1 January 2025");
   const [currentPassword, setCurrentPassword] = useState("");
@@ -30,16 +30,22 @@ export default function SettingsPage() {
   const [profileError, setProfileError] = useState<string | null>(null);
   const [userDp, setUserDp] = useState<string | null>(null);
 
-  // Load DP & Profile from localStorage or mock session on mount
+  // Load DP & Profile from active user session returned by API on mount
   useEffect(() => {
     try {
-      const savedProfile = localStorage.getItem("finsocap_profile_data");
-      if (savedProfile) {
-        const p = JSON.parse(savedProfile);
-        if (p.name) setProfileName(p.name);
-        if (p.email) setProfileEmail(p.email);
-        if (p.role) setProfileRole(p.role);
-        if (p.image) setUserDp(p.image);
+      // First check active login session directly from API authentication
+      let activeUser: any = null;
+      const savedSession = localStorage.getItem("finsocap_user_session");
+      if (savedSession) {
+        const parsed = JSON.parse(savedSession);
+        activeUser = parsed?.user || (parsed?.role ? parsed : null);
+      }
+
+      if (activeUser) {
+        setProfileName(activeUser.name || "Administrator");
+        setProfileEmail(activeUser.email || "admin@finsocap.com");
+        setProfileRole(activeUser.role || "ADMIN");
+        if (activeUser.image) setUserDp(activeUser.image);
       } else if (session?.user) {
         if (session.user.name) setProfileName(session.user.name);
         if (session.user.email) setProfileEmail(session.user.email);

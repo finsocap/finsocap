@@ -20,6 +20,7 @@ import { formatName, formatIndianPhoneNumber, normalizePhoneForBackend } from "@
 import { PhoneInput } from "@/components/Global/PhoneInput";
 import { NameInput } from "@/components/Global/NameInput";
 import ClientVaultModal from "@/components/Dashboard/ClientVaultModal";
+import TaskIdBadge from "@/components/Dashboard/TaskIdBadge";
 
 const statuses = [
   "Pending",
@@ -649,8 +650,8 @@ export default function ClientsPage() {
                   ) : (
                     clientHistoryTasks.map((t) => (
                       <tr key={t.id} className="hover:bg-slate-50 dark:hover:bg-slate-800/50">
-                        <td className="py-3 px-4 font-bold text-blue-600 dark:text-sky-400">
-                          {t.id}
+                        <td className="py-3 px-4 whitespace-nowrap">
+                          <TaskIdBadge id={t.id} href={`/dashboard/tasks/${t.id}`} />
                         </td>
                         <td className="py-3 px-4 font-semibold text-slate-900 dark:text-white">
                           {t.service}

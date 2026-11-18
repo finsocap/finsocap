@@ -68,7 +68,7 @@ export const partnerService = {
     reason: string
   ): Promise<ApiResponse<{ id: number; status: PartnerStatus }>> => {
     return apiClient.put<ApiResponse<{ id: number; status: PartnerStatus }>>(
-      `/partners/${id}/toggle-status`,
+      `/admin/partners/${id}/toggle-status`,
       null,
       { status, reason }
     );

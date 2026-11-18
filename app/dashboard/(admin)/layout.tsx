@@ -6,6 +6,7 @@ import Sidebar from "@/components/Dashboard/Sidebar";
 import Topbar from "@/components/Dashboard/Topbar";
 import { AuthProvider } from "@/components/Providers/AuthProvider";
 import DashboardMain from "@/components/Dashboard/DashboardMain";
+import DeactivatedStaffModal from "@/components/Dashboard/DeactivatedStaffModal";
 import { Loader2 } from "lucide-react";
 
 export default function DashboardLayout({
@@ -67,6 +68,8 @@ export default function DashboardLayout({
             {children}
           </DashboardMain>
         </div>
+        {/* Permanent Non-Dismissable Modal if Staff is Deactivated */}
+        <DeactivatedStaffModal user={session?.user} />
       </div>
     </AuthProvider>
   );

@@ -278,7 +278,7 @@ export default function ChatPage() {
       const isAdmin = userRole === "ADMIN" || userRole === "SUPER_ADMIN";
 
       // 1. Check if a direct conversation between current user and this contact already exists
-      const myDisplayName = (currentUser?.name || (isAdmin ? "Universal Admin" : "User")).trim();
+      const myDisplayName = (currentUser?.name || (isAdmin ? "Administrator" : "User")).trim();
       const myEmail = (currentUser?.email || "").toLowerCase().trim();
       const targetName = name.trim();
       const targetEmail = (contact.email || "").toLowerCase().trim();

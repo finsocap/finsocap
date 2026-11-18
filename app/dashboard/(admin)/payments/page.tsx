@@ -37,6 +37,7 @@ import { paymentWorkflowService } from "@/lib/api/paymentWorkflowService";
 import { adminWorkflowService } from "@/lib/api/adminWorkflowService";
 import PaymentVerificationModal from "@/components/Dashboard/PaymentVerificationModal";
 import PayoutSettingsModal from "@/components/Dashboard/PayoutSettingsModal";
+import TaskIdBadge from "@/components/Dashboard/TaskIdBadge";
 import { useToast } from "@/components/Global/ToastNotification";
 
 export default function PaymentVerificationsPage() {
@@ -409,8 +410,8 @@ export default function PaymentVerificationsPage() {
                 ) : (
                   filteredRequests.map((req) => (
                     <tr key={req.id} className="hover:bg-slate-50/80 dark:hover:bg-slate-800/40 transition-colors">
-                      <td className="py-3 px-3.5 font-mono font-bold text-blue-600 dark:text-sky-400">
-                        {req.requestCode || `#${req.taskId}`}
+                      <td className="py-3 px-3.5 whitespace-nowrap">
+                        <TaskIdBadge id={req.requestCode || `#${req.taskId}`} />
                       </td>
                       <td className="py-3 px-3.5 font-bold text-slate-900 dark:text-white">
                         {req.serviceName}
@@ -531,8 +532,8 @@ export default function PaymentVerificationsPage() {
                 ) : (
                   tasksPendingPaymentCreation.map((task) => (
                     <tr key={task.id} className="hover:bg-slate-50/80 dark:hover:bg-slate-800/40 transition-colors">
-                      <td className="py-3 px-3.5 font-mono font-bold text-blue-600 dark:text-sky-400">
-                        {task.requestCode || `#${task.id}`}
+                      <td className="py-3 px-3.5 whitespace-nowrap">
+                        <TaskIdBadge id={task.requestCode || `#${task.id}`} href={`/dashboard/tasks/${task.id}`} />
                       </td>
                       <td className="py-3 px-3.5 font-bold text-slate-900 dark:text-white">
                         {task.serviceName || task.service || "Service"}

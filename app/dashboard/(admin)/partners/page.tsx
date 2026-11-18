@@ -44,7 +44,7 @@ import {
   FileCheck2,
   Paperclip,
 } from "lucide-react";
-import { useCrmStore, PartnerModel } from "@/lib/crmStore";
+import { useCrmStore, PartnerModel, fetchLiveDbData } from "@/lib/crmStore";
 import { partnerService } from "@/lib/api/partnerService";
 import { downloadFile } from "@/lib/fileViewer";
 import { PartnerMetrics } from "@/types/api";
@@ -52,6 +52,7 @@ import AnimatedCounter from "@/components/Global/AnimatedCounter";
 import PageBanner from "@/components/Dashboard/PageBanner";
 import { useToast } from "@/components/Global/ToastNotification";
 import ModalHeaderBanner from "@/components/Dashboard/ModalHeaderBanner";
+import UniversalFilePreviewModal from "@/components/Dashboard/UniversalFilePreviewModal";
 import { formatName, formatEmail, formatIndianPhoneNumber, formatAddress, formatPanNumber, formatAadhaarNumber, normalizePhoneForBackend, validateIndianMobile, validateEmail, validatePersonName, validatePanNumber, validateAadhaarNumber, getDeterministicPartnerKyc } from "@/lib/formatters";
 import { PhoneInput } from "@/components/Global/PhoneInput";
 import { EmailInput } from "@/components/Global/EmailInput";
@@ -148,7 +149,23 @@ export default function PartnersManagePage() {
   });
 
   // Document Preview Modal State
-  const [previewDocState, setPreviewDocState] = useState<{ isOpen: boolean; title: string; docName: string } | null>(null);
+  const [previewDocState, setPreviewDocState] = useState<{
+    isOpen: boolean;
+    title: string;
+    docName: string;
+    fileUrl?: string;
+    uploadedBy?: string;
+    category?: string;
+  } | null>(null);
+
+  // Status Change Confirmation Modal State (Prevents accidental activation/deactivation)
+  const [confirmStatusModal, setConfirmStatusModal] = useState<{
+    isOpen: boolean;
+    partnerId: string;
+    partnerName: string;
+    currentStatus: string;
+    targetStatus: "Active" | "Deactivated";
+  } | null>(null);
 
   // View Partner Modal State
   const [viewingPartner, setViewingPartner] = useState<PartnerModel | null>(null);
@@ -411,6 +428,7 @@ export default function PartnersManagePage() {
     }
     setVerifyingPartner(null);
     showToast(`Franchise Partner ${partner.partnerId} (${partner.name}) verified and approved!`);
+    fetchLiveDbData().catch(() => {});
   };
 
   const handleRejectPartner = () => {
@@ -422,11 +440,33 @@ export default function PartnersManagePage() {
     }
     showToast(`Partner onboarding rejected. Reason: ${rejectionModal.reason || "Documents unverified"}`);
     setRejectionModal({ isOpen: false, partner: null, reason: "" });
+    fetchLiveDbData().catch(() => {});
   };
 
   const handleToggle = (partnerId: string, name: string, currentStatus: string) => {
-    togglePartnerStatus(partnerId);
-    showToast(`Partner ${name} is now ${currentStatus === "Active" ? "deactivated" : "reactivated"}.`);
+    const targetStatus = currentStatus === "Active" ? "Deactivated" : "Active";
+    setConfirmStatusModal({
+      isOpen: true,
+      partnerId,
+      partnerName: name,
+      currentStatus,
+      targetStatus,
+    });
+  };
+
+  const executeStatusToggle = async () => {
+    if (!confirmStatusModal) return;
+    const { partnerId, partnerName, currentStatus, targetStatus } = confirmStatusModal;
+    setConfirmStatusModal(null);
+    showToast(`Updating status for ${partnerName}...`);
+    try {
+      await togglePartnerStatus(partnerId);
+      showToast(`Partner ${partnerName} is now ${targetStatus === "Active" ? "active and verified" : "deactivated"}.`);
+    } catch {
+      showToast(`Failed to update status for ${partnerName}.`);
+    }
+    // Re-sync with backend database
+    await fetchLiveDbData().catch(() => {});
   };
 
   return (
@@ -2147,44 +2187,119 @@ export default function PartnersManagePage() {
 
       {/* MODAL 6: Document Preview Modal */}
       {previewDocState?.isOpen && (
-        <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-slate-900/70 backdrop-blur-xs animate-in fade-in">
-          <div className="bg-white dark:bg-[#0c1427] border border-slate-200 dark:border-slate-800 rounded-3xl p-6 w-full max-w-lg shadow-2xl relative space-y-4">
-            <ModalHeaderBanner
-              icon={FileText}
-              badge="DOCUMENT PREVIEW"
-              title={previewDocState.title}
-              description={`Inspecting verified partner document: ${previewDocState.docName}`}
-              badgeTag="Verified Dossier"
-              onClose={() => setPreviewDocState(null)}
-            />
+        <UniversalFilePreviewModal
+          isOpen={previewDocState.isOpen}
+          onClose={() => setPreviewDocState(null)}
+          title={previewDocState.title}
+          fileName={previewDocState.docName}
+          fileUrl={previewDocState.fileUrl}
+          uploadedBy={previewDocState.uploadedBy || "Franchise Partner"}
+          category={previewDocState.category || "PARTNER KYC DOCUMENT"}
+        />
+      )}
 
-            <div className="p-8 bg-slate-50 dark:bg-slate-900/60 rounded-2xl border border-dashed border-slate-200 dark:border-slate-800 text-center space-y-3">
-              <div className="w-14 h-14 rounded-2xl bg-blue-50 dark:bg-blue-950/60 border border-blue-200 dark:border-blue-900 text-blue-600 dark:text-sky-400 mx-auto flex items-center justify-center">
-                <FileCheck2 className="w-8 h-8" />
+      {/* MODAL 7: Confirmation Modal for Partner Status Change (Accidental Action Protection) */}
+      {confirmStatusModal?.isOpen && (
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-in fade-in">
+          <div className="bg-white dark:bg-[#0c1427] border border-slate-200 dark:border-slate-800 rounded-3xl p-6 w-full max-w-md shadow-2xl relative flex flex-col space-y-4 animate-in zoom-in-95">
+            <div className="flex items-start gap-3.5">
+              <div
+                className={`w-12 h-12 rounded-2xl flex items-center justify-center shrink-0 border ${
+                  confirmStatusModal.targetStatus === "Active"
+                    ? "bg-emerald-50 dark:bg-emerald-950/60 border-emerald-200 dark:border-emerald-800 text-emerald-600 dark:text-emerald-400"
+                    : "bg-rose-50 dark:bg-rose-950/60 border-rose-200 dark:border-rose-800 text-rose-600 dark:text-rose-400"
+                }`}
+              >
+                {confirmStatusModal.targetStatus === "Active" ? (
+                  <CheckCircle2 className="w-6 h-6" />
+                ) : (
+                  <AlertTriangle className="w-6 h-6" />
+                )}
               </div>
-              <div>
-                <p className="font-bold text-slate-900 dark:text-white text-sm">{previewDocState.docName}</p>
-                <p className="text-xs text-slate-400 mt-0.5">Encrypted document securely retrieved from FinSoCap partner storage.</p>
-              </div>
-              <div className="pt-2">
-                <button
-                  type="button"
-                  onClick={() => downloadFile(undefined, previewDocState.docName, `VERIFIED PARTNER DOSSIER\nDocument: ${previewDocState.title}\nFile: ${previewDocState.docName}\nStatus: Verified and Encrypted`)}
-                  className="px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs inline-flex items-center gap-1.5 shadow-md shadow-blue-500/25 cursor-pointer"
+              <div className="flex-1">
+                <div
+                  className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md text-[10px] font-black uppercase tracking-wider mb-1 ${
+                    confirmStatusModal.targetStatus === "Active"
+                      ? "bg-emerald-100 dark:bg-emerald-950/80 text-emerald-700 dark:text-emerald-300"
+                      : "bg-rose-100 dark:bg-rose-950/80 text-rose-700 dark:text-rose-300"
+                  }`}
                 >
-                  <Download className="w-3.5 h-3.5" />
-                  <span>Download Original Copy</span>
-                </button>
+                  {confirmStatusModal.targetStatus === "Active" ? "Franchise Activation" : "Franchise Suspension"}
+                </div>
+                <h3 className="text-base font-extrabold text-slate-900 dark:text-white">
+                  {confirmStatusModal.targetStatus === "Active"
+                    ? "Activate & Approve Franchise Partner?"
+                    : "Deactivate Franchise Partner?"}
+                </h3>
+                <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 leading-relaxed">
+                  Are you sure you want to change the status of{" "}
+                  <span className="font-bold text-slate-800 dark:text-slate-200">{confirmStatusModal.partnerName}</span> (
+                  <span className="font-mono font-bold text-blue-600">{confirmStatusModal.partnerId}</span>) to{" "}
+                  <span
+                    className={`font-bold ${
+                      confirmStatusModal.targetStatus === "Active" ? "text-emerald-600" : "text-rose-600"
+                    }`}
+                  >
+                    {confirmStatusModal.targetStatus}
+                  </span>
+                  ?
+                </p>
               </div>
             </div>
 
-            <div className="flex justify-end pt-2">
+            <div
+              className={`rounded-2xl p-3 text-xs space-y-1 border ${
+                confirmStatusModal.targetStatus === "Active"
+                  ? "bg-emerald-50/70 dark:bg-emerald-950/30 border-emerald-200 dark:border-emerald-800/60 text-emerald-800 dark:text-emerald-200"
+                  : "bg-amber-50/70 dark:bg-amber-950/30 border-amber-200 dark:border-amber-800/60 text-amber-800 dark:text-amber-200"
+              }`}
+            >
+              <p className="font-bold">
+                {confirmStatusModal.targetStatus === "Active"
+                  ? "Access will be granted immediately:"
+                  : "Access will be restricted immediately:"}
+              </p>
+              <ul
+                className={`list-disc list-inside space-y-0.5 text-[11px] ${
+                  confirmStatusModal.targetStatus === "Active"
+                    ? "text-emerald-700 dark:text-emerald-300"
+                    : "text-amber-700 dark:text-amber-300"
+                }`}
+              >
+                {confirmStatusModal.targetStatus === "Active" ? (
+                  <>
+                    <li>Partner will be marked as verified and approved in the database.</li>
+                    <li>They will be allowed to submit client leads and view case updates.</li>
+                    <li>Full partner portal and mobile app access enabled.</li>
+                  </>
+                ) : (
+                  <>
+                    <li>Partner portal access will be paused immediately.</li>
+                    <li>They will not be able to create new leads until reactivated.</li>
+                    <li>Existing submitted tasks will remain safely preserved.</li>
+                  </>
+                )}
+              </ul>
+            </div>
+
+            <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-100 dark:border-slate-800">
               <button
                 type="button"
-                onClick={() => setPreviewDocState(null)}
-                className="px-4 py-2 rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 font-bold text-xs hover:bg-slate-200 cursor-pointer"
+                onClick={() => setConfirmStatusModal(null)}
+                className="px-4 py-2 rounded-xl text-xs font-bold bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors cursor-pointer"
               >
-                Close Preview
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={executeStatusToggle}
+                className={`px-4 py-2 rounded-xl text-xs font-bold text-white transition-all shadow-md active:scale-95 cursor-pointer ${
+                  confirmStatusModal.targetStatus === "Active"
+                    ? "bg-emerald-600 hover:bg-emerald-700 shadow-emerald-500/20"
+                    : "bg-rose-600 hover:bg-rose-700 shadow-rose-500/20"
+                }`}
+              >
+                {confirmStatusModal.targetStatus === "Active" ? "Yes, Activate Partner" : "Yes, Deactivate Partner"}
               </button>
             </div>
           </div>

@@ -13,7 +13,8 @@ import UniversalFilePreviewModal from "@/components/Dashboard/UniversalFilePrevi
 import { downloadFile } from "@/lib/fileViewer";
 import { ServiceModel } from "@/lib/crmStore";
 import { serviceCatalogService } from "@/lib/api/serviceCatalogService";
-import { normalizeServiceCategory } from "@/types/api";
+import { taskApiService } from "@/lib/api/taskService";
+import { normalizeServiceCategory, BackendTask } from "@/types/api";
 import ServicesInfographic from "@/components/Charts/ServicesInfographic";
 import AnimatedCounter from "@/components/Global/AnimatedCounter";
 import PageBanner from "@/components/Dashboard/PageBanner";
@@ -35,6 +36,7 @@ export default function ServicesPage() {
 
   // ONLY API FETCH DYNAMIC DATA - NO STATIC DATA
   const [apiServices, setApiServices] = useState<ServiceModel[]>([]);
+  const [apiTasks, setApiTasks] = useState<BackendTask[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [userRole, setUserRole] = useState<string>("ADMIN");
@@ -67,8 +69,22 @@ export default function ServicesPage() {
     setError(null);
 
     try {
-      const res = await serviceCatalogService.getServices();
-      const rawList = Array.isArray(res?.data) ? res.data : Array.isArray(res) ? (res as any) : [];
+      const [res, tasksRes] = await Promise.allSettled([
+        serviceCatalogService.getServices(),
+        taskApiService.getTasks(),
+      ]);
+
+      if (tasksRes.status === "fulfilled" && tasksRes.value?.success && Array.isArray(tasksRes.value.data)) {
+        setApiTasks(tasksRes.value.data);
+      } else {
+        setApiTasks([]);
+      }
+
+      const rawList = res.status === "fulfilled" && Array.isArray(res.value?.data)
+        ? res.value.data
+        : res.status === "fulfilled" && Array.isArray(res.value)
+        ? (res.value as any)
+        : [];
 
       if (rawList && rawList.length > 0) {
         const mapped: ServiceModel[] = rawList.map((item: any) => {
@@ -470,7 +486,7 @@ export default function ServicesPage() {
       />
 
       {/* Services Rate Card & Category Breakdown Infographic */}
-      <ServicesInfographic services={apiServices} />
+      <ServicesInfographic services={apiServices} tasks={apiTasks} />
 
       {/* 2. Modern Pill Tabs Switcher matching Reference */}
       <div className="p-1.5 bg-white dark:bg-[#0c1427] rounded-2xl border border-slate-200/80 dark:border-slate-800/80 shadow-xs flex items-center gap-1.5 overflow-x-auto no-scrollbar">

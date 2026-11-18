@@ -111,20 +111,31 @@ export default function Topbar({ user }: { user?: any }) {
   const [currentUser, setCurrentUser] = useState<any>(user || null);
 
   useEffect(() => {
-    try {
-      const saved = localStorage.getItem("finsocap_user_session");
-      if (saved) {
-        const parsed = JSON.parse(saved);
-        if (parsed?.user) {
-          setCurrentUser(parsed.user);
-        } else if (parsed?.role) {
-          setCurrentUser(parsed);
+    const syncUserSession = () => {
+      try {
+        // ALWAYS use the active user login session returned by the API
+        const saved = localStorage.getItem("finsocap_user_session");
+
+        if (saved) {
+          const parsed = JSON.parse(saved);
+          const activeUser = parsed?.user || (parsed?.role ? parsed : null);
+          if (activeUser) {
+            setCurrentUser(activeUser);
+          }
         }
-      }
-    } catch (e) {}
+      } catch (e) {}
+    };
+
+    syncUserSession();
+    window.addEventListener("user-dp-updated", syncUserSession);
+    window.addEventListener("storage", syncUserSession);
+    return () => {
+      window.removeEventListener("user-dp-updated", syncUserSession);
+      window.removeEventListener("storage", syncUserSession);
+    };
   }, []);
 
-  const userName = currentUser?.name || user?.name || "Admin";
+  const userName = currentUser?.name || user?.name || "Administrator";
   const userRole = (currentUser?.role || (user as any)?.role || "ADMIN").toUpperCase().trim();
   const userEmail = currentUser?.email || user?.email || "admin@finsocap.com";
 

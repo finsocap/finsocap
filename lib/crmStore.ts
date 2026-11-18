@@ -258,7 +258,7 @@ export async function fetchLiveDbData(): Promise<void> {
           const parts = loc.split(",");
           const city = parts[0]?.trim() || "Headquarters";
           const state = parts[1]?.trim() || "";
-          const statusMapped = p.status === "APPROVED" ? "Active" : p.status === "PENDING" ? "Pending" : "Deactivated";
+          const statusMapped = (p.status === "APPROVED" || p.status === "ACTIVE") ? "Active" : p.status === "PENDING" ? "Pending" : "Deactivated";
           const partnerCode = p.partnerId || `P-${p.id}`;
           const kyc = getDeterministicPartnerKyc(partnerCode, p.name, p.phone);
 
@@ -813,7 +813,34 @@ export function useCrmStore() {
     return Array.from(map.values());
   }, [data.manualClients, data.tasks]);
 
-  const addPartner = useCallback((partner: Omit<PartnerModel, "id" | "leadsCount" | "revenueStr" | "activeTasks">) => {
+  const addPartner = useCallback(async (partner: Omit<PartnerModel, "id" | "leadsCount" | "revenueStr" | "activeTasks">) => {
+    const fallbackKyc = getDeterministicPartnerKyc(partner.partnerId, partner.name, partner.phone);
+    const payload = {
+      name: partner.name,
+      email: partner.email || `${partner.name.toLowerCase().replace(/\s+/g, ".")}@branch.com`,
+      phone: partner.phone,
+      password: partner.password || "Partner@123",
+      temporaryPassword: partner.password || "Partner@123",
+      address: partner.currentAddress || partner.completeShopAddress || "Office Address",
+      hubLocation: `${partner.city}, ${partner.state}`,
+      franchiseTier: (partner.tier || "GOLD_FRANCHISE").toUpperCase().replace(/\s+/g, "_"),
+      panNumber: partner.panNumber || fallbackKyc.panNumber,
+      adhaarNumber: partner.adhaarNumber || fallbackKyc.adhaarNumber,
+    };
+    const fd = new FormData();
+    fd.append("data", JSON.stringify(payload));
+    
+    try {
+      const res = await apiClient.post<any>("/partners/enroll", fd);
+      if (res?.data?.id) {
+        // Enrolled successfully with real backend DB ID
+        fetchLiveDbData().catch(() => {});
+        return;
+      }
+    } catch (e) {
+      console.warn("[CRM Store] Partner enroll error:", e);
+    }
+
     updateStore((prev) => {
       const generatedId = `p-${Date.now()}`;
       const partnerId = partner.partnerId?.trim() || `P-${100 + prev.partners.length + 1}`;
@@ -832,23 +859,6 @@ export function useCrmStore() {
         partners: [newPartner, ...prev.partners],
       };
     });
-
-    const fallbackKyc = getDeterministicPartnerKyc(partner.partnerId, partner.name, partner.phone);
-    const payload = {
-      name: partner.name,
-      email: partner.email || `${partner.name.toLowerCase().replace(/\s+/g, ".")}@branch.com`,
-      phone: partner.phone,
-      password: partner.password || "Partner@123",
-      temporaryPassword: partner.password || "Partner@123",
-      address: partner.currentAddress || partner.completeShopAddress || "Office Address",
-      hubLocation: `${partner.city}, ${partner.state}`,
-      franchiseTier: (partner.tier || "GOLD_FRANCHISE").toUpperCase().replace(/\s+/g, "_"),
-      panNumber: partner.panNumber || fallbackKyc.panNumber,
-      adhaarNumber: partner.adhaarNumber || fallbackKyc.adhaarNumber,
-    };
-    const fd = new FormData();
-    fd.append("data", JSON.stringify(payload));
-    apiClient.post("/partners/enroll", fd).catch(() => {});
   }, []);
 
   const updatePartner = useCallback((partnerId: string, updates: Partial<PartnerModel>) => {
@@ -860,28 +870,75 @@ export function useCrmStore() {
           : p
       ),
     }));
+
+    // If status updated, call live backend API
+    if (updates.status) {
+      let numericId: number | null = null;
+      const currentList = memoryStore.partners;
+      const targetPartner = currentList.find((p) => p.partnerId === partnerId || p.id === partnerId);
+      if (targetPartner) {
+        const parsed = parseInt(targetPartner.id, 10);
+        if (!isNaN(parsed)) numericId = parsed;
+      }
+      if (numericId === null) {
+        const fallbackNum = parseInt(partnerId.replace(/\D/g, ""), 10);
+        numericId = isNaN(fallbackNum) ? null : fallbackNum;
+      }
+
+      if (numericId !== null) {
+        const backendStatus = updates.status === "Active" ? "APPROVED" : updates.status === "Pending" ? "PENDING" : "DEACTIVATED";
+        apiClient.put(`/admin/partners/${numericId}/toggle-status`, null, {
+          status: backendStatus,
+          reason: "Status updated by administrator",
+        }).catch(() => {});
+      }
+    }
   }, []);
 
-  const togglePartnerStatus = useCallback((partnerId: string) => {
-    let nextStatus = "APPROVED";
+  const togglePartnerStatus = useCallback(async (partnerId: string) => {
+    let targetNextStatus = "APPROVED";
+    let targetUiStatus: PartnerModel["status"] = "Active";
+    let numericId: number | null = null;
+
+    // Find the partner to obtain the exact numeric database ID
+    const currentList = memoryStore.partners;
+    const targetPartner = currentList.find((p) => p.partnerId === partnerId || p.id === partnerId);
+    if (targetPartner) {
+      const parsed = parseInt(targetPartner.id, 10);
+      if (!isNaN(parsed)) {
+        numericId = parsed;
+      }
+    }
+
+    if (numericId === null) {
+      const fallbackNum = parseInt(partnerId.replace(/\D/g, ""), 10);
+      numericId = isNaN(fallbackNum) ? null : fallbackNum;
+    }
+
     updateStore((prev) => ({
       ...prev,
       partners: prev.partners.map((p) => {
         if (p.partnerId === partnerId || p.id === partnerId) {
+          // If Active -> Deactivate (DEACTIVATED)
+          // If Deactivated or Pending -> Activate (APPROVED)
           const isAct = p.status === "Active";
-          nextStatus = isAct ? "SUSPENDED" : "APPROVED";
-          return { ...p, status: isAct ? "Deactivated" : "Active" };
+          targetNextStatus = isAct ? "DEACTIVATED" : "APPROVED";
+          targetUiStatus = isAct ? "Deactivated" : "Active";
+          return { ...p, status: targetUiStatus };
         }
         return p;
       }),
     }));
 
-    const num = parseInt(partnerId.replace(/\D/g, ""), 10);
-    if (!isNaN(num)) {
-      apiClient.put(`/partners/${num}/toggle-status`, null, {
-        status: nextStatus,
-        reason: "Admin status toggle",
-      }).catch(() => {});
+    if (numericId !== null) {
+      try {
+        await apiClient.put(`/admin/partners/${numericId}/toggle-status`, null, {
+          status: targetNextStatus,
+          reason: targetNextStatus === "APPROVED" ? "Admin activated partner" : "Admin deactivated partner",
+        });
+      } catch (err) {
+        console.error("[CRM Store] Partner status toggle API error:", err);
+      }
     }
   }, []);
 

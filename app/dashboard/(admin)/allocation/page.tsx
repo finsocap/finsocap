@@ -39,6 +39,7 @@ import { useToast } from "@/components/Global/ToastNotification";
 import { workloadService } from "@/lib/api/workloadService";
 import { adminWorkflowService } from "@/lib/api/adminWorkflowService";
 import { downloadFile } from "@/lib/fileViewer";
+import TaskIdBadge from "@/components/Dashboard/TaskIdBadge";
 import { WorkloadMetrics, BalancingRecommendation } from "@/types/api";
 
 export default function AllocationPage() {
@@ -736,8 +737,8 @@ export default function AllocationPage() {
                               : "hover:bg-slate-50/80 dark:hover:bg-slate-800/40"
                           }`}
                         >
-                          <td className="py-2.5 px-3 font-bold text-blue-600 dark:text-sky-400">
-                            {t.id}
+                          <td className="py-2.5 px-3 whitespace-nowrap">
+                            <TaskIdBadge id={t.id} />
                           </td>
                           <td className="py-2.5 px-3">
                             <span className="font-bold text-slate-900 dark:text-white block">
@@ -851,14 +852,8 @@ export default function AllocationPage() {
                   ) : (
                     assignedTasks.map((task) => (
                       <tr key={task.id} className="hover:bg-slate-50/80 dark:hover:bg-slate-800/40 transition-colors">
-                        <td className="py-3 px-3">
-                          <Link
-                            href={`/dashboard/tasks/${task.id}`}
-                            className="font-bold text-blue-600 dark:text-sky-400 hover:underline"
-                            title={task.id}
-                          >
-                            {task.id.length > 16 ? `${task.id.slice(0, 14)}...` : task.id}
-                          </Link>
+                        <td className="py-3 px-3 whitespace-nowrap">
+                          <TaskIdBadge id={task.id} href={`/dashboard/tasks/${task.id}`} />
                         </td>
                         <td className="py-3 px-3 font-bold text-slate-800 dark:text-slate-200 capitalize">
                           {task.client}

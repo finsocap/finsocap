@@ -38,8 +38,8 @@ export async function POST(request: NextRequest) {
               success: true,
               message: "Admin authentication successful",
               data: {
-                id: 99,
-                name: "Shubham",
+                id: 9,
+                name: "Shubham Jha",
                 email: "shubham@finsocap.com",
                 role: "ADMIN",
                 status: "ACTIVE",
@@ -64,6 +64,29 @@ export async function POST(request: NextRequest) {
 
     const adminData = await adminRes.json();
     if (adminRes.ok && adminData?.success) {
+      // If backend literally returned "Universal Admin", resolve real name from team specialists list or email
+      if (adminData?.data?.name === "Universal Admin" || !adminData?.data?.name) {
+        try {
+          const specRes = await fetch(`${API_ROOT.replace(/\/+$/, "")}/admin/team/specialists`, {
+            headers: { Authorization: `Bearer ${adminData.data.token}` },
+            cache: "no-store",
+          });
+          if (specRes.ok) {
+            const specData = await specRes.json();
+            if (Array.isArray(specData?.data)) {
+              const matchedAdmin = specData.data.find(
+                (s: any) =>
+                  (s.email && s.email.toLowerCase() === email) ||
+                  (s.designation && s.designation.toLowerCase().includes("admin"))
+              );
+              if (matchedAdmin?.fullName) {
+                adminData.data.name = matchedAdmin.fullName;
+              }
+            }
+          }
+        } catch (e) {}
+      }
+
       return NextResponse.json(adminData);
     }
 

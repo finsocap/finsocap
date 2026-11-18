@@ -19,6 +19,7 @@ import PageBanner from "@/components/Dashboard/PageBanner";
 import RoleDashboardView from "@/components/Dashboard/RoleDashboardView";
 import PartnerRequestsDashboard from "@/components/Dashboard/PartnerRequestsDashboard";
 import WeatherWidgetCard from "@/components/Dashboard/WeatherWidgetCard";
+import TaskIdBadge from "@/components/Dashboard/TaskIdBadge";
 import { useCrmStore, fetchLiveDbData } from "@/lib/crmStore";
 import { isDateWithinRange, getCurrentMonthRangeLabel } from "@/lib/dateRangeHelper";
 
@@ -469,7 +470,7 @@ export default function DashboardHome() {
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 items-stretch">
 
         {/* Left: Recent Service Requests / Tasks Table (7 cols) */}
-        <div className="lg:col-span-7 bg-white dark:bg-[#0c1427] rounded-2xl border border-slate-200/90 dark:border-slate-800 shadow-sm overflow-hidden flex flex-col justify-between">
+        <div className="lg:col-span-7 bg-white dark:bg-[#0c1427] rounded-2xl border border-slate-200/90 dark:border-slate-800 shadow-sm overflow-hidden flex flex-col">
           <div className="p-4 sm:p-5 flex items-center justify-between border-b border-slate-100 dark:border-slate-800/80">
             <div className="flex items-center gap-2">
               <h3 className="font-black text-slate-900 dark:text-white text-sm sm:text-base tracking-tight">
@@ -490,7 +491,7 @@ export default function DashboardHome() {
             </Link>
           </div>
 
-          <div className="overflow-x-auto">
+          <div className="overflow-x-auto flex-1">
             <table className="w-full text-left border-collapse text-xs">
               <thead>
                 <tr className="border-b border-slate-100 dark:border-slate-800 text-[11px] font-bold text-slate-400 bg-slate-50/50 dark:bg-slate-900/50">
@@ -511,22 +512,18 @@ export default function DashboardHome() {
                   </tr>
                 ) : (
                   filteredRecentTasks.map((t: any, idx: number) => {
-                    const truncatedId = t.id && t.id.length > 12 
-                      ? `${t.id.slice(0, 10)}...` 
-                      : (t.id || `#${idx + 1}`);
+                    const taskIdVal = t.id || `#${idx + 1}`;
 
                     return (
                       <tr
                         key={t.id || idx}
                         className="hover:bg-slate-50/80 dark:hover:bg-slate-800/50 transition-colors"
                       >
-                        <td className="py-2.5 px-4 font-bold text-blue-600 dark:text-sky-400">
-                          <Link 
+                        <td className="py-2.5 px-4 whitespace-nowrap">
+                          <TaskIdBadge
+                            id={taskIdVal}
                             href={`/dashboard/tasks/${t.numericId || t.id}`}
-                            className="hover:underline flex items-center gap-1"
-                          >
-                            <span>{truncatedId}</span>
-                          </Link>
+                          />
                         </td>
                         <td className="py-2.5 px-4">
                           <span className="font-bold text-slate-900 dark:text-white block">
@@ -564,8 +561,8 @@ export default function DashboardHome() {
         </div>
 
         {/* Right: Team Activity (5 cols) matching Reference Screenshot */}
-        <div className="lg:col-span-5 bg-white dark:bg-[#0c1427] rounded-2xl border border-slate-200/90 dark:border-slate-800 shadow-sm p-4 sm:p-5 flex flex-col justify-between">
-          <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800/80 pb-3">
+        <div className="lg:col-span-5 bg-white dark:bg-[#0c1427] rounded-2xl border border-slate-200/90 dark:border-slate-800 shadow-sm p-4 sm:p-5 flex flex-col">
+          <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800/80 pb-2">
             <div className="flex items-center gap-2">
               <h3 className="font-black text-slate-900 dark:text-white text-sm sm:text-base tracking-tight">
                 Team Activity
@@ -585,14 +582,14 @@ export default function DashboardHome() {
             </Link>
           </div>
 
-          <div className="overflow-x-auto">
+          <div className="overflow-x-auto flex-1">
             <table className="w-full text-left border-collapse text-xs">
               <thead>
                 <tr className="border-b border-slate-100 dark:border-slate-800 text-[11px] font-bold text-slate-400">
-                  <th className="py-2.5 px-2">User</th>
-                  <th className="py-2.5 px-2">Role</th>
-                  <th className="py-2.5 px-2">Activity</th>
-                  <th className="py-2.5 px-2 text-right">Time</th>
+                  <th className="py-2 px-2">User</th>
+                  <th className="py-2 px-2">Role</th>
+                  <th className="py-2 px-2">Activity</th>
+                  <th className="py-2 px-2 text-right">Time</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100 dark:divide-slate-800/60 font-medium">

@@ -99,22 +99,80 @@ async function handleProxy(
     }
   }
 
+  // 2. Direct handler for service request documents: /api/proxy/documents/{docId}
+  // FinSoCap backend endpoint is /api/admin/service-requests/{taskId}/documents/{docId}
+  const singleDocMatch = subpath.match(/^documents\/(\d+)$/);
+  if (singleDocMatch && request.method === "GET") {
+    const docId = singleDocMatch[1];
+    const adminToken = await getValidAdminToken();
+
+    try {
+      // Find which task owns this document
+      const tasksRes = await fetch(`${API_ROOT}/admin/tasks`, {
+        headers: { authorization: `Bearer ${adminToken}` },
+        cache: "no-store",
+      });
+
+      if (tasksRes.ok) {
+        const tasksJson = await tasksRes.json();
+        const tasksList = tasksJson?.data || [];
+
+        for (const t of tasksList) {
+          const checkRes = await fetch(
+            `${API_ROOT}/admin/service-requests/${t.id}/documents/${docId}?inline=true`,
+            {
+              headers: { authorization: `Bearer ${adminToken}` },
+              cache: "no-store",
+            }
+          );
+
+          if (checkRes.ok) {
+            const docBuffer = await checkRes.arrayBuffer();
+            const mimeType = checkRes.headers.get("content-type") || "application/octet-stream";
+            const disposition = checkRes.headers.get("content-disposition") || `inline; filename="document-${docId}"`;
+
+            return new NextResponse(docBuffer, {
+              status: 200,
+              headers: {
+                "Content-Type": mimeType,
+                "Content-Disposition": disposition,
+                "Access-Control-Allow-Origin": "*",
+                "Cache-Control": "no-store, no-cache, must-revalidate, proxy-revalidate, max-age=0",
+                "Pragma": "no-cache",
+                "Expires": "0",
+              },
+            });
+          }
+        }
+      }
+    } catch (docErr) {
+      console.error("[Proxy Document Resolver Error]:", docErr);
+    }
+  }
+
+  // Normalize subpath to prevent double "admin/admin/" prefixes
+  let normalizedSubpath = subpath;
+  if (normalizedSubpath.startsWith("admin/")) {
+    normalizedSubpath = normalizedSubpath.substring(6);
+  }
+
   let targetUrlString = "";
   if (
-    subpath.startsWith("partners/network") ||
-    subpath.startsWith("partners/enroll") ||
-    subpath.startsWith("partners/metrics")
+    normalizedSubpath.startsWith("partners/network") ||
+    normalizedSubpath.startsWith("partners/enroll") ||
+    normalizedSubpath.startsWith("partners/metrics") ||
+    normalizedSubpath.includes("/toggle-status") ||
+    normalizedSubpath.includes("/details")
   ) {
-    targetUrlString = `${API_ROOT}/admin/${subpath}`;
+    targetUrlString = `${API_ROOT}/admin/${normalizedSubpath}`;
   } else if (
-    subpath.startsWith("partners/") ||
-    subpath.startsWith("staff/") ||
-    subpath.startsWith("admin/") ||
-    subpath.startsWith("request-documents/")
+    normalizedSubpath.startsWith("partners/") ||
+    normalizedSubpath.startsWith("staff/") ||
+    normalizedSubpath.startsWith("request-documents/")
   ) {
-    targetUrlString = `${API_ROOT}/${subpath}`;
+    targetUrlString = `${API_ROOT}/${normalizedSubpath}`;
   } else {
-    targetUrlString = `${API_ROOT}/admin/${subpath}`;
+    targetUrlString = `${API_ROOT}/admin/${normalizedSubpath}`;
   }
 
   const targetUrl = new URL(targetUrlString);

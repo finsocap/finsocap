@@ -77,13 +77,13 @@ export default function TaskDetailsClient({ id }: { id: string }) {
   // Mark Task as Completed Modal State (Screenshot 1 & Screenshot 2 Exact Match)
   const [isCompleteModalOpen, setIsCompleteModalOpen] = useState(false);
   const [licenceType, setLicenceType] = useState<"Permanent Licence" | "Renewal Licence">("Permanent Licence");
-  const [completeCategory, setCompleteCategory] = useState("Compliance");
-  const [completeServiceName, setCompleteServiceName] = useState("FSSAI Registration");
-  const [completeLicenceNumber, setCompleteLicenceNumber] = useState("2156");
-  const [completeIssueDate, setCompleteIssueDate] = useState("2026-09-25");
-  const [completeExpiryDate, setCompleteExpiryDate] = useState("2028-09-25");
-  const [completeUserId, setCompleteUserId] = useState("UPFSSAI123");
-  const [completePassword, setCompletePassword] = useState("Abc@1234");
+  const [completeCategory, setCompleteCategory] = useState("");
+  const [completeServiceName, setCompleteServiceName] = useState("");
+  const [completeLicenceNumber, setCompleteLicenceNumber] = useState("");
+  const [completeIssueDate, setCompleteIssueDate] = useState("");
+  const [completeExpiryDate, setCompleteExpiryDate] = useState("");
+  const [completeUserId, setCompleteUserId] = useState("");
+  const [completePassword, setCompletePassword] = useState("");
   const [showCompletePassword, setShowCompletePassword] = useState(false);
   const [completePartnerId, setCompletePartnerId] = useState("");
   const [completePartnerName, setCompletePartnerName] = useState("");
@@ -93,6 +93,31 @@ export default function TaskDetailsClient({ id }: { id: string }) {
   const [completeAttachments, setCompleteAttachments] = useState<string[]>([]);
   const [completeAttachmentFile, setCompleteAttachmentFile] = useState<File | null>(null);
   const completeFileInputRef = useRef<HTMLInputElement>(null);
+
+  const openCompleteTaskModal = () => {
+    if (!task) return;
+    const today = new Date().toISOString().split("T")[0];
+    const expiry = new Date(Date.now() + 365 * 24 * 3600 * 1000).toISOString().split("T")[0];
+
+    const anyTask = task as any;
+    setCompleteCategory(task.taskCategory || anyTask?.category || "General");
+    setCompleteServiceName(task.serviceName || anyTask?.service || "");
+    setCompletePartnerId(task.partnerId || "");
+    setCompletePartnerName(task.partnerName || anyTask?.partner || "");
+    setCompletePartnerNumber(task.partnerContact || anyTask?.partnerPhone || "");
+    setCompleteClientName(task.clientName || anyTask?.client || "");
+    setCompleteClientNumber(task.clientContact || anyTask?.phone || anyTask?.contactNumber || "");
+
+    // Dynamic defaults rather than static hardcoded values
+    setCompleteLicenceNumber("");
+    setCompleteIssueDate(today);
+    setCompleteExpiryDate(expiry);
+    setCompleteUserId("");
+    setCompletePassword("");
+    setCompleteAttachments([]);
+    setCompleteAttachmentFile(null);
+    setIsCompleteModalOpen(true);
+  };
 
   const statusOptions: { status: TaskStatus; dotColor: string }[] = useMemo(() => {
     return [
@@ -310,7 +335,7 @@ export default function TaskDetailsClient({ id }: { id: string }) {
 
     // Stepwise Workflow: Completed opens the dedicated final certification modal
     if (newStatus === "Completed") {
-      setIsCompleteModalOpen(true);
+      openCompleteTaskModal();
       return;
     }
 
@@ -466,8 +491,30 @@ export default function TaskDetailsClient({ id }: { id: string }) {
   // Submit Task Completion Modal (Screenshot 1 Exact Match)
   const handleMarkTaskCompletedSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+
+    // 1. Mandatory Validation: All fields and attachments are compulsory
     if (!completeLicenceNumber.trim()) {
-      showToast("Please enter a valid Licence Number");
+      showToast("Licence Number is mandatory to complete the task.");
+      return;
+    }
+    if (!completeIssueDate) {
+      showToast("Issue Date is mandatory.");
+      return;
+    }
+    if (!completeExpiryDate) {
+      showToast("Expiry Date is mandatory.");
+      return;
+    }
+    if (!completeUserId.trim()) {
+      showToast("Portal User ID is mandatory.");
+      return;
+    }
+    if (!completePassword.trim()) {
+      showToast("Portal Password is mandatory.");
+      return;
+    }
+    if (completeAttachments.length === 0 && !completeAttachmentFile) {
+      showToast("Official Certificate Attachment is mandatory. Please upload the file.");
       return;
     }
 
@@ -759,8 +806,13 @@ export default function TaskDetailsClient({ id }: { id: string }) {
             },
             role
           );
-          if (apiRes?.success && apiRes?.data?.downloadPath) {
-            downloadUrl = `/api/proxy${apiRes.data.downloadPath}?inline=true`;
+          if (apiRes?.success) {
+            const uploadedId = apiRes.data?.id;
+            if (uploadedId) {
+              downloadUrl = `/api/proxy/admin/service-requests/${numericTaskId}/documents/${uploadedId}?inline=true`;
+            } else if (apiRes.data?.downloadPath) {
+              downloadUrl = `/api/proxy${apiRes.data.downloadPath}?inline=true`;
+            }
           }
         }
       } catch (uploadErr) {
@@ -853,7 +905,19 @@ export default function TaskDetailsClient({ id }: { id: string }) {
               <h1 className="text-2xl sm:text-3xl font-black text-slate-900 dark:text-white tracking-tight leading-tight flex items-center gap-2.5 flex-wrap">
                 Task Details
                 <span className="inline-flex items-center gap-1.5 text-xs font-bold px-2.5 py-1 rounded-full bg-blue-50 dark:bg-blue-950/80 text-blue-700 dark:text-sky-300 border border-blue-200/80 dark:border-blue-800/80 font-mono">
-                  <span>{task.id.length <= 12 ? task.id : `${task.id.slice(0, 10)}...`}</span>
+                  <span>{(() => {
+                    const str = task.id.trim();
+                    let prefix = "";
+                    let rest = str;
+                    if (str.startsWith("T-")) {
+                      prefix = "T-";
+                      rest = str.slice(2);
+                    } else if (str.startsWith("#")) {
+                      prefix = "#";
+                      rest = str.slice(1);
+                    }
+                    return rest.length > 4 ? `${prefix}${rest.slice(0, 4)}...` : str;
+                  })()}</span>
                   <button
                     type="button"
                     onClick={handleCopyId}
@@ -892,7 +956,7 @@ export default function TaskDetailsClient({ id }: { id: string }) {
             {task.status !== "Completed" && (
               <button
                 type="button"
-                onClick={() => setIsCompleteModalOpen(true)}
+                onClick={openCompleteTaskModal}
                 className="px-3.5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs shadow-md shadow-emerald-500/20 flex items-center gap-1.5 cursor-pointer transition-all active:scale-95"
               >
                 <CheckCircle2 className="w-3.5 h-3.5" />
