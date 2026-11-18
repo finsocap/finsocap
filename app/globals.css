@@ -1170,11 +1170,23 @@ html[data-os="windows"] .space-y-5 > :not([hidden]) ~ :not([hidden]) {
 }
 
 /* 4. Global Typography Calibration for Oversized Headings & Card Titles on Windows */
-html[data-os="windows"] h1,
-html[data-os="windows"] .text-4xl {
-  font-size: 1.35rem !important;
+/* PageBanner Heading (Executive Dashboard, Tasks, Clients, Team, Partners, Services, etc.) */
+html[data-os="windows"] .bg-gradient-to-r.from-white h1,
+html[data-os="windows"] h1 {
+  font-size: 1.45rem !important;
   line-height: 1.25 !important;
   font-weight: 700 !important;
+  letter-spacing: -0.015em !important;
+}
+
+/* Modal & Popup Header Banners (ModalHeaderBanner: New Task, Client Vault, Application Correction, Partner Detail, etc.) */
+html[data-os="windows"] [role="dialog"] h2,
+html[data-os="windows"] .modal-container h2,
+html[data-os="windows"] div[class*="from-blue-600"][class*="to-sky-500"] h2 {
+  font-size: 1.2rem !important;
+  line-height: 1.25 !important;
+  font-weight: 700 !important;
+  letter-spacing: -0.015em !important;
 }
 
 html[data-os="windows"] h2,
@@ -1187,8 +1199,7 @@ html[data-os="windows"] .text-3xl {
 /* Card titles across all dashboard cards (Product Statistic, Leads & Revenue, Task Summary, Recent Tasks, Team Activity) */
 html[data-os="windows"] h3,
 html[data-os="windows"] .text-2xl,
-html[data-os="windows"] .text-xl,
-html[data-os="windows"] aside .font-black.text-slate-900 {
+html[data-os="windows"] .text-xl {
   font-size: 0.92rem !important;
   line-height: 1.3 !important;
   font-weight: 700 !important;
@@ -1205,12 +1216,12 @@ html[data-os="windows"] [class*="rounded-2xl"] h3 {
   letter-spacing: -0.01em !important;
 }
 
-/* Sidebar Brand "Finsocap" Text on Windows */
+/* Sidebar Brand "Finsocap" Text on Windows: Thoda bada (1.35rem) & Font Weight Kam (700 bold instead of black) */
 html[data-os="windows"] aside a span.font-black,
 html[data-os="windows"] aside a span.text-xl,
 html[data-os="windows"] aside a span.sm\:text-2xl,
 html[data-os="windows"] aside a span.lg\:text-\[26px\] {
-  font-size: 1.15rem !important;
+  font-size: 1.35rem !important;
   font-weight: 700 !important;
   letter-spacing: -0.02em !important;
 }
@@ -1218,8 +1229,50 @@ html[data-os="windows"] aside a span.lg\:text-\[26px\] {
 /* Sidebar brand icon logo container on Windows */
 html[data-os="windows"] aside .w-10.h-10,
 html[data-os="windows"] aside .lg\:w-12.lg\:h-12 {
-  width: 2.25rem !important;
-  height: 2.25rem !important;
+  width: 2.5rem !important;
+  height: 2.5rem !important;
+}
+
+/* Sidebar Navigation Notification Badges (Tasks "1", Allocation "1", etc.) - Ekdum Chhota & Compact */
+html[data-os="windows"] aside nav a span.rounded-full {
+  font-size: 9px !important;
+  line-height: 1 !important;
+  padding: 1.5px 5px !important;
+  min-width: 16px !important;
+  height: 16px !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  font-weight: 700 !important;
+}
+
+/* Sidebar Logout Button: Overall text & container compact */
+html[data-os="windows"] aside button:has(svg.lucide-log-out) {
+  padding: 0.5rem 0.75rem !important;
+  border-radius: 12px !important;
+}
+
+html[data-os="windows"] aside button:has(svg.lucide-log-out) .w-9.h-9 {
+  width: 1.75rem !important;
+  height: 1.75rem !important;
+  border-radius: 8px !important;
+}
+
+html[data-os="windows"] aside button:has(svg.lucide-log-out) svg.lucide-log-out {
+  width: 0.85rem !important;
+  height: 0.85rem !important;
+}
+
+html[data-os="windows"] aside button:has(svg.lucide-log-out) span.uppercase {
+  font-size: 0.65rem !important;
+  font-weight: 700 !important;
+  letter-spacing: 0.05em !important;
+}
+
+html[data-os="windows"] aside button:has(svg.lucide-log-out) span.truncate {
+  font-size: 0.58rem !important;
+  font-weight: 500 !important;
+  margin-top: 1px !important;
 }
 
 /* Subtle reduction in general font weight from heavy black to clean bold on Windows */
