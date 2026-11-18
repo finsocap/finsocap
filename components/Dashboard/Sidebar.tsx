@@ -303,25 +303,16 @@ export default function Sidebar({ userRole = "ADMIN" }: { userRole?: string }) {
             </div>
           </Link>
         ) : (
-          <Link href="/dashboard" className="flex items-center gap-3 overflow-hidden group">
-            {/* Official Finsocap Favicon Logo */}
-            <div className="w-10 h-10 lg:w-12 lg:h-12 rounded-xl overflow-hidden bg-white dark:bg-slate-800 border border-slate-200/80 dark:border-slate-700 shadow-xs flex items-center justify-center p-1 shrink-0 group-hover:scale-105 transition-transform">
-              <img 
-                src={getAssetUrl("/apple-touch-icon.png")} 
-                alt="Finsocap Favicon" 
-                width={44} 
-                height={44} 
-                className="w-full h-full object-contain"
-                onError={(e) => {
-                  (e.target as HTMLImageElement).src = getAssetUrl("/Finsocap_logo.png");
-                }}
-              />
-            </div>
-            <div className="flex flex-col justify-center">
-              <span className="font-black text-slate-900 dark:text-white text-xl sm:text-2xl lg:text-[26px] tracking-tight leading-none">
-                Finsocap
-              </span>
-            </div>
+          <Link href="/dashboard" className="flex items-center overflow-hidden group py-1 px-1">
+            {/* Real Full Finsocap Logo (No text, pure brand logo) */}
+            <img 
+              src={getAssetUrl("/Finsocap_logo.png")} 
+              alt="Finsocap" 
+              className="h-9 w-auto max-w-[190px] object-contain group-hover:scale-105 transition-transform"
+              onError={(e) => {
+                (e.target as HTMLImageElement).src = getAssetUrl("/apple-touch-icon.png");
+              }}
+            />
           </Link>
         )}
       </div>
@@ -332,7 +323,7 @@ export default function Sidebar({ userRole = "ADMIN" }: { userRole?: string }) {
         <div className="space-y-1.5 2xl:space-y-2">
           {/* Core Operations Section */}
           {!isCollapsed && (
-            <div className="pt-1.5 pb-1 px-3.5">
+            <div className="pt-1.5 pb-1 px-3.5 sidebar-section-core">
               <span className="text-[10px] font-black uppercase tracking-wider text-slate-400 dark:text-slate-500">
                 Core Operations
               </span>

@@ -1244,6 +1244,24 @@ html[data-os="windows"] aside .h-\[74px\] {
   height: 65px !important;
 }
 
+/* Windows: Remove "Core Operations" heading text in sidebar */
+html[data-os="windows"] aside .sidebar-section-core {
+  display: none !important;
+}
+
+/* Windows: Ultra-compact weather widget card height */
+html[data-os="windows"] aside .h-\[180px\],
+html[data-os="windows"] aside div[class*="h-\[180px\]"] {
+  height: 105px !important;
+  min-height: 105px !important;
+}
+
+/* Hide extended 3-telemetry row inside weather widget on Windows to maintain clean compact fit */
+html[data-os="windows"] aside div[class*="h-\[180px\]"] > div > div.border-t.border-white\/20,
+html[data-os="windows"] aside div[class*="h-\[180px\]"] .drop-shadow-\[0_1px_3px_rgba\(0\,0\,0\,0\.7\)\] {
+  display: none !important;
+}
+
 html[data-os="windows"] .h-\[340px\] {
   height: 295px !important; /* 340px - 15% = ~290-295px */
 }
