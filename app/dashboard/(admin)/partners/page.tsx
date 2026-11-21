@@ -57,6 +57,8 @@ import { formatName, formatEmail, formatIndianPhoneNumber, formatAddress, format
 import { PhoneInput } from "@/components/Global/PhoneInput";
 import { EmailInput } from "@/components/Global/EmailInput";
 import { NameInput } from "@/components/Global/NameInput";
+import { sortByNewest } from "@/lib/sortHelper";
+import Pagination from "@/components/Dashboard/Pagination";
 
 export default function PartnersManagePage() {
   const router = useRouter();
@@ -83,6 +85,8 @@ export default function PartnersManagePage() {
   const [selectedStatus, setSelectedStatus] = useState<string>("ALL");
   const [selectedTier, setSelectedTier] = useState<string>("ALL");
   const [kpiFilter, setKpiFilter] = useState<"ALL" | "ACTIVE" | "DEACTIVATED" | "ACTIVE_TASKS">("ALL");
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 5;
 
   // Add Partner Modal State (2-Step Flow)
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
@@ -232,7 +236,7 @@ export default function PartnersManagePage() {
 
   // Filtered Partners
   const filteredPartners = useMemo(() => {
-    return scopedPartners.filter((p) => {
+    const list = scopedPartners.filter((p) => {
       // Interactive KPI Filter
       if (kpiFilter === "ACTIVE" && p.status !== "Active") return false;
       if (kpiFilter === "DEACTIVATED" && p.status !== "Deactivated") return false;
@@ -253,7 +257,19 @@ export default function PartnersManagePage() {
       }
       return true;
     });
+    return sortByNewest(list);
   }, [scopedPartners, search, selectedStatus, selectedTier, kpiFilter]);
+
+  // Reset page when filters change
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [search, selectedStatus, selectedTier, kpiFilter]);
+
+  const totalPages = Math.ceil(filteredPartners.length / itemsPerPage) || 1;
+  const paginatedPartners = useMemo(() => {
+    const start = (currentPage - 1) * itemsPerPage;
+    return filteredPartners.slice(start, start + itemsPerPage);
+  }, [filteredPartners, currentPage, itemsPerPage]);
 
   const handleOpenAddModal = () => {
     const nextNum = 101 + partners.length;
@@ -773,7 +789,7 @@ export default function PartnersManagePage() {
                   </td>
                 </tr>
               ) : (
-                filteredPartners.map((p) => {
+                paginatedPartners.map((p) => {
                   const isActive = p.status === "Active";
                   const isPending = p.status === "Pending";
 
@@ -923,6 +939,15 @@ export default function PartnersManagePage() {
             </tbody>
           </table>
         </div>
+
+        {/* Dynamic 5-Items Pagination */}
+        <Pagination
+          currentPage={currentPage}
+          totalPages={totalPages}
+          totalItems={filteredPartners.length}
+          itemsPerPage={itemsPerPage}
+          onPageChange={setCurrentPage}
+        />
       </div>
 
       {/* MODAL 1: Enroll / Add Partner (2-Step Smart Onboarding) */}

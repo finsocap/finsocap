@@ -10,6 +10,7 @@ import {
 import Link from "next/link";
 import { fetchWithCache, getCachedData, clearCachedData } from "@/lib/clientCache";
 import { toTitleCase } from "@/lib/formatters";
+import { sortByNewest } from "@/lib/sortHelper";
 
 type Blog = {
   id: string;
@@ -395,16 +396,19 @@ export default function BlogsPage() {
     }
   };
 
-  const filteredBlogs = blogs.filter((b) => {
-    const titleMatch = (b.title || "").toLowerCase().includes(search.toLowerCase());
-    const catName = getCategoryName(b.category).toLowerCase();
-    const catMatch = catName.includes(search.toLowerCase());
-    const matchesSearch = titleMatch || catMatch;
+  const filteredBlogs = sortByNewest(
+    blogs.filter((b) => {
+      const titleMatch = (b.title || "").toLowerCase().includes(search.toLowerCase());
+      const catName = getCategoryName(b.category).toLowerCase();
+      const catMatch = catName.includes(search.toLowerCase());
+      const matchesSearch = titleMatch || catMatch;
 
-    const matchesCategory = selectedCategory === "ALL" || getCategoryName(b.category) === selectedCategory;
+      const matchesCategory = selectedCategory === "ALL" || getCategoryName(b.category) === selectedCategory;
 
-    return matchesSearch && matchesCategory;
-  });
+      return matchesSearch && matchesCategory;
+    }),
+    [(b) => b.publishedAt, (b) => b.createdAt]
+  );
 
   return (
     <div className="space-y-8 pb-32">

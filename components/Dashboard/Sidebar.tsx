@@ -33,7 +33,8 @@ import {
   Lock,
   X,
   LogOut,
-  CreditCard
+  CreditCard,
+  GraduationCap
 } from "lucide-react";
 import DeveloperProfileModal from "../Global/DeveloperProfileModal";
 import WeatherWidgetCard from "./WeatherWidgetCard";
@@ -214,24 +215,27 @@ export default function Sidebar({ userRole = "ADMIN" }: { userRole?: string }) {
         { label: "Products / Services", href: "/dashboard/services", icon: Boxes },
         { label: "Tasks & Filings", href: "/dashboard/tasks", icon: ClipboardList, badge: openTasksCount > 0 ? `${openTasksCount}` : undefined },
         { label: "Clients", href: "/dashboard/clients", icon: Users },
+        { label: "Partner Learning Centre", href: "/dashboard/learning", icon: GraduationCap },
       ]
     : isOperational
     ? [
         { label: "Dashboard", href: "/dashboard", icon: Home },
         { label: "My Assigned Tasks", href: "/dashboard/tasks", icon: ClipboardList, badge: openTasksCount > 0 ? `${openTasksCount}` : undefined },
         { label: "Products / Services", href: "/dashboard/services", icon: Boxes },
-        { label: "Partners", href: "/dashboard/partners", icon: Handshake },
         { label: "Clients", href: "/dashboard/clients", icon: Users },
         { label: "Team", href: "/dashboard/team", icon: ShieldCheck },
+        { label: "Partners", href: "/dashboard/partners", icon: Handshake },
+        { label: "Partner Learning Centre", href: "/dashboard/learning", icon: GraduationCap },
       ]
     : [
         { label: "Dashboard", href: "/dashboard", icon: Home },
         { label: "Products / Services", href: "/dashboard/services", icon: Boxes },
         { label: "Tasks", href: "/dashboard/tasks", icon: ClipboardList, badge: openTasksCount > 0 ? `${openTasksCount}` : undefined },
         { label: "Task Allocation", href: "/dashboard/allocation", icon: UserCheck, badge: unassignedTasksCount > 0 ? `${unassignedTasksCount}` : undefined },
-        { label: "Partners", href: "/dashboard/partners", icon: Handshake },
         { label: "Clients", href: "/dashboard/clients", icon: Users },
         { label: "Team", href: "/dashboard/team", icon: ShieldCheck },
+        { label: "Partners", href: "/dashboard/partners", icon: Handshake },
+        { label: "Partner Learning Centre", href: "/dashboard/learning", icon: GraduationCap },
       ];
 
   const reportNavItems = isPartner
@@ -277,7 +281,7 @@ export default function Sidebar({ userRole = "ADMIN" }: { userRole?: string }) {
         </button>
 
         {/* Brand Header with Finsocap Favicon & Mobile Close Button */}
-        <div className={`flex items-center justify-between h-[74px] border-b border-slate-100 dark:border-slate-800/80 ${isCollapsed ? "lg:justify-center px-4 lg:px-2" : "px-5"}`}>
+        <div className={`flex items-center justify-between h-[64px] border-b border-slate-100 dark:border-slate-800/80 ${isCollapsed ? "lg:justify-center px-4 lg:px-2" : "px-5"}`}>
           {/* Mobile Close Button (<lg screens) */}
           <button
             type="button"
@@ -308,7 +312,7 @@ export default function Sidebar({ userRole = "ADMIN" }: { userRole?: string }) {
             <img 
               src={getAssetUrl("/Finsocap_logo.png")} 
               alt="Finsocap" 
-              className="h-9 w-auto max-w-[190px] object-contain group-hover:scale-105 transition-transform"
+              className="h-8.5 w-auto max-w-[180px] object-contain group-hover:scale-105 transition-transform"
               onError={(e) => {
                 (e.target as HTMLImageElement).src = getAssetUrl("/apple-touch-icon.png");
               }}
@@ -318,12 +322,12 @@ export default function Sidebar({ userRole = "ADMIN" }: { userRole?: string }) {
       </div>
 
       {/* Navigation */}
-      <nav className={`flex-1 px-3 flex flex-col justify-between overflow-y-auto custom-slim-scrollbar py-2 ${isCollapsed ? "px-2" : ""}`}>
+      <nav className={`flex-1 px-3 flex flex-col overflow-y-auto custom-slim-scrollbar py-1.5 ${isCollapsed ? "px-2" : ""}`}>
         {/* Top Section: Nav Items */}
-        <div className="space-y-1.5 2xl:space-y-2">
+        <div className="space-y-1 2xl:space-y-1.5">
           {/* Core Operations Section */}
           {!isCollapsed && (
-            <div className="pt-1.5 pb-1 px-3.5 sidebar-section-core">
+            <div className="pt-2 pb-1 px-3.5 sidebar-section-core">
               <span className="text-[10px] font-black uppercase tracking-wider text-slate-400 dark:text-slate-500">
                 Core Operations
               </span>
@@ -340,11 +344,11 @@ export default function Sidebar({ userRole = "ADMIN" }: { userRole?: string }) {
                 href={item.href}
                 onClick={() => setOptimisticHref(item.href)}
                 title={isCollapsed ? item.label : ""}
-                className={`flex items-center justify-between py-3 2xl:py-3.5 rounded-xl transition-all duration-200 cursor-pointer ${
+                className={`flex items-center justify-between py-2.5 rounded-xl transition-all duration-200 cursor-pointer ${
                   isCollapsed ? "justify-center px-0" : "px-3.5"
                 } ${
                   active
-                    ? "bg-gradient-to-r from-blue-600 via-indigo-600 to-blue-700 text-white font-bold shadow-md shadow-blue-500/25 border border-blue-400/20 scale-[1.01]"
+                    ? "bg-gradient-to-r from-blue-600 via-indigo-600 to-blue-700 text-white font-bold shadow-xs shadow-blue-500/25 border border-blue-400/20"
                     : "text-slate-600 dark:text-slate-400 hover:bg-slate-100/80 dark:hover:bg-slate-800/60 hover:text-slate-900 dark:hover:text-white font-semibold"
                 }`}
               >
@@ -365,7 +369,7 @@ export default function Sidebar({ userRole = "ADMIN" }: { userRole?: string }) {
 
           {/* Reports Header */}
           {!isCollapsed ? (
-            <div className="pt-5 2xl:pt-6 pb-1 px-3.5">
+            <div className="pt-3 pb-1 px-3.5">
               <span className="text-[10px] font-black uppercase tracking-wider text-slate-400 dark:text-slate-500">
                 Analytics & Reports
               </span>
@@ -397,11 +401,11 @@ export default function Sidebar({ userRole = "ADMIN" }: { userRole?: string }) {
                   }
                 }}
                 title={isCollapsed ? item.label : ""}
-                className={`flex items-center justify-between py-3 2xl:py-3.5 rounded-xl transition-all duration-200 cursor-pointer ${
+                className={`flex items-center justify-between py-2.5 rounded-xl transition-all duration-200 cursor-pointer ${
                   isCollapsed ? "justify-center px-0" : "px-3.5"
                 } ${
                   active
-                    ? "bg-gradient-to-r from-blue-600 via-indigo-600 to-blue-700 text-white font-bold shadow-md shadow-blue-500/25 border border-blue-400/20 scale-[1.01]"
+                    ? "bg-gradient-to-r from-blue-600 via-indigo-600 to-blue-700 text-white font-bold shadow-xs shadow-blue-500/25 border border-blue-400/20"
                     : "text-slate-600 dark:text-slate-400 hover:bg-slate-100/80 dark:hover:bg-slate-800/60 hover:text-slate-900 dark:hover:text-white font-semibold"
                 }`}
               >
@@ -415,13 +419,13 @@ export default function Sidebar({ userRole = "ADMIN" }: { userRole?: string }) {
         </div>
 
         {/* Bottom Section: Live Weather & Forecast Widget */}
-        <div className={`mt-auto pt-3 pb-1 ${isCollapsed ? "px-1" : ""}`}>
+        <div className={`mt-4 pt-2 pb-1 ${isCollapsed ? "px-1" : ""}`}>
           <WeatherWidgetCard isCollapsed={isCollapsed} />
         </div>
       </nav>
 
       {/* Bottom: Logout Button */}
-      <div className={`p-3 border-t border-slate-200/90 dark:border-slate-800/90 ${isCollapsed ? "px-2" : ""}`}>
+      <div className={`p-2.5 border-t border-slate-200/90 dark:border-slate-800/90 ${isCollapsed ? "px-2" : ""}`}>
         {!isCollapsed ? (
           <button
             type="button"
@@ -432,7 +436,7 @@ export default function Sidebar({ userRole = "ADMIN" }: { userRole?: string }) {
               } catch (e) {}
               router.push("/dashboard/login");
             }}
-            className="w-full relative overflow-hidden flex items-center justify-between p-3 rounded-2xl border border-red-500/30 bg-gradient-to-r from-red-600 via-rose-600 to-red-700 hover:from-red-700 hover:to-rose-800 text-white shadow-md shadow-red-500/20 transition-all duration-300 group cursor-pointer hover:scale-[1.01]"
+            className="w-full relative overflow-hidden flex items-center justify-between p-2.5 rounded-xl border border-red-500/30 bg-gradient-to-r from-red-600 via-rose-600 to-red-700 hover:from-red-700 hover:to-rose-800 text-white shadow-md shadow-red-500/20 transition-all duration-300 group cursor-pointer hover:scale-[1.01]"
           >
             <div className="flex items-center gap-2.5 relative z-10">
               <div className="relative w-9 h-9 rounded-xl flex items-center justify-center shrink-0 shadow-sm bg-white/20 text-white ring-2 ring-white/30 transition-transform duration-300 group-hover:scale-105">

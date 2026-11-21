@@ -34,6 +34,7 @@ import NewApplicationModal from "./NewApplicationModal";
 import DraftsLockerModal from "./DraftsLockerModal";
 import CustomerPicker from "./CustomerPicker";
 import { toTitleCase } from "@/lib/formatters";
+import { sortByNewest } from "@/lib/sortHelper";
 
 const STATUS_FILTERS = [
   { value: "ALL", label: "All Requests" },
@@ -128,17 +129,20 @@ export default function PartnerRequestsDashboard() {
     loadRequests();
   }, [page, pageSize, selectedStatus, selectedServiceId, selectedCustomerId]);
 
-  // Client search filtering
+  // Client search filtering & sort newest first
   const filteredRequests = useMemo(() => {
-    if (!searchQuery.trim()) return requests;
-    const q = searchQuery.toLowerCase();
-    return requests.filter(
-      (r) =>
-        String(r.id).toLowerCase().includes(q) ||
-        (r.requestCode && r.requestCode.toLowerCase().includes(q)) ||
-        (r.serviceName && r.serviceName.toLowerCase().includes(q)) ||
-        (r.customerName && r.customerName.toLowerCase().includes(q))
-    );
+    let list = requests;
+    if (searchQuery.trim()) {
+      const q = searchQuery.toLowerCase();
+      list = requests.filter(
+        (r) =>
+          String(r.id).toLowerCase().includes(q) ||
+          (r.requestCode && r.requestCode.toLowerCase().includes(q)) ||
+          (r.serviceName && r.serviceName.toLowerCase().includes(q)) ||
+          (r.customerName && r.customerName.toLowerCase().includes(q))
+      );
+    }
+    return sortByNewest(list, [(r) => r.createdAt]);
   }, [requests, searchQuery]);
 
   return (

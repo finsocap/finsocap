@@ -100,8 +100,11 @@ export default function TaskDetailsClient({ id }: { id: string }) {
     const expiry = new Date(Date.now() + 365 * 24 * 3600 * 1000).toISOString().split("T")[0];
 
     const anyTask = task as any;
-    setCompleteCategory(task.taskCategory || anyTask?.category || "General");
-    setCompleteServiceName(task.serviceName || anyTask?.service || "");
+    const initialCategory = task.taskCategory || anyTask?.category || (services[0]?.category || "Taxation");
+    const initialServiceName = task.serviceName || anyTask?.service || (services.find((s) => s.category === initialCategory)?.name || services[0]?.name || "");
+
+    setCompleteCategory(initialCategory);
+    setCompleteServiceName(initialServiceName);
     setCompletePartnerId(task.partnerId || "");
     setCompletePartnerName(task.partnerName || anyTask?.partner || "");
     setCompletePartnerNumber(task.partnerContact || anyTask?.partnerPhone || "");
@@ -126,7 +129,6 @@ export default function TaskDetailsClient({ id }: { id: string }) {
       { status: "Sent for Review", dotColor: "bg-purple-500" },
       { status: "Pending from Client", dotColor: "bg-orange-500" },
       { status: "Pending from Department", dotColor: "bg-indigo-500" },
-      { status: "Overdue", dotColor: "bg-red-600" },
       { status: "Completed", dotColor: "bg-emerald-500" },
       { status: "Cancelled", dotColor: "bg-slate-500" },
     ];
@@ -140,7 +142,6 @@ export default function TaskDetailsClient({ id }: { id: string }) {
       "Sent for Review",
       "Pending from Client",
       "Pending from Department",
-      "Overdue",
       "Completed",
       "Cancelled",
     ];
@@ -156,6 +157,7 @@ export default function TaskDetailsClient({ id }: { id: string }) {
   const [uploadDocCategory, setUploadDocCategory] = useState("Official Output / Certificate");
   const staffFileInputRef = useRef<HTMLInputElement>(null);
   const [selectedStaffFile, setSelectedStaffFile] = useState<File | null>(null);
+  const [isUploadingDeliverable, setIsUploadingDeliverable] = useState(false);
 
   // Preview Document Modal State
   const [activePreviewDoc, setActivePreviewDoc] = useState<{
@@ -397,7 +399,6 @@ export default function TaskDetailsClient({ id }: { id: string }) {
           "Pending from Client": "PENDING_FROM_CLIENT",
           "Pending from Department": "PENDING_FROM_DEPARTMENT",
           "Sent for Review": "SENT_FOR_REVIEW",
-          "Overdue": "PENDING_FROM_CLIENT",
           "Completed": "COMPLETED",
           "Cancelled": "CANCELLED",
         };
@@ -725,8 +726,26 @@ export default function TaskDetailsClient({ id }: { id: string }) {
 
     // 1. Live Backend Sync: POST /api/admin/service-requests/{taskId}/messages or /api/staff/tasks/{taskId}/messages
     try {
-      const numericTaskId = task.numericId || (Number(task.id.replace(/\D/g, "")) || 0);
-      if (numericTaskId > 0) {
+      let numericTaskId = task.numericId;
+      if (!numericTaskId && task.id) {
+        if (/^\d+$/.test(task.id)) {
+          numericTaskId = Number(task.id);
+        } else if (task.id.startsWith("T-") && /^\d+$/.test(task.id.slice(2))) {
+          numericTaskId = Number(task.id.slice(2));
+        } else {
+          try {
+            const checkRes = await fetch(`/api/proxy/service-requests?search=${encodeURIComponent(task.id)}`);
+            if (checkRes.ok) {
+              const checkJson = await checkRes.json();
+              const items = checkJson?.data?.items || checkJson?.data || [];
+              const match = items.find((i: any) => i.requestCode === task.id || i.taskId === task.id || String(i.id) === task.id);
+              if (match?.id) numericTaskId = match.id;
+            }
+          } catch (e) {}
+        }
+      }
+
+      if (numericTaskId && numericTaskId > 0) {
         const role = currentUser?.role === "STAFF" ? "STAFF" : "ADMIN";
         await taskCollaborationService.sendChatMessage(
           numericTaskId,
@@ -739,31 +758,52 @@ export default function TaskDetailsClient({ id }: { id: string }) {
       console.warn("Live chat sync warning:", apiErr);
     }
 
-    const comment = await taskService.addComment(
+    const newCommentObj: TaskComment = {
+      id: `c-${Date.now()}`,
+      userName: senderName,
+      userRole: senderRole,
+      text: newCommentText.trim() || (commentAttachment ? `Uploaded document: ${commentAttachment.fileName}` : ""),
+      attachments: attachmentsList,
+      timestamp: new Date().toLocaleDateString("en-GB", {
+        day: "2-digit",
+        month: "short",
+        year: "numeric",
+        hour: "2-digit",
+        minute: "2-digit",
+      }),
+    };
+
+    // Update state immediately so UI updates without relying on any external resolution
+    setTask((prev) => {
+      if (!prev) return prev;
+      return {
+        ...prev,
+        comments: [newCommentObj, ...(prev.comments || [])],
+      };
+    });
+    setNewCommentText("");
+    setCommentAttachment(null);
+    if (commentFileInputRef.current) commentFileInputRef.current.value = "";
+    showToast("Comment posted!");
+
+    // Also persist in taskService storage
+    await taskService.addComment(
       task.id,
-      newCommentText.trim() || (commentAttachment ? `Uploaded document: ${commentAttachment.fileName}` : ""),
+      newCommentObj.text,
       attachmentsList,
       senderName,
       senderRole
     );
 
-    if (comment) {
-      setTask({
-        ...task,
-        comments: [comment, ...(task.comments || [])],
-      });
-      setNewCommentText("");
-      setCommentAttachment(null);
-      if (commentFileInputRef.current) commentFileInputRef.current.value = "";
-      showToast("Comment with attachment posted!");
-    }
     setIsPostingComment(false);
   };
 
   // Handle Admin & Staff Deliverables Upload (Integrated with Backend API /documents)
   const handleUploadFile = async () => {
     const finalFileName = selectedStaffFile?.name || uploadFileName.trim();
-    if (!finalFileName) return;
+    if (!finalFileName || isUploadingDeliverable) return;
+
+    setIsUploadingDeliverable(true);
 
     const initials = currentUser?.name
       ? currentUser.name
@@ -783,44 +823,61 @@ export default function TaskDetailsClient({ id }: { id: string }) {
     let downloadUrl = "#";
 
     // 1. Live Backend Sync: POST /api/admin/service-requests/{taskId}/documents
-    if (selectedStaffFile) {
-      try {
-        const numericTaskId = task.numericId || (Number(task.id.replace(/\D/g, "")) || 0);
-        if (numericTaskId > 0) {
-          const role = currentUser?.role === "STAFF" ? "STAFF" : "ADMIN";
-          const docType: "CERTIFICATE" | "ACKNOWLEDGEMENT" | "NOTICE" | "OTHER" =
-            uploadDocCategory.includes("Certificate")
-              ? "CERTIFICATE"
-              : uploadDocCategory.includes("Acknowledgment")
-                ? "ACKNOWLEDGEMENT"
-                : uploadDocCategory.includes("Receipt")
-                  ? "ACKNOWLEDGEMENT"
-                  : "OTHER";
-
-          const apiRes = await taskCollaborationService.uploadWorkDocument(
-            numericTaskId,
-            selectedStaffFile,
-            {
-              title: finalFileName,
-              documentType: docType,
-            },
-            role
-          );
-          if (apiRes?.success) {
-            const uploadedId = apiRes.data?.id;
-            if (uploadedId) {
-              downloadUrl = `/api/proxy/admin/service-requests/${numericTaskId}/documents/${uploadedId}?inline=true`;
-            } else if (apiRes.data?.downloadPath) {
-              downloadUrl = `/api/proxy${apiRes.data.downloadPath}?inline=true`;
+    try {
+      let numericTaskId = task.numericId;
+      if (!numericTaskId && task.id) {
+        if (/^\d+$/.test(task.id)) {
+          numericTaskId = Number(task.id);
+        } else if (task.id.startsWith("T-") && /^\d+$/.test(task.id.slice(2))) {
+          numericTaskId = Number(task.id.slice(2));
+        } else {
+          try {
+            const checkRes = await fetch(`/api/proxy/service-requests?search=${encodeURIComponent(task.id)}`);
+            if (checkRes.ok) {
+              const checkJson = await checkRes.json();
+              const items = checkJson?.data?.items || checkJson?.data || [];
+              const match = items.find((i: any) => i.requestCode === task.id || i.taskId === task.id || String(i.id) === task.id);
+              if (match?.id) numericTaskId = match.id;
             }
+          } catch (e) {}
+        }
+      }
+
+      if (selectedStaffFile && numericTaskId && numericTaskId > 0) {
+        const role = currentUser?.role === "STAFF" ? "STAFF" : "ADMIN";
+        const docType: "CERTIFICATE" | "ACKNOWLEDGEMENT" | "NOTICE" | "OTHER" =
+          uploadDocCategory.includes("Certificate")
+            ? "CERTIFICATE"
+            : uploadDocCategory.includes("Acknowledgment")
+              ? "ACKNOWLEDGEMENT"
+              : uploadDocCategory.includes("Receipt")
+                ? "ACKNOWLEDGEMENT"
+                : "OTHER";
+
+        const apiRes = await taskCollaborationService.uploadWorkDocument(
+          numericTaskId,
+          selectedStaffFile,
+          {
+            title: finalFileName,
+            documentType: docType,
+          },
+          role
+        );
+        if (apiRes?.success) {
+          const uploadedId = apiRes.data?.id;
+          if (uploadedId) {
+            downloadUrl = `/api/proxy/admin/service-requests/${numericTaskId}/documents/${uploadedId}?inline=true`;
+          } else if (apiRes.data?.downloadPath) {
+            downloadUrl = `/api/proxy${apiRes.data.downloadPath}?inline=true`;
           }
         }
-      } catch (uploadErr) {
-        console.warn("Live document upload warning:", uploadErr);
       }
+    } catch (uploadErr) {
+      console.warn("Live document upload warning:", uploadErr);
     }
 
-    const newAtt = await taskService.addAttachment(task.id, {
+    const newAttachmentObj: TaskAttachment = {
+      id: `att-${Date.now()}`,
       fileName: finalFileName,
       fileSize: fileSizeStr,
       uploadDate: new Date().toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" }),
@@ -828,19 +885,34 @@ export default function TaskDetailsClient({ id }: { id: string }) {
       fileUrl: downloadUrl,
       source: "STAFF_ADMIN",
       category: uploadDocCategory,
-    });
+    };
 
-    if (newAtt) {
-      setTask({
-        ...task,
-        attachments: [newAtt, ...(task.attachments || [])],
-      });
-      setUploadFileName("");
-      setSelectedStaffFile(null);
-      if (staffFileInputRef.current) staffFileInputRef.current.value = "";
-      setUploadModalOpen(false);
-      showToast(`Work output document "${finalFileName}" uploaded successfully!`);
-    }
+    // Close modal immediately, reset state, and update task attachments directly
+    setUploadModalOpen(false);
+    setSelectedStaffFile(null);
+    setUploadFileName("");
+    if (staffFileInputRef.current) staffFileInputRef.current.value = "";
+    setIsUploadingDeliverable(false);
+
+    setTask((prev) => {
+      if (!prev) return prev;
+      return {
+        ...prev,
+        attachments: [newAttachmentObj, ...(prev.attachments || [])],
+      };
+    });
+    showToast(`Work output document "${finalFileName}" uploaded successfully!`);
+
+    // Also persist in taskService storage
+    await taskService.addAttachment(task.id, {
+      fileName: finalFileName,
+      fileSize: fileSizeStr,
+      uploadDate: newAttachmentObj.uploadDate,
+      uploadedBy: initials,
+      fileUrl: downloadUrl,
+      source: "STAFF_ADMIN",
+      category: uploadDocCategory,
+    });
   };
 
   // Handle Certificate Submission
@@ -1917,10 +1989,17 @@ export default function TaskDetailsClient({ id }: { id: string }) {
                 </button>
                 <button
                   type="submit"
-                  disabled={!selectedStaffFile && !uploadFileName.trim()}
-                  className="btn-primary-vibrant text-xs py-2 px-5 cursor-pointer shadow-md shadow-blue-500/25 disabled:opacity-50"
+                  disabled={isUploadingDeliverable || (!selectedStaffFile && !uploadFileName.trim())}
+                  className="btn-primary-vibrant text-xs py-2 px-5 cursor-pointer shadow-md shadow-blue-500/25 disabled:opacity-50 flex items-center gap-1.5"
                 >
-                  Upload &amp; Save
+                  {isUploadingDeliverable ? (
+                    <>
+                      <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                      <span>Uploading...</span>
+                    </>
+                  ) : (
+                    <span>Upload &amp; Save</span>
+                  )}
                 </button>
               </div>
             </form>
@@ -2025,7 +2104,11 @@ export default function TaskDetailsClient({ id }: { id: string }) {
               onClose={() => setIsCompleteModalOpen(false)}
             />
 
-            <form onSubmit={handleMarkTaskCompletedSubmit} className="space-y-4 text-xs">
+            <form onSubmit={handleMarkTaskCompletedSubmit} autoComplete="off" className="space-y-4 text-xs">
+              {/* Fake inputs to trap browser autofill of username/email & password */}
+              <input type="text" name="fakeusernameremembered" className="hidden" tabIndex={-1} aria-hidden="true" autoComplete="off" />
+              <input type="password" name="fakepasswordremembered" className="hidden" tabIndex={-1} aria-hidden="true" autoComplete="new-password" />
+
               {/* Section 1: Basic Details */}
               <div className="space-y-2.5">
                 <div className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-blue-50/70 dark:bg-blue-950/40 text-blue-700 dark:text-sky-300 font-bold text-xs">
@@ -2062,6 +2145,9 @@ export default function TaskDetailsClient({ id }: { id: string }) {
                       }}
                       className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl font-mono font-bold text-slate-900 dark:text-white"
                     >
+                      {completePartnerId && !partners.some((p) => p.partnerId === completePartnerId) && (
+                        <option value={completePartnerId}>{completePartnerId}</option>
+                      )}
                       {partners.map((p) => (
                         <option key={p.partnerId} value={p.partnerId}>
                           {p.partnerId}
@@ -2214,12 +2300,15 @@ export default function TaskDetailsClient({ id }: { id: string }) {
                       onChange={(e) => {
                         const cat = e.target.value;
                         setCompleteCategory(cat);
-                        const match = services.find((s) => s.category === cat);
+                        const match = services.find((s) => s.category?.toLowerCase() === cat.toLowerCase());
                         if (match) setCompleteServiceName(match.name);
                       }}
                       className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl font-semibold cursor-pointer"
                     >
-                      {Array.from(new Set(services.map((s) => s.category))).map((c) => (
+                      {completeCategory && !services.some((s) => s.category?.toLowerCase() === completeCategory.toLowerCase()) && (
+                        <option value={completeCategory}>{completeCategory}</option>
+                      )}
+                      {Array.from(new Set(services.map((s) => s.category).filter(Boolean))).map((c) => (
                         <option key={c} value={c}>{c}</option>
                       ))}
                     </select>
@@ -2234,11 +2323,14 @@ export default function TaskDetailsClient({ id }: { id: string }) {
                       onChange={(e) => {
                         const name = e.target.value;
                         setCompleteServiceName(name);
-                        const match = services.find((s) => s.name === name);
-                        if (match) setCompleteCategory(match.category);
+                        const match = services.find((s) => s.name?.toLowerCase() === name.toLowerCase());
+                        if (match && match.category) setCompleteCategory(match.category);
                       }}
                       className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl font-semibold text-slate-900 dark:text-white cursor-pointer"
                     >
+                      {completeServiceName && !services.some((s) => s.name?.toLowerCase() === completeServiceName.toLowerCase()) && (
+                        <option value={completeServiceName}>{completeServiceName}</option>
+                      )}
                       {services.map((s) => (
                         <option key={s.id} value={s.name}>
                           {s.name}
@@ -2293,6 +2385,9 @@ export default function TaskDetailsClient({ id }: { id: string }) {
                     </label>
                     <input
                       type="text"
+                      name="compliance_portal_user_id"
+                      id="compliance_portal_user_id"
+                      autoComplete="off"
                       placeholder="e.g. UPFSSAI123"
                       value={completeUserId}
                       onChange={(e) => setCompleteUserId(e.target.value)}
@@ -2307,6 +2402,9 @@ export default function TaskDetailsClient({ id }: { id: string }) {
                     <div className="relative">
                       <input
                         type={showCompletePassword ? "text" : "password"}
+                        name="compliance_portal_pass_key"
+                        id="compliance_portal_pass_key"
+                        autoComplete="new-password"
                         placeholder="Password"
                         value={completePassword}
                         onChange={(e) => setCompletePassword(e.target.value)}

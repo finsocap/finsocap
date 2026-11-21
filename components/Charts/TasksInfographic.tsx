@@ -43,18 +43,10 @@ export default function TasksInfographic({ metrics, tasks = [] }: TasksInfograph
       return s === "COMPLETED";
     }).length;
 
-    const overdue = list.filter((t) => {
-      if (t.dueDate && (t.status || "").toUpperCase() !== "COMPLETED") {
-        const d = new Date(t.dueDate);
-        return !isNaN(d.getTime()) && d < new Date();
-      }
-      return false;
-    }).length;
-
     const completionRate = total > 0 ? Math.round((completed / total) * 100) : 0;
-    const onTimeRate = total > 0 ? Math.max(0, Math.round(((total - overdue) / total) * 100)) : 100;
+    const onTimeRate = total > 0 ? Math.round((completed / total) * 100) : 100;
 
-    return { total, pending, inProgress, queryRaised, completed, overdue, completionRate, onTimeRate };
+    return { total, pending, inProgress, queryRaised, completed, completionRate, onTimeRate };
   }, [metrics, tasks]);
 
   const stages = [
@@ -191,12 +183,12 @@ export default function TasksInfographic({ metrics, tasks = [] }: TasksInfograph
               <Shield className="w-5 h-5" />
             </div>
             <div>
-              <span className="text-[11px] font-bold text-slate-500 dark:text-slate-400">SLA Safety Score</span>
+              <span className="text-[11px] font-bold text-slate-500 dark:text-slate-400">Task Completion Rate</span>
               <div className="text-xl font-black text-slate-900 dark:text-white tracking-tight">
-                {stats.onTimeRate}%
+                {stats.completionRate}%
               </div>
               <p className="text-[10px] text-emerald-600 dark:text-emerald-400 font-semibold mt-0.5">
-                {stats.overdue} overdue filings
+                {stats.completed} filings completed
               </p>
             </div>
           </div>

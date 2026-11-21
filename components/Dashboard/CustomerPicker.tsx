@@ -56,8 +56,9 @@ export default function CustomerPicker({ selectedCustomer, onSelectCustomer }: C
         setCustomers([]);
       }
     } catch (err: any) {
-      console.warn("Using fallback/mock customers list:", err);
-      setCustomers(partnerMockData.customers);
+      console.warn("Failed to fetch live customers list:", err);
+      setError("Unable to load customer list from server. Please retry.");
+      setCustomers([]);
     } finally {
       setLoading(false);
     }

@@ -1022,18 +1022,24 @@ select:disabled {
 /* 1. Default & macOS Profile Design Tokens (MacBook Retina Baseline) */
 :root,
 html[data-os="macos"] {
-  --fs-sidebar-w: 16rem; /* 256px */
+  --fs-sidebar-w: 16rem;
+  /* 256px */
   --fs-topbar-h: 74px;
   --fs-chart-h: 340px;
-  --fs-btn-h: 2.75rem; /* 44px */
+  --fs-btn-h: 2.75rem;
+  /* 44px */
 }
 
 /* 2. Windows Profile: Strictly 15% Proportionally Reduced across ALL Elements */
 html[data-os="windows"] {
-  --fs-sidebar-w: 15.25rem; /* ~244px */
-  --fs-topbar-h: 65px;      /* 74px - 15% */
-  --fs-chart-h: 295px;      /* 340px - 15% */
-  --fs-btn-h: 2.35rem;      /* 44px - 15% = 37.5px */
+  --fs-sidebar-w: 15.25rem;
+  /* ~244px */
+  --fs-topbar-h: 65px;
+  /* 74px - 15% */
+  --fs-chart-h: 295px;
+  /* 340px - 15% */
+  --fs-btn-h: 2.35rem;
+  /* 44px - 15% = 37.5px */
 
   /* Base root rem down by 15%: 16px -> 13.6px */
   font-size: 13.6px !important;
@@ -1049,7 +1055,8 @@ html[data-os="windows"] .bg-gradient-to-r.from-white h1,
 html[data-os="windows"] h1.text-xl,
 html[data-os="windows"] h1.sm\:text-2xl,
 html[data-os="windows"] h1.lg\:text-3xl {
-  font-size: 1.68rem !important; /* +5% bump */
+  font-size: 1.68rem !important;
+  /* +5% bump */
   line-height: 1.25 !important;
   font-weight: 800 !important;
   letter-spacing: -0.015em !important;
@@ -1057,57 +1064,67 @@ html[data-os="windows"] h1.lg\:text-3xl {
 
 html[data-os="windows"] .text-4xl,
 html[data-os="windows"] h1.text-4xl {
-  font-size: 1.9rem !important;  /* MacBook 2.25rem -> 1.9rem (-15%) */
+  font-size: 1.9rem !important;
+  /* MacBook 2.25rem -> 1.9rem (-15%) */
   line-height: 1.25 !important;
 }
 
 html[data-os="windows"] .text-3xl,
 html[data-os="windows"] h1,
 html[data-os="windows"] h2.text-3xl {
-  font-size: 1.6rem !important;  /* MacBook 1.875rem -> 1.6rem (-15%) */
+  font-size: 1.6rem !important;
+  /* MacBook 1.875rem -> 1.6rem (-15%) */
   line-height: 1.25 !important;
 }
 
 html[data-os="windows"] .text-2xl,
 html[data-os="windows"] h2,
 html[data-os="windows"] h3.text-2xl {
-  font-size: 1.28rem !important; /* MacBook 1.5rem -> 1.28rem (-15%) */
+  font-size: 1.28rem !important;
+  /* MacBook 1.5rem -> 1.28rem (-15%) */
   line-height: 1.3 !important;
 }
 
 html[data-os="windows"] .text-xl,
 html[data-os="windows"] h3 {
-  font-size: 1.06rem !important; /* MacBook 1.25rem -> 1.06rem (-15%) */
+  font-size: 1.06rem !important;
+  /* MacBook 1.25rem -> 1.06rem (-15%) */
   line-height: 1.35 !important;
 }
 
 html[data-os="windows"] .text-lg {
-  font-size: 0.95rem !important; /* MacBook 1.125rem -> 0.95rem (-15%) */
+  font-size: 0.95rem !important;
+  /* MacBook 1.125rem -> 0.95rem (-15%) */
   line-height: 1.4 !important;
 }
 
 html[data-os="windows"] .text-base {
-  font-size: 0.85rem !important; /* MacBook 1rem -> 0.85rem (-15%) */
+  font-size: 0.85rem !important;
+  /* MacBook 1rem -> 0.85rem (-15%) */
   line-height: 1.45 !important;
 }
 
 html[data-os="windows"] .text-sm {
-  font-size: 0.74rem !important; /* MacBook 0.875rem -> 0.74rem (-15%) */
+  font-size: 0.74rem !important;
+  /* MacBook 0.875rem -> 0.74rem (-15%) */
   line-height: 1.45 !important;
 }
 
 html[data-os="windows"] .text-xs {
-  font-size: 0.65rem !important; /* MacBook 0.75rem -> 0.65rem (-15%) */
+  font-size: 0.65rem !important;
+  /* MacBook 0.75rem -> 0.65rem (-15%) */
   line-height: 1.4 !important;
 }
 
 /* Arbitrary pixel sizes used in labels & micro-stats */
 html[data-os="windows"] .text-\[11px\] {
-  font-size: 9.5px !important;  /* 11px - 15% = 9.35px ~ 9.5px */
+  font-size: 9.5px !important;
+  /* 11px - 15% = 9.35px ~ 9.5px */
 }
 
 html[data-os="windows"] .text-\[10px\] {
-  font-size: 8.5px !important;  /* 10px - 15% = 8.5px */
+  font-size: 8.5px !important;
+  /* 10px - 15% = 8.5px */
 }
 
 html[data-os="windows"] .text-\[9px\] {
@@ -1116,29 +1133,35 @@ html[data-os="windows"] .text-\[9px\] {
 
 /* 2. PADDING: Exact -15% scaling for every single div, card & container */
 html[data-os="windows"] .p-8 {
-  padding: 1.7rem !important;   /* 2rem -> 1.7rem */
+  padding: 1.7rem !important;
+  /* 2rem -> 1.7rem */
 }
 
 html[data-os="windows"] .p-7 {
-  padding: 1.5rem !important;   /* 1.75rem -> 1.5rem */
+  padding: 1.5rem !important;
+  /* 1.75rem -> 1.5rem */
 }
 
 html[data-os="windows"] .p-6,
 html[data-os="windows"] .card-luxury {
-  padding: 1.28rem !important;  /* 1.5rem -> 1.28rem */
+  padding: 1.28rem !important;
+  /* 1.5rem -> 1.28rem */
 }
 
 html[data-os="windows"] .p-5 {
-  padding: 1.06rem !important;  /* 1.25rem -> 1.06rem */
+  padding: 1.06rem !important;
+  /* 1.25rem -> 1.06rem */
 }
 
 html[data-os="windows"] .p-4 {
-  padding: 0.85rem !important;  /* 1rem -> 0.85rem */
+  padding: 0.85rem !important;
+  /* 1rem -> 0.85rem */
 }
 
 html[data-os="windows"] .p-3,
 html[data-os="windows"] .p-3\.5 {
-  padding: 0.65rem !important;  /* 0.75rem -> 0.65rem */
+  padding: 0.65rem !important;
+  /* 0.75rem -> 0.65rem */
 }
 
 html[data-os="windows"] .px-8 {
@@ -1188,22 +1211,39 @@ html[data-os="windows"] .py-3\.5 {
 }
 
 /* 3. GAPS & SPACING: Exact -15% scaling */
-html[data-os="windows"] .gap-8 { gap: 1.7rem !important; }
-html[data-os="windows"] .gap-6 { gap: 1.28rem !important; }
-html[data-os="windows"] .gap-5 { gap: 1.06rem !important; }
-html[data-os="windows"] .gap-4 { gap: 0.85rem !important; }
-html[data-os="windows"] .gap-3 { gap: 0.65rem !important; }
+html[data-os="windows"] .gap-8 {
+  gap: 1.7rem !important;
+}
 
-html[data-os="windows"] .space-y-8 > :not([hidden]) ~ :not([hidden]) {
+html[data-os="windows"] .gap-6 {
+  gap: 1.28rem !important;
+}
+
+html[data-os="windows"] .gap-5 {
+  gap: 1.06rem !important;
+}
+
+html[data-os="windows"] .gap-4 {
+  gap: 0.85rem !important;
+}
+
+html[data-os="windows"] .gap-3 {
+  gap: 0.65rem !important;
+}
+
+html[data-os="windows"] .space-y-8> :not([hidden])~ :not([hidden]) {
   margin-top: 1.7rem !important;
 }
-html[data-os="windows"] .space-y-6 > :not([hidden]) ~ :not([hidden]) {
+
+html[data-os="windows"] .space-y-6> :not([hidden])~ :not([hidden]) {
   margin-top: 1.28rem !important;
 }
-html[data-os="windows"] .space-y-5 > :not([hidden]) ~ :not([hidden]) {
+
+html[data-os="windows"] .space-y-5> :not([hidden])~ :not([hidden]) {
   margin-top: 1.06rem !important;
 }
-html[data-os="windows"] .space-y-4 > :not([hidden]) ~ :not([hidden]) {
+
+html[data-os="windows"] .space-y-4> :not([hidden])~ :not([hidden]) {
   margin-top: 0.85rem !important;
 }
 
@@ -1218,7 +1258,8 @@ html[data-os="windows"] .btn-emerald-vibrant,
 html[data-os="windows"] .btn-purple-vibrant,
 html[data-os="windows"] .btn-danger-vibrant,
 html[data-os="windows"] .btn-glass-modern {
-  height: 2.35rem !important; /* 44px - 15% = 37.5px */
+  height: 2.35rem !important;
+  /* 44px - 15% = 37.5px */
   min-height: 2.35rem !important;
   font-size: 0.78rem !important;
 }
@@ -1226,7 +1267,8 @@ html[data-os="windows"] .btn-glass-modern {
 html[data-os="windows"] button.h-12,
 html[data-os="windows"] a.h-12,
 html[data-os="windows"] input.h-12 {
-  height: 2.55rem !important; /* 48px - 15% = 40.8px */
+  height: 2.55rem !important;
+  /* 48px - 15% = 40.8px */
   min-height: 2.55rem !important;
   font-size: 0.82rem !important;
 }
@@ -1274,7 +1316,7 @@ html[data-os="windows"] aside nav a {
   font-size: 0.75rem !important;
 }
 
-html[data-os="windows"] aside nav .space-y-1\.5 > :not([hidden]) ~ :not([hidden]) {
+html[data-os="windows"] aside nav .space-y-1\.5> :not([hidden])~ :not([hidden]) {
   margin-top: 0.25rem !important;
 }
 
@@ -1291,7 +1333,7 @@ html[data-os="windows"] aside div[class*="h-\[180px\]"] {
 }
 
 /* Hide extended 3-telemetry row inside weather widget on Windows to maintain clean compact fit */
-html[data-os="windows"] aside div[class*="h-\[180px\]"] > div > div.border-t.border-white\/20,
+html[data-os="windows"] aside div[class*="h-\[180px\]"]>div>div.border-t.border-white\/20,
 html[data-os="windows"] aside div[class*="h-\[180px\]"] .drop-shadow-\[0_1px_3px_rgba\(0\,0\,0\,0\.7\)\] {
   display: none !important;
 }
@@ -1305,7 +1347,8 @@ html[data-os="windows"] aside div.border-t.border-slate-200\/90 {
 }
 
 html[data-os="windows"] .h-\[340px\] {
-  height: 295px !important; /* 340px - 15% = ~290-295px */
+  height: 295px !important;
+  /* 340px - 15% = ~290-295px */
 }
 
 /* 6. MODALS, POPUPS & DIALOGS */
@@ -1352,6 +1395,7 @@ html[data-os="windows"] table td[class*="px-"] {
 html[data-os="windows"] table tr.h-\[52px\] {
   height: 52px !important;
 }
+
 html[data-os="windows"] table tr.h-\[52px\] td {
   padding-top: 0.5rem !important;
   padding-bottom: 0.5rem !important;
@@ -1360,7 +1404,7 @@ html[data-os="windows"] table tr.h-\[52px\] td {
 }
 
 /* Universally target div-based lists (divide-y, list containers across all pages) */
-html[data-os="windows"] .divide-y > *:not(thead):not(tbody):not(tr) {
+html[data-os="windows"] .divide-y>*:not(thead):not(tbody):not(tr) {
   padding-top: 0.5rem !important;
   padding-bottom: 0.5rem !important;
   font-size: 0.75rem !important;
@@ -1373,8 +1417,8 @@ html[data-os="windows"] .overflow-x-auto {
 }
 
 /* Table Card Top Bar (e.g. Specialists & Credentials 8 Active Profiles, Services Filter bar, etc.) */
-html[data-os="windows"] div:has(> .overflow-x-auto) > div[class*="py-"],
-html[data-os="windows"] div:has(> table) > div[class*="py-"] {
+html[data-os="windows"] div:has(> .overflow-x-auto)>div[class*="py-"],
+html[data-os="windows"] div:has(> table)>div[class*="py-"] {
   padding-top: 0.6rem !important;
   padding-bottom: 0.6rem !important;
   padding-left: 0.95rem !important;

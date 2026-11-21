@@ -70,13 +70,6 @@ export default function RoleDashboardView({ userRole, currentUser }: RoleDashboa
     const pendingDept = userTasks.filter((t) => t.status === "Pending from Department").length;
     const review = userTasks.filter((t) => t.status === "Sent for Review").length;
     const completed = userTasks.filter((t) => t.status === "Completed").length;
-    const overdue = userTasks.filter((t) => {
-      if (t.due && !["Completed", "Cancelled"].includes(t.status)) {
-        const dueDate = new Date(t.due);
-        return !isNaN(dueDate.getTime()) && dueDate < new Date();
-      }
-      return false;
-    }).length;
 
     return {
       totalWorks: userTasks.length,
@@ -88,7 +81,6 @@ export default function RoleDashboardView({ userRole, currentUser }: RoleDashboa
       pendingDept,
       review,
       completed,
-      overdue,
     };
   }, [userTasks, userClients, openTasks]);
 

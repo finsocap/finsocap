@@ -33,6 +33,7 @@ import AnimatedCounter from "@/components/Global/AnimatedCounter";
 import {
   TaskPaymentRequestItem,
   AdminPaymentSettings,
+  PaymentProofItem,
 } from "@/types/paymentWorkflow";
 import { paymentWorkflowService } from "@/lib/api/paymentWorkflowService";
 import { adminWorkflowService } from "@/lib/api/adminWorkflowService";
@@ -40,17 +41,22 @@ import PaymentVerificationModal from "@/components/Dashboard/PaymentVerification
 import PayoutSettingsModal from "@/components/Dashboard/PayoutSettingsModal";
 import TaskIdBadge from "@/components/Dashboard/TaskIdBadge";
 import { useToast } from "@/components/Global/ToastNotification";
+import { sortByNewest } from "@/lib/sortHelper";
+import Pagination from "@/components/Dashboard/Pagination";
 
 export default function PaymentVerificationsPage() {
   const toast = useToast();
 
   const [paymentRequests, setPaymentRequests] = useState<TaskPaymentRequestItem[]>([]);
   const [completedTasks, setCompletedTasks] = useState<any[]>([]);
+  const [paymentProofs, setPaymentProofs] = useState<PaymentProofItem[]>([]);
   const [paymentSettings, setPaymentSettings] = useState<AdminPaymentSettings | null>(null);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<"ALL" | "PENDING" | "COMPLETED">("ALL");
   const [activeTab, setActiveTab] = useState<"REQUESTS" | "COMPLETED_TASKS">("REQUESTS");
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 5;
 
   const [selectedRequest, setSelectedRequest] = useState<TaskPaymentRequestItem | null>(null);
   const [showConfigModal, setShowConfigModal] = useState(false);
@@ -61,10 +67,11 @@ export default function PaymentVerificationsPage() {
     try {
       setLoading(true);
 
-      const [requestsRes, settingsRes, serviceRequestsRes] = await Promise.allSettled([
+      const [requestsRes, settingsRes, serviceRequestsRes, proofsRes] = await Promise.allSettled([
         paymentWorkflowService.getPaymentRequests({ size: 100 }),
         paymentWorkflowService.getPaymentSettings(),
         adminWorkflowService.getServiceRequests({ status: "COMPLETED", size: 100 }),
+        paymentWorkflowService.getPaymentProofs({ size: 100 }),
       ]);
 
       if (requestsRes.status === "fulfilled" && requestsRes.value?.success) {
@@ -72,6 +79,18 @@ export default function PaymentVerificationsPage() {
         setPaymentRequests(Array.isArray(items) ? items : []);
       } else {
         setPaymentRequests([]);
+      }
+
+      if (proofsRes.status === "fulfilled" && proofsRes.value?.success) {
+        const pData = proofsRes.value.data;
+        const pItems = Array.isArray(pData?.items)
+          ? pData.items
+          : Array.isArray(pData)
+          ? pData
+          : [];
+        setPaymentProofs(pItems);
+      } else {
+        setPaymentProofs([]);
       }
 
       if (settingsRes.status === "fulfilled" && settingsRes.value?.success) {
@@ -102,10 +121,32 @@ export default function PaymentVerificationsPage() {
     loadPaymentData();
   }, [loadPaymentData]);
 
-  // Filtered payment requests
+  // Map proofs by paymentId and taskId for instant lookup
+  const proofsByPaymentOrTask = useMemo(() => {
+    const map = new Map<string, PaymentProofItem>();
+    paymentProofs.forEach((p) => {
+      if (p.paymentId) map.set(`payment-${p.paymentId}`, p);
+      if (p.taskId) map.set(`task-${p.taskId}`, p);
+      if (p.requestCode) map.set(`code-${p.requestCode}`, p);
+    });
+    return map;
+  }, [paymentProofs]);
+
+  // Count unverified partner submissions
+  const pendingProofsCount = useMemo(() => {
+    return paymentProofs.filter((p) => p.paymentStatus !== "COMPLETED").length;
+  }, [paymentProofs]);
+
+  // Filtered payment requests (newest first)
   const filteredRequests = useMemo(() => {
-    return paymentRequests.filter((item) => {
+    const list = paymentRequests.filter((item) => {
       if (statusFilter !== "ALL" && item.status !== statusFilter) return false;
+      const matchingProof =
+        proofsByPaymentOrTask.get(`payment-${item.id}`) ||
+        proofsByPaymentOrTask.get(`task-${item.taskId}`) ||
+        (item.requestCode ? proofsByPaymentOrTask.get(`code-${item.requestCode}`) : undefined);
+      const proofUtr = matchingProof?.utrNumber || "";
+
       if (search.trim()) {
         const q = search.toLowerCase();
         return (
@@ -114,18 +155,40 @@ export default function PaymentVerificationsPage() {
           item.partnerName?.toLowerCase().includes(q) ||
           item.customerName?.toLowerCase().includes(q) ||
           item.serviceName?.toLowerCase().includes(q) ||
-          item.transactionReference?.toLowerCase().includes(q)
+          item.transactionReference?.toLowerCase().includes(q) ||
+          proofUtr.toLowerCase().includes(q)
         );
       }
       return true;
     });
-  }, [paymentRequests, statusFilter, search]);
 
-  // Tasks completed that don't have a payment request yet
+    return sortByNewest(list, [(i) => i.paidAt, (i) => i.createdAt]);
+  }, [paymentRequests, statusFilter, search, proofsByPaymentOrTask]);
+
+  // Reset page when tab/filters change
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [activeTab, statusFilter, search]);
+
+  const totalPages = Math.ceil(filteredRequests.length / itemsPerPage) || 1;
+  const paginatedRequests = useMemo(() => {
+    const start = (currentPage - 1) * itemsPerPage;
+    return filteredRequests.slice(start, start + itemsPerPage);
+  }, [filteredRequests, currentPage, itemsPerPage]);
+
+  // Tasks completed that don't have a payment request yet (newest first)
   const tasksPendingPaymentCreation = useMemo(() => {
     const existingTaskIds = new Set(paymentRequests.map((r) => r.taskId));
-    return completedTasks.filter((t) => !existingTaskIds.has(t.id));
+    const list = completedTasks.filter((t) => !existingTaskIds.has(t.id));
+    return sortByNewest(list, [(t) => t.createdAt, (t) => t.taskDate]);
   }, [completedTasks, paymentRequests]);
+
+  const [completedTasksPage, setCompletedTasksPage] = useState(1);
+  const totalCompletedTaskPages = Math.ceil(tasksPendingPaymentCreation.length / itemsPerPage) || 1;
+  const paginatedCompletedTasks = useMemo(() => {
+    const start = (completedTasksPage - 1) * itemsPerPage;
+    return tasksPendingPaymentCreation.slice(start, start + itemsPerPage);
+  }, [tasksPendingPaymentCreation, completedTasksPage, itemsPerPage]);
 
   // KPI Metrics calculated strictly from live database responses
   const metrics = useMemo(() => {
@@ -234,14 +297,21 @@ export default function PaymentVerificationsPage() {
             <Clock className="w-6 h-6" />
           </div>
           <div>
-            <span className="text-[10px] font-black uppercase tracking-wider text-slate-400 block">
-              Pending Verification
-            </span>
+            <div className="flex items-center gap-1.5">
+              <span className="text-[10px] font-black uppercase tracking-wider text-slate-400 block">
+                Pending Verification
+              </span>
+              {pendingProofsCount > 0 && (
+                <span className="inline-flex items-center px-1.5 py-0.2 rounded-full text-[9px] font-black bg-rose-500 text-white animate-pulse">
+                  {pendingProofsCount} Submitted
+                </span>
+              )}
+            </div>
             <div className="text-xl font-black text-slate-900 dark:text-white mt-0.5">
               ₹{metrics.totalPending.toLocaleString("en-IN")}
             </div>
             <span className="text-[10px] font-bold text-amber-600">
-              {metrics.pendingCount} Awaiting UTR Confirmation
+              {metrics.pendingCount} Awaiting Confirmation
             </span>
           </div>
         </div>
@@ -291,6 +361,40 @@ export default function PaymentVerificationsPage() {
           </div>
         </div>
       </div>
+
+      {/* 2b. Partner Proof Submission Notification Alert Banner */}
+      {pendingProofsCount > 0 && (
+        <div className="p-4 rounded-3xl bg-gradient-to-r from-amber-500/15 via-rose-500/10 to-blue-500/15 border-2 border-amber-500/30 dark:border-amber-500/40 shadow-sm flex flex-col sm:flex-row sm:items-center justify-between gap-3 animate-in fade-in">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-2xl bg-amber-500 text-white flex items-center justify-center shrink-0 shadow-md shadow-amber-500/25">
+              <AlertCircle className="w-5 h-5 animate-bounce" />
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <h4 className="text-sm font-black text-slate-900 dark:text-white">
+                  {pendingProofsCount} Partner Payment Proof{pendingProofsCount > 1 ? "s" : ""} Submitted Awaiting Verification
+                </h4>
+                <span className="px-2 py-0.5 rounded-full text-[10px] font-black bg-rose-500 text-white animate-pulse">
+                  Action Required
+                </span>
+              </div>
+              <p className="text-xs text-slate-600 dark:text-slate-400 mt-0.5">
+                Franchise partners have submitted payment receipts and UTRs. Review the receipt screenshot and approve to release client certificates.
+              </p>
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={() => {
+              setStatusFilter("PENDING");
+              setActiveTab("REQUESTS");
+            }}
+            className="px-4 py-2 rounded-xl text-xs font-bold text-white bg-amber-600 hover:bg-amber-700 shadow-md shadow-amber-500/20 transition-all cursor-pointer whitespace-nowrap self-start sm:self-auto"
+          >
+            Review Pending Submissions
+          </button>
+        </div>
+      )}
 
       {/* 3. Navigation Tabs */}
       <div className="flex items-center gap-2 border-b border-slate-200/80 dark:border-slate-800 pb-2">
@@ -409,82 +513,123 @@ export default function PaymentVerificationsPage() {
                     </td>
                   </tr>
                 ) : (
-                  filteredRequests.map((req) => (
-                    <tr key={req.id} className="hover:bg-slate-50/80 dark:hover:bg-slate-800/40 transition-colors">
-                      <td className="py-3 px-3.5 whitespace-nowrap">
-                        <TaskIdBadge id={req.requestCode || `#${req.taskId}`} />
-                      </td>
-                      <td className="py-3 px-3.5 font-bold text-slate-900 dark:text-white">
-                        {toTitleCase(req.serviceName)}
-                      </td>
-                      <td className="py-3 px-3.5 text-slate-700 dark:text-slate-300">
-                        {toTitleCase(req.partnerName)}
-                      </td>
-                      <td className="py-3 px-3.5 text-slate-600 dark:text-slate-400">
-                        {toTitleCase(req.customerName)}
-                      </td>
-                      <td className="py-3 px-3.5 font-black text-slate-900 dark:text-white">
-                        ₹{req.amount?.toLocaleString("en-IN")}
-                      </td>
-                      <td className="py-3 px-3.5">
-                        <span
-                          className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-black ${
-                            req.status === "COMPLETED"
-                              ? "bg-emerald-50 text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-400 border border-emerald-300/40"
-                              : "bg-amber-50 text-amber-700 dark:bg-amber-950/60 dark:text-amber-400 border border-amber-300/40"
-                          }`}
-                        >
+                  paginatedRequests.map((req) => {
+                    const matchingProof =
+                      proofsByPaymentOrTask.get(`payment-${req.id}`) ||
+                      proofsByPaymentOrTask.get(`task-${req.taskId}`) ||
+                      (req.requestCode ? proofsByPaymentOrTask.get(`code-${req.requestCode}`) : undefined);
+                    const effectiveUtr = req.transactionReference || matchingProof?.utrNumber;
+                    const hasPendingPartnerProof = !req.transactionReference && Boolean(matchingProof);
+
+                    return (
+                      <tr key={req.id} className="hover:bg-slate-50/80 dark:hover:bg-slate-800/40 transition-colors">
+                        <td className="py-3 px-3.5 whitespace-nowrap">
+                          <TaskIdBadge id={req.requestCode || `#${req.taskId}`} />
+                        </td>
+                        <td className="py-3 px-3.5 font-bold text-slate-900 dark:text-white">
+                          {toTitleCase(req.serviceName)}
+                        </td>
+                        <td className="py-3 px-3.5 text-slate-700 dark:text-slate-300">
+                          {toTitleCase(req.partnerName)}
+                        </td>
+                        <td className="py-3 px-3.5 text-slate-600 dark:text-slate-400">
+                          {toTitleCase(req.customerName)}
+                        </td>
+                        <td className="py-3 px-3.5 font-black text-slate-900 dark:text-white">
+                          ₹{req.amount?.toLocaleString("en-IN")}
+                        </td>
+                        <td className="py-3 px-3.5">
                           <span
-                            className={`w-1.5 h-1.5 rounded-full ${
-                              req.status === "COMPLETED" ? "bg-emerald-500" : "bg-amber-500 animate-pulse"
+                            className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-black ${
+                              req.status === "COMPLETED"
+                                ? "bg-emerald-50 text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-400 border border-emerald-300/40"
+                                : hasPendingPartnerProof
+                                ? "bg-indigo-50 text-indigo-700 dark:bg-indigo-950/60 dark:text-indigo-400 border border-indigo-300/40"
+                                : "bg-amber-50 text-amber-700 dark:bg-amber-950/60 dark:text-amber-400 border border-amber-300/40"
                             }`}
-                          />
-                          {toTitleCase(req.status)}
-                        </span>
-                      </td>
-                      <td className="py-3 px-3.5 font-mono text-[11px] text-slate-600 dark:text-slate-400">
-                        {req.transactionReference ? (
-                          <span className="font-bold text-slate-900 dark:text-white">
-                            {req.transactionReference}
+                          >
+                            <span
+                              className={`w-1.5 h-1.5 rounded-full ${
+                                req.status === "COMPLETED"
+                                  ? "bg-emerald-500"
+                                  : hasPendingPartnerProof
+                                  ? "bg-indigo-500 animate-ping"
+                                  : "bg-amber-500 animate-pulse"
+                              }`}
+                            />
+                            {req.status === "COMPLETED"
+                              ? "Completed"
+                              : hasPendingPartnerProof
+                              ? "Proof Submitted"
+                              : "Pending"}
                           </span>
-                        ) : (
-                          <span className="text-slate-400 italic">Awaiting UTR</span>
-                        )}
-                      </td>
-                      <td className="py-3 px-3.5">
-                        <span className="inline-flex items-center gap-1 font-bold text-[11px]">
-                          {req.documentsUnlocked ? (
-                            <>
-                              <Unlock className="w-3.5 h-3.5 text-emerald-600" />
-                              <span className="text-emerald-600">Unlocked</span>
-                            </>
+                        </td>
+                        <td className="py-3 px-3.5 font-mono text-[11px] text-slate-600 dark:text-slate-400">
+                          {effectiveUtr ? (
+                            <div className="space-y-0.5">
+                              <span className="font-bold text-slate-900 dark:text-white block">
+                                {effectiveUtr}
+                              </span>
+                              {hasPendingPartnerProof && (
+                                <span className="inline-flex items-center gap-1 text-[9px] font-bold text-indigo-600 dark:text-indigo-400 font-sans">
+                                  <span>Partner Uploaded Proof</span>
+                                </span>
+                              )}
+                            </div>
                           ) : (
-                            <>
-                              <Lock className="w-3.5 h-3.5 text-amber-600" />
-                              <span className="text-amber-600">Locked</span>
-                            </>
+                            <span className="text-slate-400 italic">Awaiting UTR</span>
                           )}
-                        </span>
-                      </td>
-                      <td className="py-3 px-3.5 text-right">
-                        <button
-                          type="button"
-                          onClick={() => setSelectedRequest(req)}
-                          className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer shadow-xs ${
-                            req.status === "COMPLETED"
-                              ? "bg-slate-100 hover:bg-slate-200 text-slate-700 dark:bg-slate-800 dark:text-slate-300"
-                              : "bg-blue-600 hover:bg-blue-700 text-white shadow-blue-500/20"
-                          }`}
-                        >
-                          {req.status === "COMPLETED" ? "Manage / Audit" : "Verify & Settle"}
-                        </button>
-                      </td>
-                    </tr>
-                  ))
+                        </td>
+                        <td className="py-3 px-3.5">
+                          <span className="inline-flex items-center gap-1 font-bold text-[11px]">
+                            {req.documentsUnlocked ? (
+                              <>
+                                <Unlock className="w-3.5 h-3.5 text-emerald-600" />
+                                <span className="text-emerald-600">Unlocked</span>
+                              </>
+                            ) : (
+                              <>
+                                <Lock className="w-3.5 h-3.5 text-amber-600" />
+                                <span className="text-amber-600">Locked</span>
+                              </>
+                            )}
+                          </span>
+                        </td>
+                        <td className="py-3 px-3.5 text-right">
+                          <button
+                            type="button"
+                            onClick={() => setSelectedRequest(req)}
+                            className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer shadow-xs ${
+                              req.status === "COMPLETED"
+                                ? "bg-slate-100 hover:bg-slate-200 text-slate-700 dark:bg-slate-800 dark:text-slate-300"
+                                : hasPendingPartnerProof
+                                ? "bg-indigo-600 hover:bg-indigo-700 text-white shadow-indigo-500/20"
+                                : "bg-blue-600 hover:bg-blue-700 text-white shadow-blue-500/20"
+                            }`}
+                          >
+                            {req.status === "COMPLETED"
+                              ? "Manage / Audit"
+                              : hasPendingPartnerProof
+                              ? "Verify Partner Proof"
+                              : "Verify & Settle"}
+                          </button>
+                        </td>
+                      </tr>
+                    );
+                  })
                 )}
               </tbody>
             </table>
           </div>
+
+          {/* Dynamic 5-Items Pagination */}
+          <Pagination
+            currentPage={currentPage}
+            totalPages={totalPages}
+            totalItems={filteredRequests.length}
+            itemsPerPage={itemsPerPage}
+            onPageChange={setCurrentPage}
+          />
         </div>
       ) : (
         /* Tab 2: Completed Tasks Ready to Request Payment */
@@ -531,7 +676,7 @@ export default function PaymentVerificationsPage() {
                     </td>
                   </tr>
                 ) : (
-                  tasksPendingPaymentCreation.map((task) => (
+                  paginatedCompletedTasks.map((task) => (
                     <tr key={task.id} className="hover:bg-slate-50/80 dark:hover:bg-slate-800/40 transition-colors">
                       <td className="py-3 px-3.5 whitespace-nowrap">
                         <TaskIdBadge id={task.requestCode || `#${task.id}`} href={`/dashboard/tasks/${task.id}`} />
@@ -571,6 +716,15 @@ export default function PaymentVerificationsPage() {
               </tbody>
             </table>
           </div>
+
+          {/* Dynamic 5-Items Pagination */}
+          <Pagination
+            currentPage={completedTasksPage}
+            totalPages={totalCompletedTaskPages}
+            totalItems={tasksPendingPaymentCreation.length}
+            itemsPerPage={itemsPerPage}
+            onPageChange={setCompletedTasksPage}
+          />
         </div>
       )}
 

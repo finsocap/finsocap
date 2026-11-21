@@ -8,6 +8,7 @@ import {
 } from "lucide-react";
 import { defaultBrandConfig } from "@/lib/brandConfig";
 import { useToast } from "@/components/Global/ToastNotification";
+import { adminPasswordService } from "@/lib/api/adminPasswordService";
 
 export default function SettingsPage() {
   const { data: session } = useSession();
@@ -131,23 +132,41 @@ export default function SettingsPage() {
     e.preventDefault();
     setProfileError(null);
 
-    if (newPassword && newPassword !== confirmPassword) {
-      setProfileError("New password and confirm password do not match.");
-      return;
-    }
+    // Validate password change if user typed into newPassword
+    if (newPassword || confirmPassword) {
+      if (newPassword !== confirmPassword) {
+        setProfileError("New password and confirm password do not match.");
+        return;
+      }
 
-    if (newPassword && !currentPassword) {
-      setProfileError("Please enter your current password to set a new password.");
-      return;
-    }
+      if (newPassword.length < 12) {
+        setProfileError("New password must be at least 12 characters long.");
+        return;
+      }
 
-    if (newPassword && newPassword.length < 6) {
-      setProfileError("New password must be at least 6 characters long.");
-      return;
+      // Check max UTF-8 byte length (72 bytes) and null characters
+      const utf8Bytes = new TextEncoder().encode(newPassword).length;
+      if (utf8Bytes > 72) {
+        setProfileError("New password must not exceed 72 bytes.");
+        return;
+      }
+
+      if (newPassword.includes("\0")) {
+        setProfileError("New password cannot contain null characters.");
+        return;
+      }
     }
 
     setIsSavingProfile(true);
     try {
+      // 1. If password was entered, call Admin Password API
+      if (newPassword) {
+        const res = await adminPasswordService.updatePassword(newPassword);
+        if (!res?.success && res?.message) {
+          throw new Error(res.message);
+        }
+      }
+
       const updatedProfile = {
         name: profileName,
         email: profileEmail,
@@ -160,13 +179,13 @@ export default function SettingsPage() {
       }
       window.dispatchEvent(new Event("user-dp-updated"));
 
-      showToast("Profile & security settings updated successfully!");
+      showToast(newPassword ? "Profile and admin password updated successfully!" : "Profile settings updated successfully!");
       setCurrentPassword("");
       setNewPassword("");
       setConfirmPassword("");
-    } catch (err) {
+    } catch (err: any) {
       console.error(err);
-      setProfileError("Failed to update profile. Please try again.");
+      setProfileError(err?.message || "Failed to update profile or change password. Please check your credentials.");
     } finally {
       setIsSavingProfile(false);
     }
@@ -393,53 +412,42 @@ export default function SettingsPage() {
               </p>
 
               <div className="space-y-3">
-                <div>
-                  <label className="block text-xs font-bold text-slate-600 dark:text-slate-400 mb-1">
-                    Current Password (Required only if changing password)
-                  </label>
-                  <div className="relative">
-                    <input
-                      type={showPassword ? "text" : "password"}
-                      value={currentPassword}
-                      onChange={e => setCurrentPassword(e.target.value)}
-                      placeholder="••••••••"
-                      className="w-full px-3.5 py-2.5 border border-slate-300 dark:border-slate-700 rounded-xl bg-slate-50 dark:bg-slate-900 outline-none focus:border-teal-500 text-slate-800 dark:text-slate-100 text-xs"
-                    />
-                    <button
-                      type="button"
-                      onClick={() => setShowPassword(!showPassword)}
-                      className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
-                    >
-                      {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                    </button>
-                  </div>
-                </div>
-
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div>
                     <label className="block text-xs font-bold text-slate-600 dark:text-slate-400 mb-1">
-                      New Password (Min 6 characters)
+                      New Password (Min 12 characters, max 72 bytes)
                     </label>
-                    <input
-                      type={showPassword ? "text" : "password"}
-                      value={newPassword}
-                      onChange={e => setNewPassword(e.target.value)}
-                      placeholder="New secure password"
-                      className="w-full px-3.5 py-2.5 border border-slate-300 dark:border-slate-700 rounded-xl bg-slate-50 dark:bg-slate-900 outline-none focus:border-teal-500 text-slate-800 dark:text-slate-100 text-xs"
-                    />
+                    <div className="relative">
+                      <input
+                        type={showPassword ? "text" : "password"}
+                        value={newPassword}
+                        onChange={e => setNewPassword(e.target.value)}
+                        placeholder="••••••••••••"
+                        className="w-full px-3.5 py-2.5 border border-slate-300 dark:border-slate-700 rounded-xl bg-slate-50 dark:bg-slate-900 outline-none focus:border-teal-500 text-slate-800 dark:text-slate-100 text-xs"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowPassword(!showPassword)}
+                        className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
+                      >
+                        {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                      </button>
+                    </div>
                   </div>
 
                   <div>
                     <label className="block text-xs font-bold text-slate-600 dark:text-slate-400 mb-1">
                       Confirm New Password
                     </label>
-                    <input
-                      type={showPassword ? "text" : "password"}
-                      value={confirmPassword}
-                      onChange={e => setConfirmPassword(e.target.value)}
-                      placeholder="Confirm new password"
-                      className="w-full px-3.5 py-2.5 border border-slate-300 dark:border-slate-700 rounded-xl bg-slate-50 dark:bg-slate-900 outline-none focus:border-teal-500 text-slate-800 dark:text-slate-100 text-xs"
-                    />
+                    <div className="relative">
+                      <input
+                        type={showPassword ? "text" : "password"}
+                        value={confirmPassword}
+                        onChange={e => setConfirmPassword(e.target.value)}
+                        placeholder="••••••••••••"
+                        className="w-full px-3.5 py-2.5 border border-slate-300 dark:border-slate-700 rounded-xl bg-slate-50 dark:bg-slate-900 outline-none focus:border-teal-500 text-slate-800 dark:text-slate-100 text-xs"
+                      />
+                    </div>
                   </div>
                 </div>
               </div>

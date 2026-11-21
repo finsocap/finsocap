@@ -234,7 +234,7 @@ export default function DynamicApplicationForm({
 
     try {
       if (isPartnerMockEnabled()) {
-        alert("Draft saved successfully in local mock storage!");
+        alert("Draft saved successfully!");
         setIsSavingDraft(false);
         return;
       }

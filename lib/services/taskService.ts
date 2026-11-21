@@ -186,6 +186,45 @@ export const taskService = {
               },
             ];
 
+        // Fetch live chat messages / comments from API
+        let liveApiComments: TaskComment[] = [];
+        if (numericSrId > 0) {
+          try {
+            const msgRes = await fetch(`/api/proxy/admin/service-requests/${numericSrId}/messages?size=100`, { cache: "no-store" });
+            if (msgRes.ok) {
+              const msgJson = await msgRes.json();
+              const items = msgJson?.data?.items || [];
+              if (Array.isArray(items) && items.length > 0) {
+                liveApiComments = items.map((m: any) => ({
+                  id: `msg-${m.id}`,
+                  userName: m.sender || (m.senderRole === "ADMIN" ? "Admin" : m.senderRole === "STAFF" ? "Specialist" : "Partner"),
+                  userRole: m.senderRole || "ADMIN",
+                  text: m.text || "",
+                  timestamp: m.createdAt
+                    ? new Date(m.createdAt).toLocaleDateString("en-GB", {
+                        day: "2-digit",
+                        month: "short",
+                        year: "numeric",
+                        hour: "2-digit",
+                        minute: "2-digit",
+                      })
+                    : "Recent",
+                  attachments: m.attachment ? [
+                    {
+                      id: `att-${m.attachment.id || m.id}`,
+                      fileName: m.attachment.fileName || "Attachment",
+                      fileUrl: m.attachment.downloadPath ? `/api/proxy${m.attachment.downloadPath}` : "#",
+                      fileSize: m.attachment.sizeBytes ? `${(m.attachment.sizeBytes / 1024).toFixed(0)} KB` : undefined,
+                    }
+                  ] : undefined,
+                })).reverse();
+              }
+            }
+          } catch (msgErr) {
+            console.warn("[taskService.getById] Live messages warning:", msgErr);
+          }
+        }
+
         // Fetch work deliverables & documents from API
         let staffDeliverables: TaskAttachment[] = [];
         if (numericSrId > 0) {
@@ -296,15 +335,26 @@ export const taskService = {
               }
             : undefined,
           comments: [
-            ...(apiTask.instructions ? [{ id: "c-instr", userName: "Admin", userRole: "ADMIN", timestamp: "Initial Assignment", text: apiTask.instructions }] : []),
-            ...(apiTask.adminRemarks && apiTask.adminRemarks !== apiTask.instructions ? [{ id: "c-remarks", userName: "System / Admin", userRole: "ADMIN", timestamp: "Recent", text: apiTask.adminRemarks }] : []),
-            ...(apiTask.queryMessage ? [{ id: "c-query", userName: "Admin Query", userRole: "ADMIN", timestamp: "Recent Query", text: apiTask.queryMessage }] : []),
+            ...liveApiComments,
+            ...(apiTask.instructions && !liveApiComments.some(c => c.text === apiTask.instructions) ? [{ id: "c-instr", userName: "Admin", userRole: "ADMIN", timestamp: "Initial Assignment", text: apiTask.instructions }] : []),
+            ...(apiTask.adminRemarks && apiTask.adminRemarks !== apiTask.instructions && !liveApiComments.some(c => c.text === apiTask.adminRemarks) ? [{ id: "c-remarks", userName: "System / Admin", userRole: "ADMIN", timestamp: "Recent", text: apiTask.adminRemarks }] : []),
+            ...(apiTask.queryMessage && !liveApiComments.some(c => c.text === apiTask.queryMessage) ? [{ id: "c-query", userName: "Admin Query", userRole: "ADMIN", timestamp: "Recent Query", text: apiTask.queryMessage }] : []),
           ],
           attachments: allAttachments,
           statusHistory: liveStatusHistory,
           certificates: taskCertificates,
           license: taskCertificates.length > 0 ? taskCertificates[0].certificateNumber : (apiTask.license || undefined),
         };
+
+        // Cache the live mapped task in memory/storage so addComment, addAttachment, updateStatus find it immediately
+        const currentTasks = getStoredTasks();
+        const existingIdx = currentTasks.findIndex((t) => t.id === mapped.id || (mapped.id && t.id.toLowerCase() === mapped.id.toLowerCase()));
+        if (existingIdx >= 0) {
+          currentTasks[existingIdx] = mapped;
+        } else {
+          currentTasks.push(mapped);
+        }
+        setStoredTasks(currentTasks);
 
         return mapped;
       }
@@ -409,8 +459,12 @@ export const taskService = {
     userName = "Ankit Sharma", 
     userRole = "Admin"
   ): Promise<TaskComment | null> => {
-    const tasks = getStoredTasks();
-    const task = tasks.find((t) => t.id === taskId);
+    let tasks = getStoredTasks();
+    let task: TaskItem | null | undefined = tasks.find((t) => t.id === taskId || t.id.toLowerCase() === taskId.toLowerCase() || (taskId.startsWith("T-") && t.id.replace(/\D/g, "") === taskId.replace(/\D/g, "")));
+    if (!task) {
+      task = await taskService.getById(taskId);
+      tasks = getStoredTasks();
+    }
     if (!task) return null;
 
     if (!task.comments) task.comments = [];
@@ -429,14 +483,24 @@ export const taskService = {
       }),
     };
     task.comments.unshift(newComment);
+    const existingIdx = tasks.findIndex((t) => t.id === task!.id);
+    if (existingIdx >= 0) {
+      tasks[existingIdx] = task;
+    } else {
+      tasks.push(task);
+    }
     setStoredTasks([...tasks]);
     return newComment;
   },
 
   // Add Attachment to Task
   addAttachment: async (taskId: string, attachment: Omit<TaskAttachment, "id">): Promise<TaskAttachment | null> => {
-    const tasks = getStoredTasks();
-    const task = tasks.find((t) => t.id === taskId);
+    let tasks = getStoredTasks();
+    let task: TaskItem | null | undefined = tasks.find((t) => t.id === taskId || t.id.toLowerCase() === taskId.toLowerCase() || (taskId.startsWith("T-") && t.id.replace(/\D/g, "") === taskId.replace(/\D/g, "")));
+    if (!task) {
+      task = await taskService.getById(taskId);
+      tasks = getStoredTasks();
+    }
     if (!task) return null;
 
     if (!task.attachments) task.attachments = [];
@@ -445,6 +509,12 @@ export const taskService = {
       id: `att-${Date.now()}`,
     };
     task.attachments.unshift(newAtt);
+    const existingIdx = tasks.findIndex((t) => t.id === task!.id);
+    if (existingIdx >= 0) {
+      tasks[existingIdx] = task;
+    } else {
+      tasks.push(task);
+    }
     setStoredTasks([...tasks]);
     return newAtt;
   },
@@ -583,7 +653,6 @@ export const taskService = {
           "Pending from Client": "PENDING_FROM_CLIENT",
           "Pending from Department": "PENDING_FROM_DEPARTMENT",
           "Sent for Review": "SENT_FOR_REVIEW",
-          "Overdue": "PENDING_FROM_CLIENT",
           "Completed": "COMPLETED",
           "Cancelled": "CANCELLED",
         };

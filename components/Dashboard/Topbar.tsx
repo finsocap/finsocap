@@ -166,13 +166,6 @@ export default function Topbar({ user }: { user?: any }) {
           const data = await res.json();
           let serverNotifs: NotificationItem[] = data.notifications || [];
 
-          serverNotifs = serverNotifs.filter(
-            n => !n.id.startsWith("notif-1") && 
-                 !n.id.startsWith("notif-2") && 
-                 !n.id.startsWith("notif-3") && 
-                 !n.id.startsWith("notif-4")
-          );
-
           // Role-based notification filtering:
           // ADMIN sees global compliance & operations notifications
           // Non-admin roles (STAFF, SPECIALIST, EXECUTIVE, PARTNER, CLIENT) only see their personal assigned notifications

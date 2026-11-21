@@ -43,6 +43,8 @@ import { apiClient } from "@/lib/api/apiClient";
 import { formatName, formatEmail, formatIndianPhoneNumber, validateIndianMobile, validateEmail, validatePersonName, normalizePhoneForBackend, toTitleCase } from "@/lib/formatters";
 import { PhoneInput } from "@/components/Global/PhoneInput";
 import { EmailInput } from "@/components/Global/EmailInput";
+import { sortByNewest } from "@/lib/sortHelper";
+import Pagination from "@/components/Dashboard/Pagination";
 import { NameInput } from "@/components/Global/NameInput";
 import { TeamMetrics, Specialist, SpecialistReport, CatalogService } from "@/types/api";
 import { useToast } from "@/components/Global/ToastNotification";
@@ -121,6 +123,8 @@ export default function TeamPage() {
   const [selectedRole, setSelectedRole] = useState("ALL");
   const [selectedStatus, setSelectedStatus] = useState<"ALL" | "Active" | "Deactivated">("ALL");
   const [copiedId, setCopiedId] = useState<string | null>(null);
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 5;
 
   // Password visibility map (per user)
   const [showPasswordMap, setShowPasswordMap] = useState<Record<string, boolean>>({});
@@ -176,7 +180,7 @@ export default function TeamPage() {
 
   // Filtered Users
   const filteredUsers = useMemo(() => {
-    return users.filter((u) => {
+    const list = users.filter((u) => {
       if (selectedDept !== "ALL" && u.dept !== selectedDept) return false;
       if (selectedRole !== "ALL" && u.role !== selectedRole) return false;
       if (selectedStatus !== "ALL" && u.status !== selectedStatus) return false;
@@ -195,7 +199,20 @@ export default function TeamPage() {
       }
       return true;
     });
+
+    return sortByNewest(list);
   }, [users, selectedDept, selectedRole, selectedStatus, search]);
+
+  // Reset page when filters change
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [selectedDept, selectedRole, selectedStatus, search]);
+
+  const totalPages = Math.ceil(filteredUsers.length / itemsPerPage) || 1;
+  const paginatedUsers = useMemo(() => {
+    const start = (currentPage - 1) * itemsPerPage;
+    return filteredUsers.slice(start, start + itemsPerPage);
+  }, [filteredUsers, currentPage, itemsPerPage]);
 
   const handleToggle = (userId: string | number, name: string, currentStatus: string, email?: string) => {
     // If deactivating, open professional confirmation modal first to prevent accidental actions
@@ -634,7 +651,7 @@ export default function TeamPage() {
                   </td>
                 </tr>
               ) : (
-                filteredUsers.map((user) => {
+                paginatedUsers.map((user) => {
                   const userEmailDisplay = user.email || `${user.name.toLowerCase().replace(/\s+/g, ".")}@finsocap.com`;
                   const isPasswordRevealed = showPasswordMap[user.id] || false;
                   const userPassword = user.password || "Password@123";
@@ -828,6 +845,14 @@ export default function TeamPage() {
           </table>
         </div>
 
+        {/* Dynamic 5-Items Pagination */}
+        <Pagination
+          currentPage={currentPage}
+          totalPages={totalPages}
+          totalItems={filteredUsers.length}
+          itemsPerPage={itemsPerPage}
+          onPageChange={setCurrentPage}
+        />
       </div>
 
       {/* Modal: Add User */}

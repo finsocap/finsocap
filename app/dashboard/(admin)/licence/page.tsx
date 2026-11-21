@@ -21,6 +21,8 @@ import { useRouter } from "next/navigation";
 import ModalHeaderBanner from "@/components/Dashboard/ModalHeaderBanner";
 import { isDateWithinRange, getCurrentMonthRangeLabel } from "@/lib/dateRangeHelper";
 import { toTitleCase } from "@/lib/formatters";
+import { sortByNewest } from "@/lib/sortHelper";
+import Pagination from "@/components/Dashboard/Pagination";
 
 export default function LicenceReportPage() {
   const router = useRouter();
@@ -140,8 +142,8 @@ export default function LicenceReportPage() {
   const [assignedFilter, setAssignedFilter] = useState("ALL");
   const [dateRange, setDateRange] = useState(() => getCurrentMonthRangeLabel());
 
-  // Pagination State
-  const [rowsPerPage, setRowsPerPage] = useState(10);
+  // Pagination State (5 items per page default)
+  const rowsPerPage = 5;
   const [currentPage, setCurrentPage] = useState(1);
 
   // Selected Checkboxes
@@ -285,7 +287,7 @@ export default function LicenceReportPage() {
 
   // Filtered rows
   const filteredLicences = useMemo(() => {
-    return combinedLicences.filter((lic) => {
+    const list = combinedLicences.filter((lic) => {
       const matchedTask = tasks.find(
         (t) => t.id === lic.task || (lic.task && (t.id.includes(lic.task) || lic.task.includes(t.id)))
       );
@@ -325,6 +327,8 @@ export default function LicenceReportPage() {
       }
       return true;
     });
+
+    return sortByNewest(list, [(l) => l.issue, (l) => l.expiry]);
   }, [combinedLicences, typeFilter, categoryFilter, serviceFilter, statusFilter, assignedFilter, search, dateRange, tasks]);
 
   // Paginated Rows
@@ -953,64 +957,14 @@ export default function LicenceReportPage() {
           </table>
         </div>
 
-        {/* Pagination matching Screenshot 3 */}
-        <div className="p-4 border-t border-slate-100 dark:border-slate-800 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 text-xs text-slate-500 dark:text-slate-400">
-          <div className="flex items-center gap-2">
-            <span>Show</span>
-            <select
-              value={rowsPerPage}
-              onChange={(e) => {
-                setRowsPerPage(Number(e.target.value));
-                setCurrentPage(1);
-              }}
-              className="px-2 py-1 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 font-bold"
-            >
-              <option value={10}>10</option>
-              <option value={25}>25</option>
-              <option value={50}>50</option>
-            </select>
-            <span>entries</span>
-            <span className="ml-2 font-medium">
-              Showing {filteredLicences.length === 0 ? 0 : (currentPage - 1) * rowsPerPage + 1} to{" "}
-              {Math.min(currentPage * rowsPerPage, filteredLicences.length)} of {filteredLicences.length} entries
-            </span>
-          </div>
-
-          <div className="flex items-center gap-1">
-            <button
-              type="button"
-              disabled={currentPage <= 1}
-              onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
-              className="w-7 h-7 rounded-lg border border-slate-200 dark:border-slate-700 flex items-center justify-center text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 disabled:opacity-30 cursor-pointer"
-            >
-              <ChevronLeft className="w-3.5 h-3.5" />
-            </button>
-
-            {Array.from({ length: totalPages }, (_, i) => i + 1).map((pg) => (
-              <button
-                key={pg}
-                type="button"
-                onClick={() => setCurrentPage(pg)}
-                className={`w-7 h-7 rounded-lg text-xs font-bold transition-all cursor-pointer ${
-                  currentPage === pg
-                    ? "bg-blue-600 text-white shadow-xs"
-                    : "border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800"
-                }`}
-              >
-                {pg}
-              </button>
-            ))}
-
-            <button
-              type="button"
-              disabled={currentPage >= totalPages}
-              onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
-              className="w-7 h-7 rounded-lg border border-slate-200 dark:border-slate-700 flex items-center justify-center text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 disabled:opacity-30 cursor-pointer"
-            >
-              <ChevronRight className="w-3.5 h-3.5" />
-            </button>
-          </div>
-        </div>
+        {/* Dynamic 5-Items Pagination */}
+        <Pagination
+          currentPage={currentPage}
+          totalPages={totalPages}
+          totalItems={filteredLicences.length}
+          itemsPerPage={rowsPerPage}
+          onPageChange={setCurrentPage}
+        />
       </div>
 
       {/* ==================================================================== */}

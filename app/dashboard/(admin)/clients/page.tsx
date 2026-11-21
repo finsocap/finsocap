@@ -21,6 +21,8 @@ import { PhoneInput } from "@/components/Global/PhoneInput";
 import { NameInput } from "@/components/Global/NameInput";
 import ClientVaultModal from "@/components/Dashboard/ClientVaultModal";
 import TaskIdBadge from "@/components/Dashboard/TaskIdBadge";
+import { sortByNewest } from "@/lib/sortHelper";
+import Pagination from "@/components/Dashboard/Pagination";
 
 const statuses = [
   "Pending",
@@ -39,6 +41,8 @@ export default function ClientsPage() {
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("ALL");
   const [kpiFilter, setKpiFilter] = useState<"ALL" | "ACTIVE_CASES" | "COMPLETED_SERVICES" | "PARTNER_REFERRED">("ALL");
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 5;
   const [clientMetrics, setClientMetrics] = useState<ClientMetrics | null>(null);
   const [userRole, setUserRole] = useState<string>("ADMIN");
   const [currentUser, setCurrentUser] = useState<any>(null);
@@ -151,7 +155,7 @@ export default function ClientsPage() {
       }
     });
 
-    return scopedClients.filter((c) => {
+    const list = scopedClients.filter((c) => {
       const cName = (c.name || "").toLowerCase().trim();
 
       // KPI Interactive Filter
@@ -174,7 +178,20 @@ export default function ClientsPage() {
       }
       return true;
     });
+
+    return sortByNewest(list);
   }, [scopedClients, scopedTasks, search, statusFilter, kpiFilter]);
+
+  // Reset page when filters change
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [search, statusFilter, kpiFilter]);
+
+  const totalPages = Math.ceil(filteredClients.length / itemsPerPage) || 1;
+  const paginatedClients = useMemo(() => {
+    const start = (currentPage - 1) * itemsPerPage;
+    return filteredClients.slice(start, start + itemsPerPage);
+  }, [filteredClients, currentPage, itemsPerPage]);
 
   // Tasks for selected client history
   const clientHistoryTasks = useMemo(() => {
@@ -249,7 +266,6 @@ export default function ClientsPage() {
       case "Draft":
         return "bg-amber-50 text-amber-700 dark:bg-amber-950/60 dark:text-amber-400 border border-amber-200 dark:border-amber-800";
       case "Pending":
-      case "Overdue":
       case "Cancelled":
         return "bg-rose-50 text-rose-700 dark:bg-rose-950/60 dark:text-rose-400 border border-rose-200 dark:border-rose-800";
       default:
@@ -476,7 +492,7 @@ export default function ClientsPage() {
                   </td>
                 </tr>
               ) : (
-                filteredClients.map((client) => (
+                paginatedClients.map((client) => (
                   <tr key={client.name} className="hover:bg-slate-50/80 dark:hover:bg-slate-800/50 transition-colors">
                     <td className="py-3.5 px-5">
                       <span className="font-bold text-slate-900 dark:text-white">
@@ -536,6 +552,15 @@ export default function ClientsPage() {
             </tbody>
           </table>
         </div>
+
+        {/* Dynamic 5-Items Pagination */}
+        <Pagination
+          currentPage={currentPage}
+          totalPages={totalPages}
+          totalItems={filteredClients.length}
+          itemsPerPage={itemsPerPage}
+          onPageChange={setCurrentPage}
+        />
       </div>
 
       {/* Modal: Add Client */}

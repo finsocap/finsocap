@@ -162,13 +162,15 @@ async function handleProxy(
     normalizedSubpath.startsWith("partners/enroll") ||
     normalizedSubpath.startsWith("partners/metrics") ||
     normalizedSubpath.includes("/toggle-status") ||
-    normalizedSubpath.includes("/details")
+    normalizedSubpath.includes("/details") ||
+    subpath.startsWith("admin/tutorials")
   ) {
     targetUrlString = `${API_ROOT}/admin/${normalizedSubpath}`;
   } else if (
     normalizedSubpath.startsWith("partners/") ||
     normalizedSubpath.startsWith("staff/") ||
-    normalizedSubpath.startsWith("request-documents/")
+    normalizedSubpath.startsWith("request-documents/") ||
+    normalizedSubpath.startsWith("tutorials")
   ) {
     targetUrlString = `${API_ROOT}/${normalizedSubpath}`;
   } else {
@@ -186,12 +188,17 @@ async function handleProxy(
   const auth = request.headers.get("authorization");
   const adminToken = await getValidAdminToken();
 
-  if (targetUrlString.includes("/api/admin/")) {
+  // If the request is for admin endpoints, tutorials, or services, prioritize valid fresh admin token
+  if (
+    targetUrlString.includes("/api/admin/") ||
+    normalizedSubpath.startsWith("tutorials") ||
+    !auth ||
+    auth.trim().length <= 10
+  ) {
     headers["authorization"] = `Bearer ${adminToken}`;
-  } else if (auth && auth.trim().length > 10) {
-    headers["authorization"] = auth;
   } else {
-    headers["authorization"] = `Bearer ${adminToken}`;
+    // For non-admin endpoints (partner/staff specific data), check token or fallback
+    headers["authorization"] = auth || `Bearer ${adminToken}`;
   }
   const contentType = request.headers.get("content-type");
   if (contentType && !contentType.includes("multipart/form-data")) {

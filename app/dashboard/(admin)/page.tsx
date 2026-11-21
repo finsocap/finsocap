@@ -23,6 +23,7 @@ import TaskIdBadge from "@/components/Dashboard/TaskIdBadge";
 import { useCrmStore, fetchLiveDbData } from "@/lib/crmStore";
 import { isDateWithinRange, getCurrentMonthRangeLabel } from "@/lib/dateRangeHelper";
 import { toTitleCase } from "@/lib/formatters";
+import { sortByNewest } from "@/lib/sortHelper";
 
 export default function DashboardHome() {
   const [dateRange, setDateRange] = useState(() => getCurrentMonthRangeLabel());
@@ -96,13 +97,6 @@ export default function DashboardHome() {
     const inProgress = filteredTasks.filter(t => t.status === "In Progress").length;
     const review = filteredTasks.filter(t => t.status === "Sent for Review").length;
     const completed = completedTasks.length;
-    const overdue = filteredTasks.filter(t => {
-      if (t.due && !["Completed", "Cancelled"].includes(t.status)) {
-        const dueDate = new Date(t.due);
-        return !isNaN(dueDate.getTime()) && dueDate < new Date();
-      }
-      return false;
-    }).length;
 
     const zeroBars = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0];
 
@@ -124,7 +118,7 @@ export default function DashboardHome() {
       barHeightsClients: clientsCount > 0 ? [30, 40, 50, 65, 55, 70, 60, 85, 70, 75, 55, 80, 75, 90, 65, 80, 85, 95, 75, 90] : zeroBars,
       barHeightsTasks: activeTasksCount > 0 ? [40, 30, 50, 45, 60, 55, 70, 65, 75, 60, 70, 65, 80, 75, 60, 65, 75, 80, 70, 60] : zeroBars,
       barHeightsRevenue: totalRev > 0 ? [25, 35, 45, 60, 50, 70, 65, 85, 75, 90, 70, 85, 80, 95, 85, 90, 80, 95, 90, 95] : zeroBars,
-      taskSummary: { pending, inProgress, review, completed, overdue },
+      taskSummary: { pending, inProgress, review, completed },
     };
   }, [tasks, manualClients, services, selectedPartner, dateRange]);
 
@@ -133,24 +127,24 @@ export default function DashboardHome() {
     return activeStats.taskSummary;
   }, [activeStats.taskSummary]);
 
-  // Filtered Recent Tasks / Service Requests (strictly from real tasks)
+  // Filtered Recent Tasks / Service Requests (strictly from real tasks, newest first)
   const filteredRecentTasks = useMemo(() => {
-    return tasks
-      .filter((t) => {
-        const matchPartner =
-          selectedPartner === "All Partners" ||
-          t.partner?.toLowerCase().includes(selectedPartner.toLowerCase());
-        if (!matchPartner) return false;
-        if (dateRange && !isDateWithinRange(t.date || t.due, dateRange)) {
-          return false;
-        }
-        return true;
-      });
+    const list = tasks.filter((t) => {
+      const matchPartner =
+        selectedPartner === "All Partners" ||
+        t.partner?.toLowerCase().includes(selectedPartner.toLowerCase());
+      if (!matchPartner) return false;
+      if (dateRange && !isDateWithinRange(t.date || t.due, dateRange)) {
+        return false;
+      }
+      return true;
+    });
+    return sortByNewest(list, [(t) => t.date, (t) => t.due]);
   }, [tasks, selectedPartner, dateRange]);
 
-  // Filtered Activities
+  // Filtered Activities (newest first)
   const filteredActivities = useMemo(() => {
-    return tasks
+    const list = tasks
       .filter((t) => {
         const matchPartner =
           selectedPartner === "All Partners" ||
@@ -170,18 +164,14 @@ export default function DashboardHome() {
           role: "Member",
           text: `${t.service} - ${t.status}`,
           time: t.date || "Today",
+          date: t.date,
           color: isUnassigned ? "bg-rose-100 text-rose-600 dark:bg-rose-950/60 dark:text-rose-400 border border-rose-200 dark:border-rose-800" : "bg-blue-600 text-white",
           branch: t.partner || "HQ",
           partner: t.partner,
           isUnassigned,
         };
-      })
-      .sort((a, b) => {
-        // Unassigned items first at the top
-        if (a.isUnassigned && !b.isUnassigned) return -1;
-        if (!a.isUnassigned && b.isUnassigned) return 1;
-        return 0;
       });
+    return sortByNewest(list, [(a) => a.date]);
   }, [tasks, selectedPartner, dateRange]);
 
   const handleResetFilters = () => {
@@ -452,21 +442,6 @@ export default function DashboardHome() {
               </div>
               <span className="text-sm font-black text-slate-900 dark:text-white">
                 {activeTaskCounts.completed}
-              </span>
-            </div>
-
-            {/* 5. Overdue (Red Bold) */}
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <div className="w-8 h-8 rounded-xl bg-rose-600 text-white flex items-center justify-center shrink-0">
-                  <AlertCircle className="w-4 h-4" />
-                </div>
-                <span className="text-xs font-bold text-slate-700 dark:text-slate-300">
-                  Overdue
-                </span>
-              </div>
-              <span className="text-sm font-black text-rose-600 dark:text-rose-400">
-                {activeTaskCounts.overdue}
               </span>
             </div>
 

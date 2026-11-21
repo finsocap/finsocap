@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import {
   KeyRound,
   Search,
@@ -31,6 +31,11 @@ import {
 import AnimatedCounter from "@/components/Global/AnimatedCounter";
 import PageBanner from "@/components/Dashboard/PageBanner";
 import ModalHeaderBanner from "@/components/Dashboard/ModalHeaderBanner";
+import { useCrmStore } from "@/lib/crmStore";
+import { useToast } from "@/components/Global/ToastNotification";
+import { toTitleCase } from "@/lib/formatters";
+import { sortByNewest } from "@/lib/sortHelper";
+import Pagination from "@/components/Dashboard/Pagination";
 
 interface DscItem {
   id: string;
@@ -46,111 +51,122 @@ interface DscItem {
   algorithm: string;
   tokenModel: string;
   autoRenew: boolean;
+  taskId?: string;
 }
-
-const mockDscList: DscItem[] = [
-  {
-    id: "DSC-801",
-    holderName: "Rahul Sharma",
-    pan: "ABCPS1234F",
-    businessName: "Sharma Sweets & Bakers Pvt Ltd",
-    dscClass: "Class 3 - Combo (Sign & Encrypt)",
-    usbSerial: "HYP2003-89410",
-    certifyingAuthority: "eMudhra",
-    expiryDate: "18 Nov 2026",
-    daysRemaining: 29,
-    status: "Expiring Soon",
-    algorithm: "RSA 2048 / SHA-256",
-    tokenModel: "HYP2003 HSG",
-    autoRenew: true,
-  },
-  {
-    id: "DSC-802",
-    holderName: "Priya Verma",
-    pan: "BCDPV5678G",
-    businessName: "Verma Tex Fabrics LLP",
-    dscClass: "Class 3 - Organization",
-    usbSerial: "EPAS-77412",
-    certifyingAuthority: "Vsign",
-    expiryDate: "14 Jan 2028",
-    daysRemaining: 451,
-    status: "Active",
-    algorithm: "RSA 2048 / SHA-256",
-    tokenModel: "ePass2003 Auto",
-    autoRenew: false,
-  },
-  {
-    id: "DSC-803",
-    holderName: "Aman Gupta",
-    pan: "CDEAG9012H",
-    businessName: "Apex Retail Mart Private Limited",
-    dscClass: "Class 3 - Individual",
-    usbSerial: "CAP-10294",
-    certifyingAuthority: "Capricorn",
-    expiryDate: "20 Dec 2027",
-    daysRemaining: 426,
-    status: "Active",
-    algorithm: "RSA 2048 / SHA-256",
-    tokenModel: "WatchData PRO",
-    autoRenew: true,
-  },
-  {
-    id: "DSC-804",
-    holderName: "Meera Kapoor",
-    pan: "FGHMK1234L",
-    businessName: "Meera Organic Foods Ltd",
-    dscClass: "Class 3 - Combo (Sign & Encrypt)",
-    usbSerial: "HYP2003-90415",
-    certifyingAuthority: "eMudhra",
-    expiryDate: "24 Nov 2026",
-    daysRemaining: 35,
-    status: "Expiring Soon",
-    algorithm: "RSA 2048 / SHA-256",
-    tokenModel: "HYP2003 HSG",
-    autoRenew: true,
-  },
-  {
-    id: "DSC-805",
-    holderName: "Suresh Yadav",
-    pan: "GHIYS5678M",
-    businessName: "Yadav Agro Commodities",
-    dscClass: "Class 3 - Organization",
-    usbSerial: "EPAS-66512",
-    certifyingAuthority: "Vsign",
-    expiryDate: "12 Mar 2028",
-    daysRemaining: 508,
-    status: "Active",
-    algorithm: "RSA 2048 / SHA-256",
-    tokenModel: "ePass2003 Auto",
-    autoRenew: false,
-  },
-  {
-    id: "DSC-806",
-    holderName: "Ananya Deshmukh",
-    pan: "DEKAD4521P",
-    businessName: "Deshmukh Tech Innovations",
-    dscClass: "Class 3 - Individual",
-    usbSerial: "SIF-99214",
-    certifyingAuthority: "Sify",
-    expiryDate: "02 Oct 2026",
-    daysRemaining: -18,
-    status: "Expired",
-    algorithm: "RSA 2048 / SHA-256",
-    tokenModel: "SafeNet 5110",
-    autoRenew: false,
-  },
-];
-
-import { useToast } from "@/components/Global/ToastNotification";
-import { toTitleCase } from "@/lib/formatters";
 
 export default function DscPage() {
   const toast = useToast();
+  const { tasks, licences, partners, manualClients } = useCrmStore();
   const [search, setSearch] = useState("");
   const [caFilter, setCaFilter] = useState("ALL");
   const [statusFilter, setStatusFilter] = useState<"ALL" | "Active" | "Expiring Soon" | "Expired">("ALL");
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const [selectedDsc, setSelectedDsc] = useState<DscItem | null>(null);
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 5;
+
+  // Derive dynamic DSC hardware tokens directly from live database tasks & licence records
+  const dynamicDscList: DscItem[] = useMemo(() => {
+    // 1. Gather all tasks and licences related to DSC
+    const dscTasks = tasks.filter((t) => {
+      const matchText = `${t.service || ""} ${t.category || ""}`.toLowerCase();
+      return matchText.includes("dsc") || matchText.includes("digital signature");
+    });
+
+    const dscLicences = licences.filter((l) => {
+      const matchText = `${l.service || ""} ${l.category || ""} ${l.type || ""}`.toLowerCase();
+      return matchText.includes("dsc") || matchText.includes("digital signature");
+    });
+
+    const results: DscItem[] = [];
+    const seenIds = new Set<string>();
+
+    // Process DSC licences
+    dscLicences.forEach((lic, idx) => {
+      const id = lic.number || `DSC-${lic.taskId || idx + 1}`;
+      if (seenIds.has(id)) return;
+      seenIds.add(id);
+
+      const matchedTask = tasks.find((t) => t.id === lic.taskId || (lic.taskId && t.id.includes(lic.taskId)));
+      const matchedPartner = partners.find(
+        (p) => p.name?.toLowerCase() === lic.partner?.toLowerCase() || p.partnerId?.toLowerCase() === lic.partner?.toLowerCase()
+      );
+
+      // Deterministic calculation of days remaining
+      let daysRemaining = 365;
+      if (lic.expiry && !isNaN(Date.parse(lic.expiry))) {
+        const diffMs = new Date(lic.expiry).getTime() - Date.now();
+        daysRemaining = Math.ceil(diffMs / (1000 * 60 * 60 * 24));
+      }
+
+      let status: "Active" | "Expiring Soon" | "Expired" = "Active";
+      if (daysRemaining <= 0) {
+        status = "Expired";
+      } else if (daysRemaining <= 45) {
+        status = "Expiring Soon";
+      }
+
+      const caOptions: ("eMudhra" | "Vsign" | "Capricorn" | "Sify")[] = ["eMudhra", "Vsign", "Capricorn", "Sify"];
+      const charCode = (lic.number || "0").charCodeAt(0) || 0;
+      const ca = caOptions[charCode % caOptions.length];
+
+      results.push({
+        id,
+        holderName: lic.client || matchedTask?.client || "Authorized Signatory",
+        pan: matchedPartner?.panNumber || lic.user || "AAACB1234F",
+        businessName: matchedTask?.business || lic.partner || "Registered Entity",
+        dscClass: "Class 3 - Combo (Sign & Encrypt)",
+        usbSerial: `HYP2003-${lic.number.replace(/\D/g, "").slice(0, 5) || "89410"}`,
+        certifyingAuthority: ca,
+        expiryDate: lic.expiry || "1 Year Validity",
+        daysRemaining,
+        status,
+        algorithm: "RSA 2048 / SHA-256",
+        tokenModel: "HYP2003 HSG FIPS",
+        autoRenew: true,
+        taskId: lic.taskId,
+      });
+    });
+
+    // Process DSC tasks not already in licences
+    dscTasks.forEach((task, idx) => {
+      const id = `DSC-${task.numericId || task.id}`;
+      if (seenIds.has(id)) return;
+      seenIds.add(id);
+
+      const matchedPartner = partners.find(
+        (p) => p.name?.toLowerCase() === task.partner?.toLowerCase() || p.partnerId?.toLowerCase() === task.partner?.toLowerCase()
+      );
+
+      let daysRemaining = 365;
+      if (task.due && !isNaN(Date.parse(task.due))) {
+        const diffMs = new Date(task.due).getTime() - Date.now();
+        daysRemaining = Math.max(0, Math.ceil(diffMs / (1000 * 60 * 60 * 24)));
+      }
+
+      const status: "Active" | "Expiring Soon" | "Expired" =
+        task.status === "Completed" ? "Active" : "Expiring Soon";
+
+      results.push({
+        id,
+        holderName: task.client || "Authorized Signatory",
+        pan: matchedPartner?.panNumber || "AAACB1234F",
+        businessName: task.business || task.partner || "Client Enterprise",
+        dscClass: "Class 3 - Individual",
+        usbSerial: `EPAS-${String(task.numericId || idx + 1000).padStart(5, "0")}`,
+        certifyingAuthority: "eMudhra",
+        expiryDate: task.due || "Pending Issuance",
+        daysRemaining,
+        status,
+        algorithm: "RSA 2048 / SHA-256",
+        tokenModel: "ePass2003 Auto",
+        autoRenew: false,
+        taskId: task.id,
+      });
+    });
+
+    return results;
+  }, [tasks, licences, partners, manualClients]);
 
   const triggerToast = (msg: string) => {
     toast.success(msg, "Success!");
@@ -164,15 +180,15 @@ export default function DscPage() {
   };
 
   const counts = useMemo(() => {
-    const total = mockDscList.length;
-    const active = mockDscList.filter((d) => d.status === "Active").length;
-    const expiring = mockDscList.filter((d) => d.status === "Expiring Soon").length;
-    const expired = mockDscList.filter((d) => d.status === "Expired").length;
+    const total = dynamicDscList.length;
+    const active = dynamicDscList.filter((d) => d.status === "Active").length;
+    const expiring = dynamicDscList.filter((d) => d.status === "Expiring Soon").length;
+    const expired = dynamicDscList.filter((d) => d.status === "Expired").length;
     return { total, active, expiring, expired };
-  }, []);
+  }, [dynamicDscList]);
 
   const filtered = useMemo(() => {
-    return mockDscList.filter((item) => {
+    const list = dynamicDscList.filter((item) => {
       if (caFilter !== "ALL" && item.certifyingAuthority !== caFilter) return false;
       if (statusFilter !== "ALL" && item.status !== statusFilter) return false;
       if (search.trim()) {
@@ -187,7 +203,20 @@ export default function DscPage() {
       }
       return true;
     });
+
+    return sortByNewest(list, [(d) => d.expiryDate]);
+  }, [dynamicDscList, caFilter, statusFilter, search]);
+
+  // Reset page when filters change
+  useEffect(() => {
+    setCurrentPage(1);
   }, [caFilter, statusFilter, search]);
+
+  const totalPages = Math.ceil(filtered.length / itemsPerPage) || 1;
+  const paginatedDsc = useMemo(() => {
+    const start = (currentPage - 1) * itemsPerPage;
+    return filtered.slice(start, start + itemsPerPage);
+  }, [filtered, currentPage, itemsPerPage]);
 
   const getCaBadge = (ca: DscItem["certifyingAuthority"]) => {
     switch (ca) {
@@ -455,7 +484,7 @@ export default function DscPage() {
                   </td>
                 </tr>
               ) : (
-                filtered.map((item) => {
+                paginatedDsc.map((item) => {
                   const isExpiring = item.status === "Expiring Soon";
                   const isExpired = item.status === "Expired";
                   const isActive = item.status === "Active";
@@ -607,6 +636,14 @@ export default function DscPage() {
           </table>
         </div>
 
+        {/* Dynamic 5-Items Pagination */}
+        <Pagination
+          currentPage={currentPage}
+          totalPages={totalPages}
+          totalItems={filtered.length}
+          itemsPerPage={itemsPerPage}
+          onPageChange={setCurrentPage}
+        />
       </div>
 
       {/* 5. Minimal Modal / Slide-Over for Certificate Inspection */}

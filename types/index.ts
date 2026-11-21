@@ -228,7 +228,6 @@ export type TaskStatus =
   | "Sent for Review"
   | "Pending from Client"
   | "Pending from Department"
-  | "Overdue"
   | "Completed"
   | "Cancelled";
 
@@ -254,7 +253,6 @@ export const ALLOWED_STATUS_TRANSITIONS: Record<TaskStatus, TaskStatus[]> = {
   "In Progress": ["Sent for Review", "Pending from Client", "Pending from Department", "Completed", "Cancelled"],
   "Pending from Client": ["In Progress", "Cancelled"],
   "Pending from Department": ["In Progress", "Cancelled"],
-  "Overdue": ["In Progress", "Pending from Client", "Cancelled"],
   "Sent for Review": ["In Progress", "Completed", "Cancelled"],
   "Completed": [],
   "Cancelled": [],

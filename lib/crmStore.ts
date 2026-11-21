@@ -2,6 +2,7 @@ import { useSyncExternalStore, useCallback, useMemo, useEffect } from "react";
 import { apiClient } from "./api/apiClient";
 import { ApiResponse, BackendTask, PartnerSummary, ClientProfile, Specialist, CatalogService, LicenceReportMetrics } from "@/types/api";
 import { getDeterministicPartnerKyc, mapBackendTaskStatus, toTitleCase } from "./formatters";
+import { sortByNewest } from "./sortHelper";
 
 export interface ServiceModel {
   id: number;
@@ -222,6 +223,32 @@ export async function fetchLiveDbData(): Promise<void> {
       apiClient.get<ApiResponse<LicenceReportMetrics>>("/reports/licences"),
     ]);
 
+    // Fetch live documents for all tasks from service-requests and admin documents API
+    const rawBackendTasks = tasksRes.status === "fulfilled" && tasksRes.value?.success && Array.isArray(tasksRes.value.data)
+      ? tasksRes.value.data
+      : [];
+
+    const taskDocsMap: Record<number, string[]> = {};
+    if (rawBackendTasks.length > 0) {
+      await Promise.allSettled(
+        rawBackendTasks.map(async (bt) => {
+          try {
+            const [srRes, admRes] = await Promise.allSettled([
+              fetch(`/api/proxy/service-requests/${bt.id}`, { cache: "no-store" }).then((r) => r.json()),
+              fetch(`/api/proxy/admin/service-requests/${bt.id}/documents`, { cache: "no-store" }).then((r) => r.json()),
+            ]);
+            const srDocs = srRes.status === "fulfilled" && srRes.value?.data?.documents ? srRes.value.data.documents : [];
+            const admDocs = admRes.status === "fulfilled" && Array.isArray(admRes.value?.data) ? admRes.value.data : [];
+            const fileNames = [
+              ...srDocs.map((d: any) => d.fileName || d.fieldKey || "Document.pdf"),
+              ...admDocs.map((d: any) => d.title || d.fileName || "Deliverable.pdf"),
+            ];
+            taskDocsMap[bt.id] = fileNames;
+          } catch {}
+        })
+      );
+    }
+
     updateStore((prev) => {
       let newTasks = prev.tasks;
       if (tasksRes.status === "fulfilled" && tasksRes.value?.success && Array.isArray(tasksRes.value.data)) {
@@ -246,7 +273,7 @@ export async function fetchLiveDbData(): Promise<void> {
             priority: (bt.priority === "URGENT" || bt.priority === "HIGH" ? "High" : "Normal") as TaskModel["priority"],
             sales: toTitleCase(bt.partnerName || "Admin"),
             comments: bt.adminRemarks ? [bt.adminRemarks] : [],
-            files: [],
+            files: taskDocsMap[bt.id] || [],
           };
         });
       }
@@ -405,12 +432,12 @@ export async function fetchLiveDbData(): Promise<void> {
 
       return {
         ...prev,
-        tasks: newTasks,
-        partners: newPartners,
-        manualClients: newClients,
+        tasks: sortByNewest(newTasks, [(t) => t.date, (t) => t.due]),
+        partners: sortByNewest(newPartners),
+        manualClients: sortByNewest(newClients),
         users: newUsers,
-        services: newServices,
-        licences: newLicences,
+        services: sortByNewest(newServices),
+        licences: sortByNewest(newLicences, [(l) => l.issue, (l) => l.expiry]),
       };
     });
   } catch (err) {

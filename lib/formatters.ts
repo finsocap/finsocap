@@ -405,7 +405,7 @@ export function formatCurrencyINR(amount: number | string): string {
 // Maps backend statuses (e.g. SENT_FOR_REVIEW, PENDING_FROM_CLIENT, etc.)
 // directly to UI status strings so status is ALWAYS accurate and NEVER static.
 // -----------------------------------------------------------------------------
-export function mapBackendTaskStatus(status?: string | null): "Pending" | "In Progress" | "Sent for Review" | "Pending from Client" | "Pending from Department" | "Overdue" | "Completed" | "Cancelled" {
+export function mapBackendTaskStatus(status?: string | null): "Pending" | "In Progress" | "Sent for Review" | "Pending from Client" | "Pending from Department" | "Completed" | "Cancelled" {
   if (!status) return "Pending";
   const s = String(status).trim().toUpperCase();
 
@@ -437,8 +437,6 @@ export function mapBackendTaskStatus(status?: string | null): "Pending" | "In Pr
     case "CANCELLED":
     case "REJECTED":
       return "Cancelled";
-    case "OVERDUE":
-      return "Overdue";
     case "PENDING":
     default:
       return "Pending";

@@ -28,6 +28,8 @@ import { PhoneInput } from "@/components/Global/PhoneInput";
 import { NameInput } from "@/components/Global/NameInput";
 import { isDateWithinRange, getCurrentMonthRangeLabel, calculateOverdueDays } from "@/lib/dateRangeHelper";
 import PartnerRequestsDashboard from "@/components/Dashboard/PartnerRequestsDashboard";
+import { sortByNewest } from "@/lib/sortHelper";
+import Pagination from "@/components/Dashboard/Pagination";
 
 const allStatuses: { status: TaskStatus; label: string; count: number; color: string; bg: string; icon: any }[] = [
   { status: "Pending", label: "Pending", count: 47, color: "text-rose-600", bg: "bg-rose-500/10 border-rose-500/20", icon: Clock },
@@ -35,7 +37,6 @@ const allStatuses: { status: TaskStatus; label: string; count: number; color: st
   { status: "Sent for Review", label: "Sent for Review", count: 15, color: "text-indigo-600", bg: "bg-indigo-500/10 border-indigo-500/20", icon: FileText },
   { status: "Pending from Client", label: "Pending from Client", count: 28, color: "text-orange-600", bg: "bg-orange-500/10 border-orange-500/20", icon: Users },
   { status: "Pending from Department", label: "Pending from Department", count: 6, color: "text-yellow-600", bg: "bg-yellow-500/10 border-yellow-500/20", icon: Building2 },
-  { status: "Overdue", label: "Overdue", count: 38, color: "text-red-600", bg: "bg-red-500/10 border-red-500/20", icon: AlertCircle },
   { status: "Completed", label: "Completed", count: 302, color: "text-emerald-600", bg: "bg-emerald-500/10 border-emerald-500/20", icon: CheckCircle2 },
   { status: "Cancelled", label: "Cancelled", count: 9, color: "text-rose-600", bg: "bg-rose-500/10 border-rose-500/20", icon: XCircle },
 ];
@@ -66,6 +67,8 @@ export default function TasksPage() {
   const [selectedService, setSelectedService] = useState<string>("ALL");
   const [searchQuery, setSearchQuery] = useState<string>("");
   const [dateRange, setDateRange] = useState<string>(() => getCurrentMonthRangeLabel());
+  const [currentPage, setCurrentPage] = useState<number>(1);
+  const itemsPerPage = 5;
 
   // Modals & Feedback
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
@@ -280,13 +283,10 @@ export default function TasksPage() {
 
   // Filtered rows - strictly scoped to logged-in user if non-admin role
   const filteredTasks = useMemo(() => {
-    return scopedUserTasks.filter((t) => {
+    const list = scopedUserTasks.filter((t) => {
       // Status filter
       if (selectedStatusFilter !== "ALL") {
-        if (selectedStatusFilter === "Overdue") {
-          const isOverdue = (t.overdueDays && t.overdueDays > 0) || t.status === "Overdue";
-          if (!isOverdue) return false;
-        } else if (t.status !== selectedStatusFilter) {
+        if (t.status !== selectedStatusFilter) {
           return false;
         }
       }
@@ -324,40 +324,22 @@ export default function TasksPage() {
       }
 
       return true;
-    }).sort((a, b) => {
-      // Custom Status Priority Order requested:
-      // 1. Pending
-      // 2. In Progress
-      // 3. Sent for Review
-      // 4. Pending from Client
-      // 5. Pending from Department
-      // 6. Overdue
-      // 7. Completed
-      // 8. Cancelled
-      const statusPriority: Record<string, number> = {
-        "Pending": 1,
-        "In Progress": 2,
-        "Sent for Review": 3,
-        "Pending from Client": 4,
-        "Pending from Department": 5,
-        "Overdue": 6,
-        "Completed": 7,
-        "Cancelled": 8,
-      };
-
-      const orderA = statusPriority[a.status] || 99;
-      const orderB = statusPriority[b.status] || 99;
-
-      if (orderA !== orderB) {
-        return orderA - orderB;
-      }
-
-      // Secondary sort: newest taskDate/dueDate first
-      const dateA = a.taskDate || a.dueDate || "";
-      const dateB = b.taskDate || b.dueDate || "";
-      return dateB.localeCompare(dateA);
     });
+
+    // Universal: Newest tasks always at the top (by taskDate, dueDate, or numericId)
+    return sortByNewest(list, [(t) => t.taskDate, (t) => t.dueDate]);
   }, [scopedUserTasks, selectedStatusFilter, selectedCategory, selectedService, searchQuery, dateRange]);
+
+  // Reset page to 1 whenever filters change
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [selectedStatusFilter, selectedCategory, selectedService, searchQuery, dateRange]);
+
+  const totalPages = Math.ceil(filteredTasks.length / itemsPerPage) || 1;
+  const paginatedTasks = useMemo(() => {
+    const start = (currentPage - 1) * itemsPerPage;
+    return filteredTasks.slice(start, start + itemsPerPage);
+  }, [filteredTasks, currentPage, itemsPerPage]);
 
   const handleCreateTask = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -439,7 +421,6 @@ export default function TasksPage() {
       "Pending from Client": "PENDING_FROM_CLIENT",
       "Pending from Department": "PENDING_FROM_DEPARTMENT",
       "Sent for Review": "SENT_FOR_REVIEW",
-      "Overdue": "PENDING_FROM_CLIENT",
       "Completed": "COMPLETED",
       "Cancelled": "CANCELLED",
     };
@@ -570,8 +551,6 @@ export default function TasksPage() {
         return "bg-orange-50 text-orange-700 dark:bg-orange-950/60 dark:text-orange-300 border border-orange-200/80 dark:border-orange-900/60";
       case "Pending from Department":
         return "bg-yellow-50 text-yellow-800 dark:bg-yellow-950/60 dark:text-yellow-300 border border-yellow-200/80 dark:border-yellow-900/60";
-      case "Overdue":
-        return "bg-red-50 text-red-700 dark:bg-red-950/60 dark:text-red-400 border border-red-200/80 dark:border-red-900/60";
       case "Completed":
         return "bg-emerald-50 text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-300 border border-emerald-200/80 dark:border-emerald-900/60";
       case "Cancelled":
@@ -593,8 +572,6 @@ export default function TasksPage() {
         return "249, 115, 22"; // orange-500
       case "Pending from Department":
         return "250, 204, 21"; // yellow-400
-      case "Overdue":
-        return "220, 38, 38"; // red-600
       case "Completed":
         return "16, 185, 129"; // emerald-500
       case "Cancelled":
@@ -659,7 +636,7 @@ export default function TasksPage() {
                   <Icon className="w-4 h-4" />
                 </div>
                 <span className={`text-xl font-black ${isSelected ? "text-white" : "text-slate-900 dark:text-white"}`}>
-                  <AnimatedCounter value={scopedUserTasks.filter((t) => item.status === "Overdue" ? (t.overdueDays ? t.overdueDays > 0 : false) : t.status === item.status).length} />
+                  <AnimatedCounter value={scopedUserTasks.filter((t) => t.status === item.status).length} />
                 </span>
               </div>
               <p
@@ -797,12 +774,6 @@ export default function TasksPage() {
                     <ArrowUpDown className="w-2.5 h-2.5 opacity-60" />
                   </div>
                 </th>
-                <th className="py-3 px-3.5 whitespace-nowrap">
-                  <div className="flex items-center gap-1">
-                    <span>Overdue</span>
-                    <ArrowUpDown className="w-2.5 h-2.5 opacity-60" />
-                  </div>
-                </th>
                 <th className="py-3 px-3.5 text-right whitespace-nowrap">Action</th>
               </tr>
             </thead>
@@ -829,7 +800,7 @@ export default function TasksPage() {
                   </td>
                 </tr>
               ) : (
-                filteredTasks.map((t, idx) => (
+                paginatedTasks.map((t, idx) => (
                   <tr
                     key={t.id}
                     className="border-l-[5px] task-status-border-pulse hover:bg-slate-50/80 dark:hover:bg-slate-800/50 transition-colors"
@@ -936,17 +907,6 @@ export default function TasksPage() {
                       {t.taskDate}
                     </td>
 
-                    {/* Overdue (Requirement 4th ss) */}
-                    <td className="py-3 px-3.5 whitespace-nowrap">
-                      {t.overdueDays && t.overdueDays > 0 ? (
-                        <span className="px-2 py-0.5 rounded-md font-bold text-[10px] bg-rose-50 text-rose-600 dark:bg-rose-950/60 dark:text-rose-400 border border-rose-200">
-                          {t.overdueDays} days
-                        </span>
-                      ) : (
-                        <span className="text-slate-400 font-bold pl-2">-</span>
-                      )}
-                    </td>
-
                     {/* Actions -> Edit (Admin Only) + Open */}
                     <td className="py-3 px-3.5 text-right">
                       <div className="inline-flex items-center gap-1.5">
@@ -975,6 +935,15 @@ export default function TasksPage() {
             </tbody>
           </table>
         </div>
+
+        {/* Dynamic 5-Items Pagination */}
+        <Pagination
+          currentPage={currentPage}
+          totalPages={totalPages}
+          totalItems={filteredTasks.length}
+          itemsPerPage={itemsPerPage}
+          onPageChange={setCurrentPage}
+        />
       </div>
 
       {/* CREATE TASK MODAL */}

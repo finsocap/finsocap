@@ -23,6 +23,8 @@ import PageBanner from "@/components/Dashboard/PageBanner";
 import { useToast } from "@/components/Global/ToastNotification";
 import ModalHeaderBanner from "@/components/Dashboard/ModalHeaderBanner";
 import { toTitleCase } from "@/lib/formatters";
+import { sortByNewest } from "@/lib/sortHelper";
+import Pagination from "@/components/Dashboard/Pagination";
 
 const DEFAULT_CATEGORIES = [
   "Food & Beverage",
@@ -212,6 +214,8 @@ export default function ServicesPage() {
   const [search, setSearch] = useState("");
   const [selectedCategory, setSelectedCategory] = useState("ALL");
   const [selectedStatus, setSelectedStatus] = useState("ALL");
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 5;
   const [isAddingNewCategory, setIsAddingNewCategory] = useState(false);
   const [newCategoryName, setNewCategoryName] = useState("");
 
@@ -416,7 +420,7 @@ export default function ServicesPage() {
 
   // Filtered rows
   const filteredServices = useMemo(() => {
-    return apiServices.filter((s) => {
+    const list = apiServices.filter((s) => {
       // Tab filter
       if (activeTab === "Active" && s.status !== "Active") return false;
       if (activeTab === "Inactive" && s.status !== "Inactive") return false;
@@ -442,7 +446,20 @@ export default function ServicesPage() {
 
       return true;
     });
+
+    return sortByNewest(list);
   }, [apiServices, activeTab, selectedCategory, selectedStatus, search]);
+
+  // Reset page when filters change
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [activeTab, selectedCategory, selectedStatus, search]);
+
+  const totalPages = Math.ceil(filteredServices.length / itemsPerPage) || 1;
+  const paginatedServices = useMemo(() => {
+    const start = (currentPage - 1) * itemsPerPage;
+    return filteredServices.slice(start, start + itemsPerPage);
+  }, [filteredServices, currentPage, itemsPerPage]);
 
   const money = (val: number) => "₹" + Number(val || 0).toLocaleString("en-IN");
 
@@ -672,10 +689,10 @@ export default function ServicesPage() {
                   </td>
                 </tr>
               ) : (
-                filteredServices.map((s, i) => (
+                paginatedServices.map((s, i) => (
                   <tr key={s.id} className="hover:bg-slate-50/80 dark:hover:bg-slate-800/50 transition-colors">
                     <td className="py-3.5 px-4 text-center font-bold text-slate-400">
-                      {i + 1}
+                      {(currentPage - 1) * itemsPerPage + i + 1}
                     </td>
                     <td className="py-3.5 px-4 font-bold text-slate-900 dark:text-white">
                       {toTitleCase(s.name)}
@@ -765,9 +782,14 @@ export default function ServicesPage() {
           </table>
         </div>
 
-        <div className="px-5 py-3 border-t border-slate-100 dark:border-slate-800 text-[11px] text-slate-400 flex items-center justify-between">
-          <span>{filteredServices.length} services loaded</span>
-        </div>
+        {/* Dynamic 5-Items Pagination */}
+        <Pagination
+          currentPage={currentPage}
+          totalPages={totalPages}
+          totalItems={filteredServices.length}
+          itemsPerPage={itemsPerPage}
+          onPageChange={setCurrentPage}
+        />
       </div>
 
       {/* Modal: Add / Edit Service */}

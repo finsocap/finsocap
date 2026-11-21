@@ -40,8 +40,19 @@ import { workloadService } from "@/lib/api/workloadService";
 import { adminWorkflowService } from "@/lib/api/adminWorkflowService";
 import { downloadFile } from "@/lib/fileViewer";
 import TaskIdBadge, { formatShortTaskId } from "@/components/Dashboard/TaskIdBadge";
+import UniversalFilePreviewModal from "@/components/Dashboard/UniversalFilePreviewModal";
 import { toTitleCase } from "@/lib/formatters";
+import { sortByNewest } from "@/lib/sortHelper";
 import { WorkloadMetrics, BalancingRecommendation } from "@/types/api";
+
+interface AttachedDocItem {
+  id: string;
+  name: string;
+  url: string;
+  size?: string;
+  category?: string;
+  type?: string;
+}
 
 export default function AllocationPage() {
   const router = useRouter();
@@ -78,6 +89,17 @@ export default function AllocationPage() {
   });
   const [note, setNote] = useState<string>("");
   const [previewDoc, setPreviewDoc] = useState<string | null>(null);
+  const [activePreviewDoc, setActivePreviewDoc] = useState<{
+    isOpen: boolean;
+    title: string;
+    fileName: string;
+    fileUrl?: string;
+    uploadedBy?: string;
+    uploadDate?: string;
+    category?: string;
+  } | null>(null);
+  const [taskDocsMap, setTaskDocsMap] = useState<Record<string, AttachedDocItem[]>>({});
+  const [isLoadingDocs, setIsLoadingDocs] = useState<boolean>(false);
   const [kpiFilter, setKpiFilter] = useState<"ALL" | "UNASSIGNED" | "ASSIGNED" | "IN_PROGRESS" | "COMPLETED">("ALL");
 
   const unassignedScrollRef = useRef<HTMLDivElement>(null);
@@ -129,7 +151,8 @@ export default function AllocationPage() {
     if (kpiFilter === "ASSIGNED" || kpiFilter === "IN_PROGRESS" || kpiFilter === "COMPLETED") {
       return [];
     }
-    return tasks.filter((t) => !t.assignee && t.status !== "Completed");
+    const list = tasks.filter((t) => !t.assignee && t.status !== "Completed");
+    return sortByNewest(list, [(t) => t.date, (t) => t.due]);
   }, [tasks, kpiFilter]);
 
   // Auto-select first unassigned task if available and none selected
@@ -139,12 +162,13 @@ export default function AllocationPage() {
     if (kpiFilter === "UNASSIGNED") {
       return [];
     }
-    return tasks.filter((t) => {
+    const list = tasks.filter((t) => {
       if (!t.assignee) return false;
       if (kpiFilter === "IN_PROGRESS" && t.status !== "In Progress") return false;
       if (kpiFilter === "COMPLETED" && t.status !== "Completed") return false;
       return true;
     });
+    return sortByNewest(list, [(t) => t.date, (t) => t.due]);
   }, [tasks, kpiFilter]);
 
   const inProgressCount = useMemo(() => {
@@ -158,6 +182,108 @@ export default function AllocationPage() {
   const selectedTask = useMemo(() => {
     return unassignedTasks.find((t) => t.id === activeSelectedTaskId);
   }, [unassignedTasks, activeSelectedTaskId]);
+
+  // Fetch partner attachments dynamically for selected task from backend service request
+  useEffect(() => {
+    if (!selectedTask) return;
+    const taskIdKey = selectedTask.id;
+    if (taskDocsMap[taskIdKey] !== undefined) return; // already fetched or cached
+
+    const numericSrId = selectedTask.numericId || (taskIdKey.startsWith("T-") ? parseInt(taskIdKey.replace(/\D/g, ""), 10) : parseInt(taskIdKey, 10));
+    if (!numericSrId || isNaN(numericSrId)) return;
+
+    let isMounted = true;
+    setIsLoadingDocs(true);
+
+    fetch(`/api/proxy/service-requests/${numericSrId}`, { cache: "no-store" })
+      .then((res) => res.json())
+      .then((json) => {
+        if (!isMounted) return;
+        const docs = json?.data?.documents || [];
+        const mappedDocs: AttachedDocItem[] = docs.map((doc: any, idx: number) => {
+          const rawUrl = doc.downloadUrl || `/api/request-documents/${doc.uploadId || idx + 1}`;
+          const cleanUrl = rawUrl.startsWith("/api/")
+            ? `/api/proxy/${rawUrl.substring(5)}`
+            : rawUrl.startsWith("/")
+            ? `/api/proxy${rawUrl}`
+            : `/api/proxy/${rawUrl}`;
+
+          return {
+            id: `doc-${doc.uploadId || idx + 1}`,
+            name: doc.fileName || doc.fieldKey || `Document_${idx + 1}.pdf`,
+            url: cleanUrl,
+            size: doc.sizeBytes
+              ? doc.sizeBytes > 1024 * 1024
+                ? `${(doc.sizeBytes / (1024 * 1024)).toFixed(1)} MB`
+                : `${(doc.sizeBytes / 1024).toFixed(0)} KB`
+              : undefined,
+            category: doc.fieldKey ? doc.fieldKey.replace(/_/g, " ").toUpperCase() : "Document",
+            type: doc.contentType,
+          };
+        });
+
+        // Also check task attachments / deliverables if available
+        fetch(`/api/proxy/admin/service-requests/${numericSrId}/documents`, { cache: "no-store" })
+          .then((dRes) => dRes.json())
+          .then((dJson) => {
+            if (!isMounted) return;
+            const extraDocs = dJson?.data || [];
+            if (Array.isArray(extraDocs) && extraDocs.length > 0) {
+              extraDocs.forEach((d: any, idx: number) => {
+                const docId = `extra-${d.id || idx + 1}`;
+                if (!mappedDocs.some((m) => m.name === (d.title || d.fileName))) {
+                  mappedDocs.push({
+                    id: docId,
+                    name: d.title || d.fileName || `Deliverable_${idx + 1}.pdf`,
+                    url: `/api/proxy/admin/service-requests/${numericSrId}/documents/${d.id}?inline=true`,
+                    size: d.sizeBytes
+                      ? d.sizeBytes > 1024 * 1024
+                        ? `${(d.sizeBytes / (1024 * 1024)).toFixed(1)} MB`
+                        : `${(d.sizeBytes / 1024).toFixed(0)} KB`
+                      : undefined,
+                    category: d.documentType || "Compliance Document",
+                  });
+                }
+              });
+            }
+            setTaskDocsMap((prev) => ({ ...prev, [taskIdKey]: mappedDocs }));
+          })
+          .catch(() => {
+            if (isMounted) {
+              setTaskDocsMap((prev) => ({ ...prev, [taskIdKey]: mappedDocs }));
+            }
+          })
+          .finally(() => {
+            if (isMounted) setIsLoadingDocs(false);
+          });
+      })
+      .catch((err) => {
+        console.warn("[Allocation] Could not fetch documents for task:", taskIdKey, err);
+        if (isMounted) {
+          setTaskDocsMap((prev) => ({ ...prev, [taskIdKey]: [] }));
+          setIsLoadingDocs(false);
+        }
+      });
+
+    return () => {
+      isMounted = false;
+    };
+  }, [selectedTask, taskDocsMap]);
+
+  // Combined documents: from backend service-request API + any in store.files
+  const currentTaskDocuments: AttachedDocItem[] = useMemo(() => {
+    if (!selectedTask) return [];
+    const fromApi = taskDocsMap[selectedTask.id] || [];
+    if (fromApi.length > 0) return fromApi;
+
+    // Fallback to selectedTask.files if store had strings
+    return (selectedTask.files || []).map((file, idx) => ({
+      id: `file-${idx}`,
+      name: file,
+      url: `/api/proxy/documents/${idx + 1}`,
+      category: "Customer Document",
+    }));
+  }, [selectedTask, taskDocsMap]);
 
   const qualifiedUsers = useMemo(() => {
     if (!selectedTask) return users.filter((u) => u.status === "Active");
@@ -523,22 +649,27 @@ export default function AllocationPage() {
                     </div>
                   </div>
                   <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-blue-100 text-blue-700 dark:bg-blue-900/60 dark:text-sky-300">
-                    {selectedTask.files.length} {selectedTask.files.length === 1 ? "File" : "Files"}
+                    {currentTaskDocuments.length} {currentTaskDocuments.length === 1 ? "File" : "Files"}
                   </span>
                 </div>
 
-                {selectedTask.files.length === 0 ? (
+                {isLoadingDocs && currentTaskDocuments.length === 0 ? (
+                  <div className="p-3 text-center bg-white/80 dark:bg-slate-800/60 rounded-xl border border-dashed border-slate-200 dark:border-slate-700 text-[11px] text-slate-400">
+                    Loading compliance attachments...
+                  </div>
+                ) : currentTaskDocuments.length === 0 ? (
                   <div className="p-2.5 text-center bg-white/80 dark:bg-slate-800/60 rounded-xl border border-dashed border-slate-200 dark:border-slate-700 text-[11px] text-slate-400">
                     No documents attached with this request yet.
                   </div>
                 ) : (
                   <div className="space-y-1.5 max-h-40 overflow-y-auto pr-1">
-                    {selectedTask.files.map((file, idx) => {
-                      const isPdf = file.toLowerCase().endsWith(".pdf");
-                      const isImg = file.toLowerCase().match(/\.(jpg|jpeg|png|webp)$/);
+                    {currentTaskDocuments.map((docItem) => {
+                      const lower = docItem.name.toLowerCase();
+                      const isPdf = lower.endsWith(".pdf") || docItem.type?.includes("pdf");
+                      const isImg = lower.match(/\.(jpg|jpeg|png|webp)$/) || docItem.type?.includes("image");
                       return (
                         <div
-                          key={idx}
+                          key={docItem.id}
                           className="flex items-center justify-between p-2 rounded-xl bg-white dark:bg-slate-800/80 border border-slate-200/80 dark:border-slate-700 text-xs hover:border-blue-300 transition-colors"
                         >
                           <div className="flex items-center gap-2 min-w-0 pr-2">
@@ -549,14 +680,31 @@ export default function AllocationPage() {
                             ) : (
                               <Paperclip className="w-4 h-4 text-blue-500 shrink-0" />
                             )}
-                            <span className="font-bold text-slate-800 dark:text-slate-200 truncate text-[11px]">
-                              {file}
-                            </span>
+                            <div className="min-w-0 truncate">
+                              <span className="font-bold text-slate-800 dark:text-slate-200 truncate text-[11px] block">
+                                {docItem.name}
+                              </span>
+                              {docItem.size && (
+                                <span className="text-[9px] text-slate-400 block font-normal">
+                                  {docItem.size} · {docItem.category || "Uploaded"}
+                                </span>
+                              )}
+                            </div>
                           </div>
                           <div className="flex items-center gap-1 shrink-0">
                             <button
                               type="button"
-                              onClick={() => setPreviewDoc(file)}
+                              onClick={() => {
+                                setActivePreviewDoc({
+                                  isOpen: true,
+                                  title: docItem.name,
+                                  fileName: docItem.name,
+                                  fileUrl: docItem.url,
+                                  uploadedBy: selectedTask.partner || "Partner",
+                                  uploadDate: selectedTask.date || "Recent",
+                                  category: docItem.category || "Client Compliance Proof",
+                                });
+                              }}
                               title="Preview Document"
                               className="w-6 h-6 rounded-lg bg-sky-50 dark:bg-sky-950/60 text-sky-600 dark:text-sky-400 hover:bg-sky-500 hover:text-white flex items-center justify-center transition-colors cursor-pointer"
                             >
@@ -564,7 +712,7 @@ export default function AllocationPage() {
                             </button>
                             <button
                               type="button"
-                              onClick={() => downloadFile(undefined, file, `ALLOCATION ATTACHMENT\nTask: ${selectedTask.id}\nFile: ${file}`)}
+                              onClick={() => downloadFile(docItem.url, docItem.name, `ALLOCATION ATTACHMENT\nTask: ${selectedTask.id}\nFile: ${docItem.name}`)}
                               title="Download Document"
                               className="w-6 h-6 rounded-lg bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300 hover:bg-blue-600 hover:text-white flex items-center justify-center transition-colors cursor-pointer"
                             >
@@ -709,7 +857,6 @@ export default function AllocationPage() {
                     <th className="py-2.5 px-3">SERVICE</th>
                     <th className="py-2.5 px-3">DOCUMENTS</th>
                     <th className="py-2.5 px-3">FRANCHISE PARTNER</th>
-                    <th className="py-2.5 px-3">DUE DATE</th>
                     <th className="py-2.5 px-3 text-right">ACTION</th>
                   </tr>
                 </thead>
@@ -760,9 +907,6 @@ export default function AllocationPage() {
                           </td>
                           <td className="py-2.5 px-3 text-slate-600 dark:text-slate-400">
                             {toTitleCase(t.partner)}
-                          </td>
-                          <td className="py-2.5 px-3 text-slate-500 font-mono text-[11px]">
-                            {t.due}
                           </td>
                           <td className="py-2.5 px-3 text-right">
                             <button
@@ -833,7 +977,6 @@ export default function AllocationPage() {
                     <th className="py-2.5 px-3">SERVICE</th>
                     <th className="py-2.5 px-3">DOCUMENTS</th>
                     <th className="py-2.5 px-3">ASSIGNED TO</th>
-                    <th className="py-2.5 px-3">DUE DATE</th>
                     <th className="py-2.5 px-3">STATUS</th>
                     <th className="py-2.5 px-3 text-right">ACTION</th>
                   </tr>
@@ -884,9 +1027,6 @@ export default function AllocationPage() {
                             </span>
                             <span>{toTitleCase(task.assignee)}</span>
                           </span>
-                        </td>
-                        <td className="py-3 px-3 text-slate-500 font-mono text-[11px] whitespace-nowrap">
-                          {task.due || "—"}
                         </td>
                         <td className="py-3 px-3 whitespace-nowrap">
                           <span className={`inline-block px-2.5 py-0.5 rounded-md text-[10px] font-bold tracking-wide whitespace-nowrap ${getStatusBadge(task.status)}`}>
@@ -984,6 +1124,20 @@ export default function AllocationPage() {
             </div>
           </div>
         </div>
+      )}
+
+      {/* Universal Document Preview Modal with Live Image & PDF Support */}
+      {activePreviewDoc && (
+        <UniversalFilePreviewModal
+          isOpen={activePreviewDoc.isOpen}
+          onClose={() => setActivePreviewDoc(null)}
+          title={activePreviewDoc.title}
+          fileName={activePreviewDoc.fileName}
+          fileUrl={activePreviewDoc.fileUrl}
+          uploadedBy={activePreviewDoc.uploadedBy}
+          uploadDate={activePreviewDoc.uploadDate}
+          category={activePreviewDoc.category}
+        />
       )}
 
     </div>
