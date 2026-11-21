@@ -1288,7 +1288,7 @@ export default function TaskDetailsClient({ id }: { id: string }) {
                   (task.attachments || [])
                     .filter((a) => !a.source || a.source === "PARTNER")
                     .map((att, idx) => (
-                      <tr key={att.id} className="hover:bg-slate-50/60 dark:hover:bg-slate-800/40 transition-colors">
+                      <tr key={att.id ? `${att.id}-${idx}` : `partner-att-${idx}`} className="hover:bg-slate-50/60 dark:hover:bg-slate-800/40 transition-colors">
                         <td className="py-2.5 px-2 font-bold text-slate-400">{idx + 1}</td>
                         <td className="py-2.5 px-2 font-bold text-blue-600 dark:text-sky-400 hover:underline cursor-pointer">
                           <button
@@ -1412,7 +1412,7 @@ export default function TaskDetailsClient({ id }: { id: string }) {
                   (task.attachments || [])
                     .filter((a) => a.source === "STAFF_ADMIN")
                     .map((att, idx) => (
-                      <tr key={att.id} className="hover:bg-slate-50/60 dark:hover:bg-slate-800/40 transition-colors">
+                      <tr key={att.id ? `${att.id}-${idx}` : `staff-att-${idx}`} className="hover:bg-slate-50/60 dark:hover:bg-slate-800/40 transition-colors">
                         <td className="py-2.5 px-2 font-bold text-slate-400">{idx + 1}</td>
                         <td className="py-2.5 px-2 font-bold text-indigo-600 dark:text-indigo-400 hover:underline cursor-pointer">
                           <button
@@ -1555,8 +1555,8 @@ export default function TaskDetailsClient({ id }: { id: string }) {
             {(task.comments || []).length === 0 ? (
               <p className="text-xs text-slate-400 py-6 text-center font-medium">No comments yet. Start the conversation!</p>
             ) : (
-              task.comments?.map((comment) => (
-                <div key={comment.id} className="p-4 rounded-2xl bg-slate-50/80 dark:bg-slate-900/60 border border-slate-200/80 dark:border-slate-800/80 space-y-2">
+              task.comments?.map((comment, idx) => (
+                <div key={comment.id ? `${comment.id}-${idx}` : `comment-${idx}`} className="p-4 rounded-2xl bg-slate-50/80 dark:bg-slate-900/60 border border-slate-200/80 dark:border-slate-800/80 space-y-2">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2.5">
                       <div className="w-8 h-8 rounded-xl bg-gradient-to-tr from-sky-500 to-blue-600 text-white font-black text-xs flex items-center justify-center shadow-xs">

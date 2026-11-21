@@ -2,10 +2,10 @@ import { NextRequest, NextResponse } from "next/server";
 
 const API_ROOT = (process.env.NEXT_PUBLIC_API_BASE_URL || "https://finsocap.cloud/api").replace(/\/+$/, "");
 const MASTER_EMAIL = process.env.BACKEND_ADMIN_EMAIL || "admin@gmail.com";
-const MASTER_PASSWORD = process.env.BACKEND_ADMIN_PASSWORD || "*Finsocap2026@sam#aarav";
+const MASTER_PASSWORD = process.env.BACKEND_ADMIN_PASSWORD || "Welc0me@shubham12";
 
 const SHUBHAM_EMAIL = (process.env.SHUBHAM_ADMIN_EMAIL || "shubham@finsocap.com").toLowerCase();
-const SHUBHAM_PASSWORD = process.env.SHUBHAM_ADMIN_PASSWORD || "Welc0me@shubham";
+const SHUBHAM_PASSWORD = process.env.SHUBHAM_ADMIN_PASSWORD || "Welc0me@shubham12";
 
 export async function POST(request: NextRequest) {
   try {
