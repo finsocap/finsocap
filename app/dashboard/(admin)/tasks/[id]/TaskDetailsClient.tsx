@@ -7,7 +7,7 @@ import {
   ArrowLeft, Phone, Calendar, Clock, Paperclip, AtSign,
   Send, Upload, Download, CheckCircle2, AlertTriangle,
   User, Building2, Briefcase, FileCheck, Loader2, Sparkles,
-  ChevronDown, X, ShieldCheck, Award, Eye, EyeOff, FileText, QrCode, Check, Edit3, Copy
+  ChevronDown, X, ShieldCheck, ShieldAlert, Award, Eye, EyeOff, FileText, QrCode, Check, Edit3, Copy, ArrowRight
 } from "lucide-react";
 import { TaskItem, TaskStatus, TaskComment, TaskAttachment, CommentAttachment, TaskCertificate, ALLOWED_STATUS_TRANSITIONS, canTransitionStatus, getBackendStatusTransitionPath } from "@/types";
 import { taskService } from "@/lib/services/taskService";
@@ -209,6 +209,7 @@ export default function TaskDetailsClient({ id }: { id: string }) {
     note: string;
   } | null>(null);
   const [isUpdatingStatus, setIsUpdatingStatus] = useState(false);
+  const [unassignedWarningModal, setUnassignedWarningModal] = useState(false);
 
   const openEditTaskModal = () => {
     if (!task) return;
@@ -247,6 +248,11 @@ export default function TaskDetailsClient({ id }: { id: string }) {
 
     // If Unassigned is selected, pass null/undefined for assignedTo
     const isUnassigned = !editAssignedTo || editAssignedTo.trim() === "" || editAssignedTo === "Unassigned";
+
+    if (isUnassigned && editStatus !== task.status) {
+      setUnassignedWarningModal(true);
+      return;
+    }
 
     try {
       const updated = await taskService.updateTask(task.id, {
@@ -334,6 +340,13 @@ export default function TaskDetailsClient({ id }: { id: string }) {
     setStatusDropdownOpen(false);
 
     if (!task || newStatus === task.status) return;
+
+    // RULE: Admin must assign task to a staff member before changing status
+    const isAssigned = !!(task.assignedTo?.name && task.assignedTo.name.trim() !== "" && task.assignedTo.name !== "Unassigned");
+    if (!isAssigned) {
+      setUnassignedWarningModal(true);
+      return;
+    }
 
     // Stepwise Workflow: Completed opens the dedicated final certification modal
     if (newStatus === "Completed") {
@@ -2783,6 +2796,74 @@ export default function TaskDetailsClient({ id }: { id: string }) {
                 )}
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* ========================================================================= */}
+      {/* PROFESSIONAL POPUP: TASK ASSIGNMENT REQUIRED BEFORE STATUS UPDATE          */}
+      {/* ========================================================================= */}
+      {unassignedWarningModal && (
+        <div className="fixed inset-0 z-[10000] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-in fade-in duration-200">
+          <div className="bg-white dark:bg-[#0c1427] border border-slate-200 dark:border-slate-800 rounded-3xl p-6 sm:p-7 w-full max-w-md shadow-2xl relative animate-in zoom-in-95 duration-200 text-center space-y-4">
+            
+            {/* Top Close Button */}
+            <button
+              type="button"
+              onClick={() => setUnassignedWarningModal(false)}
+              className="absolute top-4 right-4 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 p-1.5 rounded-full hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
+            >
+              <X className="w-5 h-5" />
+            </button>
+
+            {/* Shield Warning Icon Badge */}
+            <div className="w-14 h-14 rounded-2xl bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800/60 text-amber-600 dark:text-amber-400 flex items-center justify-center mx-auto shadow-sm">
+              <ShieldAlert className="w-7 h-7" />
+            </div>
+
+            {/* Title & Subtitle */}
+            <div className="space-y-1.5">
+              <h3 className="text-lg font-black text-slate-900 dark:text-white tracking-tight">
+                Staff Assignment Required
+              </h3>
+              <p className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed max-w-sm mx-auto">
+                This task is currently <span className="font-bold text-amber-600 dark:text-amber-400">Unassigned</span>. Workflow policy requires assigning an internal specialist staff member before transitioning its execution status.
+              </p>
+            </div>
+
+            {/* Info Box with Guidelines */}
+            <div className="p-3.5 bg-slate-50 dark:bg-slate-900/60 rounded-2xl border border-slate-200/80 dark:border-slate-800 text-left text-xs space-y-2 text-slate-600 dark:text-slate-300">
+              <div className="flex items-center gap-2 font-bold text-slate-800 dark:text-slate-200">
+                <span className="w-1.5 h-1.5 rounded-full bg-amber-500" />
+                <span>Next Step to Proceed:</span>
+              </div>
+              <p className="text-[11px] leading-snug text-slate-500 dark:text-slate-400 pl-3.5">
+                Assign a qualified team specialist to take ownership of this case. Once assigned, you can proceed with progressing or completing the status.
+              </p>
+            </div>
+
+            {/* Action Buttons */}
+            <div className="flex items-center justify-center gap-2.5 pt-2">
+              <button
+                type="button"
+                onClick={() => setUnassignedWarningModal(false)}
+                className="px-4 py-2.5 rounded-xl text-xs font-bold text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
+              >
+                Dismiss
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setUnassignedWarningModal(false);
+                  openEditTaskModal();
+                }}
+                className="btn-primary-vibrant text-xs py-2.5 px-5 rounded-xl font-bold cursor-pointer inline-flex items-center gap-2 shadow-lg shadow-blue-500/25"
+              >
+                <span>Assign Staff Member Now</span>
+                <ArrowRight className="w-3.5 h-3.5" />
+              </button>
+            </div>
+
           </div>
         </div>
       )}

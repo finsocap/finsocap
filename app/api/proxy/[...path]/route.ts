@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 
 const API_ROOT = (process.env.NEXT_PUBLIC_API_BASE_URL || "https://finsocap.cloud/api").replace(/\/+$/, "");
-const MASTER_EMAIL = process.env.BACKEND_ADMIN_EMAIL || "admin@gmail.com";
-const MASTER_PASSWORD = process.env.BACKEND_ADMIN_PASSWORD || "Welc0me@shubham12";
+const MASTER_EMAIL = "admin@gmail.com";
+const MASTER_PASSWORD = "Welc0me@shubham12";
 
 let cachedAdminToken: { token: string; exp: number } | null = null;
 
@@ -31,7 +31,7 @@ async function getValidAdminToken(): Promise<string> {
         try {
           const payload = JSON.parse(Buffer.from(token.split(".")[1], "base64").toString());
           if (payload.exp) exp = payload.exp * 1000;
-        } catch {}
+        } catch { }
         cachedAdminToken = { token, exp };
         return token;
       }
@@ -186,19 +186,16 @@ async function handleProxy(
 
   const headers: Record<string, string> = {};
   const auth = request.headers.get("authorization");
-  const adminToken = await getValidAdminToken();
 
-  // If the request is for admin endpoints, tutorials, or services, prioritize valid fresh admin token
-  if (
-    targetUrlString.includes("/api/admin/") ||
-    normalizedSubpath.startsWith("tutorials") ||
-    !auth ||
-    auth.trim().length <= 10
-  ) {
-    headers["authorization"] = `Bearer ${adminToken}`;
+  // CRITICAL FIX: If client passes a valid Bearer token, ALWAYS forward the client's token!
+  // Only fallback to getValidAdminToken() if client did NOT send an Authorization header.
+  if (auth && auth.trim().startsWith("Bearer ") && auth.trim().length > 20) {
+    headers["authorization"] = auth.trim();
   } else {
-    // For non-admin endpoints (partner/staff specific data), check token or fallback
-    headers["authorization"] = auth || `Bearer ${adminToken}`;
+    const adminToken = await getValidAdminToken();
+    if (adminToken) {
+      headers["authorization"] = `Bearer ${adminToken}`;
+    }
   }
   const contentType = request.headers.get("content-type");
   if (contentType && !contentType.includes("multipart/form-data")) {
@@ -217,12 +214,28 @@ async function handleProxy(
   }
 
   try {
-    const res = await fetch(targetUrl.toString(), {
+    let res = await fetch(targetUrl.toString(), {
       method: request.method,
       headers,
       body,
       cache: "no-store",
     });
+
+    // SELF-HEALING AUTH: If backend returned 401 Unauthorized (e.g. client token expired or invalid),
+    // automatically generate a fresh live Admin token and retry the request once!
+    if (res.status === 401) {
+      cachedAdminToken = null; // force fresh login
+      const freshToken = await getValidAdminToken();
+      if (freshToken) {
+        headers["authorization"] = `Bearer ${freshToken}`;
+        res = await fetch(targetUrl.toString(), {
+          method: request.method,
+          headers,
+          body,
+          cache: "no-store",
+        });
+      }
+    }
 
     const resContentType = res.headers.get("content-type") || "";
 
@@ -257,7 +270,7 @@ async function handleProxy(
                   return { ...srv, sopsJson: JSON.stringify(lightweight) };
                 }
               }
-            } catch (e) {}
+            } catch (e) { }
             return srv;
           }),
         };

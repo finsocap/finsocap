@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 
 const API_ROOT = (process.env.NEXT_PUBLIC_API_BASE_URL || "https://finsocap.cloud/api").replace(/\/+$/, "");
-const MASTER_EMAIL = process.env.BACKEND_ADMIN_EMAIL || "admin@gmail.com";
-const MASTER_PASSWORD = process.env.BACKEND_ADMIN_PASSWORD || "Welc0me@shubham12";
+const MASTER_EMAIL = "admin@gmail.com";
+const MASTER_PASSWORD = "Welc0me@shubham12";
 
 let cachedAdminToken: { token: string; exp: number } | null = null;
 

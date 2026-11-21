@@ -29,7 +29,7 @@ export class ApiError extends Error {
 }
 
 export const DEFAULT_ADMIN_TOKEN =
-  "eyJhbGciOiJIUzUxMiJ9.eyJzdWIiOiJhZG1pbkBnbWFpbC5jb20iLCJyb2xlIjoiQURNSU4iLCJpYXQiOjE3OTM3MTk4NzUsImV4cCI6MTc5MzgwNjI3NX0.Cv11rXPARH16GqirNptZY_GQmBR1q-Z28het-t4JmDkiIcVneeoC51tYG69DPolJD6J5djNstwx3fgcTcE4tnw";
+  "eyJhbGciOiJIUzUxMiJ9.eyJzdWIiOiJhZG1pbkBnbWFpbC5jb20iLCJyb2xlIjoiQURNSU4iLCJpYXQiOjE3OTUyOTkyMzIsImV4cCI6MTc5NTM4NTYzMn0.ZLKrnbSrHeUYehEOPm2sE6QDzrNld8BKd0FDenZua-AMP6BPgcZfNcpnHVPpLsxhfyfJa6RLWgLrPUygIx16mQ";
 
 /**
  * Retrieve active JWT token from storage or cookie
@@ -253,8 +253,10 @@ async function request<T = any>(endpoint: string, config: RequestConfig = {}): P
           }
         } catch (e) {}
 
-        // If a non-admin gets 401/403 on an endpoint, do NOT nuke their entire login session or force logout
-        if (!isNonAdmin && !isAuthRoute) {
+        // SAFE MODE: Do NOT aggressively kick the user out on background sync 401s
+        // Only redirect if the user has NO stored session or token at all
+        const hasSession = !!localStorage.getItem("finsocap_user_session");
+        if (!hasSession && !isAuthRoute) {
           clearAuthToken();
           window.location.href = "/dashboard/login?session_expired=true";
         }
@@ -327,8 +329,11 @@ export const apiClient = {
     const response = await fetch(url, { headers });
     if (!response.ok) {
       if (response.status === 401 && typeof window !== "undefined") {
-        clearAuthToken();
-        window.location.href = "/dashboard/login?session_expired=true";
+        const hasSession = !!localStorage.getItem("finsocap_user_session");
+        if (!hasSession) {
+          clearAuthToken();
+          window.location.href = "/dashboard/login?session_expired=true";
+        }
       }
       throw new ApiError(`Failed to fetch file (HTTP ${response.status})`, response.status);
     }

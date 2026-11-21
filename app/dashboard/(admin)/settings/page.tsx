@@ -22,7 +22,14 @@ export default function SettingsPage() {
   const [profileName, setProfileName] = useState("");
   const [profileEmail, setProfileEmail] = useState("");
   const [profileRole, setProfileRole] = useState("ADMIN");
-  const [memberSince] = useState("1 January 2025");
+  const [accountId, setAccountId] = useState("");
+  const [department, setDepartment] = useState("");
+  const [departmentId, setDepartmentId] = useState<number>(1);
+  const [specialistId, setSpecialistId] = useState<number | null>(null);
+  const [phone, setPhone] = useState("");
+  const [maxCapacity, setMaxCapacity] = useState<number>(20);
+  const [serviceIds, setServiceIds] = useState<number[]>([]);
+  const [casesClosedCount, setCasesClosedCount] = useState<number | null>(null);
   const [currentPassword, setCurrentPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
@@ -31,10 +38,11 @@ export default function SettingsPage() {
   const [profileError, setProfileError] = useState<string | null>(null);
   const [userDp, setUserDp] = useState<string | null>(null);
 
-  // Load DP & Profile from active user session returned by API on mount
+  // Load DP & Profile from active user session and Specialists API
   useEffect(() => {
+    let currentEmail = "";
+
     try {
-      // First check active login session directly from API authentication
       let activeUser: any = null;
       const savedSession = localStorage.getItem("finsocap_user_session");
       if (savedSession) {
@@ -43,13 +51,18 @@ export default function SettingsPage() {
       }
 
       if (activeUser) {
-        setProfileName(activeUser.name || "Administrator");
-        setProfileEmail(activeUser.email || "admin@finsocap.com");
+        setProfileName(activeUser.name || "");
+        setProfileEmail(activeUser.email || "");
+        currentEmail = activeUser.email || "";
         setProfileRole(activeUser.role || "ADMIN");
+        if (activeUser.id) setAccountId(`ADM-${activeUser.id}`);
         if (activeUser.image) setUserDp(activeUser.image);
       } else if (session?.user) {
         if (session.user.name) setProfileName(session.user.name);
-        if (session.user.email) setProfileEmail(session.user.email);
+        if (session.user.email) {
+          setProfileEmail(session.user.email);
+          currentEmail = session.user.email;
+        }
         if ((session.user as any).role) setProfileRole((session.user as any).role);
         if (session.user.image) setUserDp(session.user.image);
       }
@@ -57,6 +70,42 @@ export default function SettingsPage() {
       const savedDp = localStorage.getItem("finsocap_user_dp");
       if (savedDp) setUserDp(savedDp);
     } catch (err) {}
+
+    // Fetch dynamic specialist/admin data from backend
+    const fetchDynamicProfile = async () => {
+      try {
+        const res = await fetch("/api/proxy/admin/team/specialists");
+        if (res.ok) {
+          const json = await res.json();
+          if (Array.isArray(json?.data)) {
+            const myEmail = (currentEmail || "shubham@finsocap.com").toLowerCase();
+            const matched = json.data.find(
+              (s: any) =>
+                (s.email && s.email.toLowerCase() === myEmail) ||
+                (s.designation && s.designation.toLowerCase().includes("admin"))
+            );
+            if (matched) {
+              if (matched.id) setSpecialistId(matched.id);
+              if (matched.fullName) setProfileName(matched.fullName);
+              if (matched.email) setProfileEmail(matched.email);
+              if (matched.employeeCode) setAccountId(matched.employeeCode);
+              else if (matched.id) setAccountId(`ADM-${matched.id}`);
+              if (matched.designation) setProfileRole(matched.designation);
+              if (matched.department) setDepartment(matched.department);
+              if (matched.departmentId) setDepartmentId(matched.departmentId);
+              if (matched.phone) setPhone(matched.phone);
+              if (matched.maxCapacity) setMaxCapacity(matched.maxCapacity);
+              if (Array.isArray(matched.serviceIds)) setServiceIds(matched.serviceIds);
+              if (typeof matched.casesClosedCount === "number") {
+                setCasesClosedCount(matched.casesClosedCount);
+              }
+            }
+          }
+        }
+      } catch (e) {}
+    };
+
+    fetchDynamicProfile();
 
     const handleDpStorage = () => {
       try {
@@ -167,6 +216,30 @@ export default function SettingsPage() {
         }
       }
 
+      // 2. Persist Name & Profile details to Backend API
+      if (specialistId && profileName.trim()) {
+        try {
+          const updateRes = await fetch(`/api/proxy/admin/team/specialists/${specialistId}`, {
+            method: "PUT",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              fullName: profileName.trim(),
+              designation: profileRole || "Administrator",
+              departmentId: departmentId || 1,
+              phone: phone || "9876543210",
+              maxCapacity: maxCapacity || 20,
+              serviceIds: serviceIds || [],
+            }),
+          });
+          const updateJson = await updateRes.json();
+          if (updateRes.ok && updateJson?.data?.fullName) {
+            setProfileName(updateJson.data.fullName);
+          }
+        } catch (e) {
+          console.warn("[Settings] Backend specialist update:", e);
+        }
+      }
+
       const updatedProfile = {
         name: profileName,
         email: profileEmail,
@@ -258,10 +331,12 @@ export default function SettingsPage() {
               Real-Time Security Active
             </span>
             <span className="text-slate-300 dark:text-slate-700 hidden sm:inline">•</span>
-            <span className="hidden sm:inline">Member Since: <strong className="text-slate-700 dark:text-slate-300">{memberSince}</strong></span>
+            <span className="inline-flex items-center gap-1.5 text-blue-600 dark:text-sky-400 font-bold">
+              Designation: <strong className="text-slate-700 dark:text-slate-300">{profileRole}</strong>
+            </span>
           </div>
           <span className="px-2.5 py-0.5 rounded-md bg-blue-50/80 dark:bg-blue-950/80 text-blue-700 dark:text-sky-300 font-bold text-[10px] border border-blue-200/60 dark:border-blue-800/60 shadow-2xs">
-            Finsocap v2.4 Enterprise
+            Finsocap Enterprise
           </span>
         </div>
       </div>
@@ -335,17 +410,31 @@ export default function SettingsPage() {
           </div>
 
           <div className="border-t border-slate-100 dark:border-slate-800 pt-4 space-y-3 text-xs text-slate-600 dark:text-slate-300">
-            <div className="flex justify-between">
+            <div className="flex justify-between items-center">
               <span className="text-slate-400 font-medium">Account ID:</span>
-              <span className="font-bold text-slate-800 dark:text-slate-200">ADM-88210</span>
+              <span className="font-bold text-slate-800 dark:text-slate-200">{accountId}</span>
             </div>
-            <div className="flex justify-between">
+            {department && (
+              <div className="flex justify-between items-center">
+                <span className="text-slate-400 font-medium">Department:</span>
+                <span className="font-bold text-slate-800 dark:text-slate-200">{department}</span>
+              </div>
+            )}
+            {phone && (
+              <div className="flex justify-between items-center">
+                <span className="text-slate-400 font-medium">Phone:</span>
+                <span className="font-bold text-slate-800 dark:text-slate-200">{phone}</span>
+              </div>
+            )}
+            {typeof casesClosedCount === "number" && (
+              <div className="flex justify-between items-center">
+                <span className="text-slate-400 font-medium">Cases Closed:</span>
+                <span className="font-bold text-emerald-600 dark:text-emerald-400">{casesClosedCount}</span>
+              </div>
+            )}
+            <div className="flex justify-between items-center">
               <span className="text-slate-400 font-medium">Organization:</span>
               <span className="font-bold text-teal-600 dark:text-teal-400">{defaultBrandConfig.companyName}</span>
-            </div>
-            <div className="flex justify-between">
-              <span className="text-slate-400 font-medium">Registered on:</span>
-              <span className="font-bold text-slate-800 dark:text-slate-200">{memberSince}</span>
             </div>
           </div>
 
@@ -388,17 +477,21 @@ export default function SettingsPage() {
               </div>
 
               <div>
-                <label className="block text-xs font-bold uppercase tracking-wider text-slate-600 dark:text-slate-400 mb-1">
-                  Login Email Address *
+                <label className="block text-xs font-bold uppercase tracking-wider text-slate-600 dark:text-slate-400 mb-1 flex items-center justify-between">
+                  <span>Login Email Address</span>
+                  <span className="text-[10px] text-slate-400 font-semibold lowercase flex items-center gap-1">
+                    <ShieldCheck className="w-3 h-3 text-emerald-500" /> Read-only (Managed by System)
+                  </span>
                 </label>
-                <input
-                  type="email"
-                  required
-                  value={profileEmail}
-                  onChange={e => setProfileEmail(e.target.value)}
-                  placeholder="e.g. aarav@finsocap.com"
-                  className="w-full px-3.5 py-2.5 border border-slate-300 dark:border-slate-700 rounded-xl bg-slate-50 dark:bg-slate-900 outline-none focus:border-teal-500 text-slate-800 dark:text-slate-100 text-xs font-bold"
-                />
+                <div className="relative">
+                  <input
+                    type="email"
+                    readOnly
+                    disabled
+                    value={profileEmail}
+                    className="w-full px-3.5 py-2.5 border border-slate-200 dark:border-slate-800 rounded-xl bg-slate-100/80 dark:bg-slate-800/60 text-slate-500 dark:text-slate-400 text-xs font-bold cursor-not-allowed select-none outline-none"
+                  />
+                </div>
               </div>
             </div>
 
