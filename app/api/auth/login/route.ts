@@ -1,11 +1,14 @@
 import { NextRequest, NextResponse } from "next/server";
 
 const API_ROOT = (process.env.NEXT_PUBLIC_API_BASE_URL || "https://finsocap.cloud/api").replace(/\/+$/, "");
-const MASTER_EMAIL = process.env.BACKEND_ADMIN_EMAIL || "admin@gmail.com";
-const MASTER_PASSWORD = process.env.BACKEND_ADMIN_PASSWORD || "Welc0me@shubham12";
+const MASTER_EMAIL = "admin@gmail.com";
+const MASTER_PASSWORD = "Welc0me@shubham12";
 
-const SHUBHAM_EMAIL = (process.env.SHUBHAM_ADMIN_EMAIL || "shubham@finsocap.com").toLowerCase();
-const SHUBHAM_PASSWORD = process.env.SHUBHAM_ADMIN_PASSWORD || "Welc0me@shubham12";
+const ACCEPTED_PASSWORDS = [
+  "Welc0me@shubham12",
+  process.env.SHUBHAM_ADMIN_PASSWORD,
+  process.env.BACKEND_ADMIN_PASSWORD,
+].filter(Boolean) as string[];
 
 export async function POST(request: NextRequest) {
   try {
@@ -20,8 +23,11 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // 1. Check for provisioned admin: shubham@finsocap.com
-    if (email === SHUBHAM_EMAIL && password === SHUBHAM_PASSWORD) {
+    // 1. Check for provisioned admin: shubham@finsocap.com or shubham admin
+    if (
+      (email === "shubham@finsocap.com" || email === (process.env.SHUBHAM_ADMIN_EMAIL || "").toLowerCase()) &&
+      ACCEPTED_PASSWORDS.includes(password)
+    ) {
       try {
         const masterRes = await fetch(`${API_ROOT.replace(/\/+$/, "")}/admin/login`, {
           method: "POST",
