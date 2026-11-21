@@ -315,11 +315,6 @@ export default function AllocationPage() {
 
   const handleAssign = async (e: React.FormEvent) => {
     e.preventDefault();
-    const todayStr = new Date().toISOString().slice(0, 10);
-    if (dueDate && dueDate < todayStr) {
-      toast.error("Due date cannot be a past date. Please select today or a future date.");
-      return;
-    }
 
     const targetTaskId = selectedTaskId || activeSelectedTaskId;
     if (!targetTaskId || !selectedAssignee) {
@@ -336,7 +331,7 @@ export default function AllocationPage() {
     
     const specId = specialist?.id || 1;
 
-    assignTask(targetTaskId, specialist?.name || selectedAssignee, priority, dueDate);
+    assignTask(targetTaskId, specialist?.name || selectedAssignee, priority);
 
     try {
       // 1. Live Service Request Assignment (API Guide Section 9)
@@ -566,7 +561,7 @@ export default function AllocationPage() {
 
       </div>
 
-      {/* 3. Main Split Grid: Left "Assign a Task" (5 cols) & Right Tables (7 cols) with Perfect Alignment */}
+      {/* 3. Main Split Grid: Left "Assign a Task" (5 cols) & Right Tables (7 cols) with Perfect Bottom Alignment */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-stretch">
         
         {/* Left Card: Assign a Task */}
@@ -748,38 +743,21 @@ export default function AllocationPage() {
               </div>
             </div>
 
-            {/* Priority & Due Date (Inline Grid) */}
-            <div className="grid grid-cols-2 gap-3">
-              <div className="space-y-1">
-                <label className="text-xs font-bold text-slate-700 dark:text-slate-300">
-                  Priority
-                </label>
-                <div className="relative">
-                  <select
-                    value={priority}
-                    onChange={(e) => setPriority(e.target.value as any)}
-                    className="w-full px-3.5 py-2 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-semibold focus:outline-none cursor-pointer"
-                  >
-                    <option value="Normal">Normal</option>
-                    <option value="High">High</option>
-                    <option value="Low">Low</option>
-                  </select>
-                </div>
-              </div>
-
-              <div className="space-y-1">
-                <label className="text-xs font-bold text-slate-700 dark:text-slate-300">
-                  Due Date
-                </label>
-                <div className="relative">
-                  <input
-                    type="date"
-                    min={new Date().toISOString().slice(0, 10)}
-                    value={dueDate}
-                    onChange={(e) => setDueDate(e.target.value)}
-                    className="w-full px-3.5 py-2 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-semibold focus:outline-none cursor-pointer text-slate-900 dark:text-white"
-                  />
-                </div>
+            {/* Priority Selection */}
+            <div className="space-y-1">
+              <label className="text-xs font-bold text-slate-700 dark:text-slate-300">
+                Priority
+              </label>
+              <div className="relative">
+                <select
+                  value={priority}
+                  onChange={(e) => setPriority(e.target.value as any)}
+                  className="w-full px-3.5 py-2 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-semibold focus:outline-none cursor-pointer"
+                >
+                  <option value="Normal">Normal</option>
+                  <option value="High">High</option>
+                  <option value="Low">Low</option>
+                </select>
               </div>
             </div>
 
@@ -812,7 +790,7 @@ export default function AllocationPage() {
         <div className="lg:col-span-7 flex flex-col justify-between gap-5">
           
           {/* Table 1: Unassigned Tasks */}
-          <div className="bg-white dark:bg-[#0c1427] rounded-3xl border border-slate-200/90 dark:border-slate-800 p-5 shadow-sm space-y-3 flex-1 flex flex-col justify-between">
+          <div className="bg-white dark:bg-[#0c1427] rounded-3xl border border-slate-200/90 dark:border-slate-800 p-5 shadow-sm space-y-3">
             <div className="flex items-center justify-between pb-1">
               <h3 className="font-black text-slate-900 dark:text-white text-sm tracking-tight flex items-center gap-2">
                 <span>Unassigned Tasks</span>
@@ -848,7 +826,7 @@ export default function AllocationPage() {
             </div>
 
             {/* Scrollable Container with flexible height matching left card and custom slim scrollbar */}
-            <div ref={unassignedScrollRef} className="overflow-x-auto min-h-[148px] max-h-[220px] overflow-y-auto pr-1.5 custom-slim-scrollbar scroll-smooth flex-1">
+            <div ref={unassignedScrollRef} className="overflow-x-auto max-h-[220px] overflow-y-auto pr-1.5 custom-slim-scrollbar scroll-smooth">
               <table className="w-full text-left border-collapse text-xs">
                 <thead className="sticky top-0 bg-white dark:bg-[#0c1427] z-10">
                   <tr className="border-b border-slate-100 dark:border-slate-800 text-[10px] font-bold text-slate-400 uppercase tracking-wider">
@@ -929,8 +907,8 @@ export default function AllocationPage() {
             </div>
           </div>
 
-          {/* Table 2: Recently Assigned Tasks - 2 Rows Visible + Scrollable */}
-          <div className="bg-white dark:bg-[#0c1427] rounded-3xl border border-slate-200/90 dark:border-slate-800 p-5 shadow-sm space-y-3 flex-1 flex flex-col justify-between">
+          {/* Table 2: Recently Assigned Tasks - 6 to 7 Rows Visible + Non-Clickable Document Badges */}
+          <div className="bg-white dark:bg-[#0c1427] rounded-3xl border border-slate-200/90 dark:border-slate-800 p-5 shadow-sm space-y-3 flex-1 flex flex-col">
             <div className="flex items-center justify-between pb-1">
               <div>
                 <h3 className="font-black text-slate-900 dark:text-white text-sm tracking-tight">
@@ -967,8 +945,8 @@ export default function AllocationPage() {
               </div>
             </div>
 
-            {/* Scrollable Container with flexible height matching left card and custom slim scrollbar */}
-            <div ref={assignedScrollRef} className="overflow-x-auto min-h-[148px] max-h-[220px] overflow-y-auto pr-1.5 custom-slim-scrollbar scroll-smooth flex-1">
+            {/* Scrollable Container: accommodates ~6-7 visible rows cleanly without bottom cutoff */}
+            <div ref={assignedScrollRef} className="overflow-x-auto min-h-[360px] max-h-[420px] overflow-y-auto pr-1.5 custom-slim-scrollbar scroll-smooth flex-1 pb-2">
               <table className="w-full text-left border-collapse text-xs">
                 <thead className="sticky top-0 bg-white dark:bg-[#0c1427] z-10">
                   <tr className="border-b border-slate-100 dark:border-slate-800 text-[10px] font-bold text-slate-400 uppercase tracking-wider">
@@ -996,31 +974,29 @@ export default function AllocationPage() {
                   ) : (
                     assignedTasks.map((task) => (
                       <tr key={task.id} className="hover:bg-slate-50/80 dark:hover:bg-slate-800/40 transition-colors">
-                        <td className="py-3 px-3 whitespace-nowrap">
+                        <td className="py-2.5 px-3 whitespace-nowrap">
                           <TaskIdBadge id={task.id} href={`/dashboard/tasks/${task.id}`} />
                         </td>
-                        <td className="py-3 px-3 font-bold text-slate-800 dark:text-slate-200">
+                        <td className="py-2.5 px-3 font-bold text-slate-800 dark:text-slate-200">
                           {toTitleCase(task.client)}
                         </td>
-                        <td className="py-3 px-3 text-slate-600 dark:text-slate-300 font-medium">
+                        <td className="py-2.5 px-3 text-slate-600 dark:text-slate-300 font-medium">
                           {toTitleCase(task.service)}
                         </td>
-                        <td className="py-3 px-3">
+                        <td className="py-2.5 px-3">
                           {task.files && task.files.length > 0 ? (
-                            <button
-                              type="button"
-                              onClick={() => setPreviewDoc(task.files[0])}
-                              className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-bold bg-blue-50 dark:bg-blue-950/60 text-blue-600 dark:text-sky-300 border border-blue-200/60 hover:bg-blue-600 hover:text-white transition-colors cursor-pointer"
+                            <span
+                              className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-bold bg-blue-50 dark:bg-blue-950/60 text-blue-600 dark:text-sky-300 border border-blue-200/60 select-none cursor-default"
                               title={task.files.join(", ")}
                             >
                               <Paperclip className="w-2.5 h-2.5" />
                               <span>{task.files.length} Docs</span>
-                            </button>
+                            </span>
                           ) : (
                             <span className="text-[11px] text-slate-400 font-medium">None</span>
                           )}
                         </td>
-                        <td className="py-3 px-3 text-slate-700 dark:text-slate-300">
+                        <td className="py-2.5 px-3 text-slate-700 dark:text-slate-300">
                           <span className="inline-flex items-center gap-2 font-bold whitespace-nowrap">
                             <span className="w-6 h-6 rounded-full bg-blue-600 text-white text-[10px] font-black flex items-center justify-center shrink-0 shadow-xs">
                               {task.assignee.charAt(0).toUpperCase()}
@@ -1028,12 +1004,12 @@ export default function AllocationPage() {
                             <span>{toTitleCase(task.assignee)}</span>
                           </span>
                         </td>
-                        <td className="py-3 px-3 whitespace-nowrap">
+                        <td className="py-2.5 px-3 whitespace-nowrap">
                           <span className={`inline-block px-2.5 py-0.5 rounded-md text-[10px] font-bold tracking-wide whitespace-nowrap ${getStatusBadge(task.status)}`}>
                             {toTitleCase(task.status)}
                           </span>
                         </td>
-                        <td className="py-3 px-3 text-right">
+                        <td className="py-2.5 px-3 text-right">
                           <Link
                             href={`/dashboard/tasks/${task.id}`}
                             className="inline-flex items-center justify-center w-7 h-7 rounded-lg hover:bg-blue-50 dark:hover:bg-blue-950/60 text-slate-400 hover:text-blue-600 dark:hover:text-sky-400 transition-colors"

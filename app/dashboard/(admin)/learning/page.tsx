@@ -579,7 +579,7 @@ export default function PartnerLearningCentrePage() {
         </div>
 
         {/* Overview KPI Cards (Dynamic counts from API response) */}
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mt-6 pt-6 border-t border-slate-100 dark:border-slate-800">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-6 pt-6 border-t border-slate-100 dark:border-slate-800">
           <div className="p-4 rounded-xl bg-slate-50 dark:bg-slate-800/40 border border-slate-200/60 dark:border-slate-800">
             <div className="flex items-center justify-between">
               <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
@@ -592,21 +592,6 @@ export default function PartnerLearningCentrePage() {
             </div>
             <span className="text-[11px] text-slate-400 mt-1 block">
               Official SOP documents online
-            </span>
-          </div>
-
-          <div className="p-4 rounded-xl bg-slate-50 dark:bg-slate-800/40 border border-slate-200/60 dark:border-slate-800">
-            <div className="flex items-center justify-between">
-              <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
-                Recently Added
-              </span>
-              <Calendar className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
-            </div>
-            <div className="text-sm font-bold text-slate-900 dark:text-white mt-2 truncate" title={overviewStats.recentlyAdded}>
-              {overviewStats.recentlyAdded}
-            </div>
-            <span className="text-[11px] text-slate-400 mt-1 block">
-              {overviewStats.recentlyAddedDate ? overviewStats.recentlyAddedDate : "No materials uploaded yet"}
             </span>
           </div>
 

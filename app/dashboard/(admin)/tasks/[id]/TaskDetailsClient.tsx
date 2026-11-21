@@ -96,6 +96,14 @@ export default function TaskDetailsClient({ id }: { id: string }) {
 
   const openCompleteTaskModal = () => {
     if (!task) return;
+
+    // MANDATORY RULE: Task CANNOT be completed unless assigned to a staff specialist
+    const isAssigned = !!(task.assignedTo?.name && task.assignedTo.name.trim() !== "" && task.assignedTo.name !== "Unassigned");
+    if (!isAssigned) {
+      setUnassignedWarningModal(true);
+      return;
+    }
+
     const today = new Date().toISOString().split("T")[0];
     const expiry = new Date(Date.now() + 365 * 24 * 3600 * 1000).toISOString().split("T")[0];
 
@@ -147,9 +155,86 @@ export default function TaskDetailsClient({ id }: { id: string }) {
     ];
   }, []);
 
-  // Comment Attachment State
+  // Comment Attachment & Mention State
   const commentFileInputRef = useRef<HTMLInputElement>(null);
+  const commentTextareaRef = useRef<HTMLTextAreaElement>(null);
   const [commentAttachment, setCommentAttachment] = useState<{ fileName: string; fileSize: string; fileUrl: string } | null>(null);
+  const [isMentionMenuOpen, setIsMentionMenuOpen] = useState(false);
+  const [mentionQuery, setMentionQuery] = useState("");
+
+  // Mention candidates strictly limited to the 3 roles involved in this task:
+  // 1. Assigned Specialist (the staff member assigned to this task)
+  // 2. Franchise Partner (who placed the task)
+  // 3. Admin (the admin managing/assigning the task)
+  // Nobody else outside this task circle can be tagged. A user cannot tag themselves.
+  const taggableCandidates = useMemo(() => {
+    if (!task) return [];
+    const isStaff = ["STAFF", "SPECIALIST", "EXECUTIVE"].includes(userRole.toUpperCase());
+    const candidates: Array<{ id: string; name: string; role: string; type: "STAFF" | "PARTNER" | "ADMIN" }> = [];
+
+    // Current user's identity details
+    const currentName = (currentUser?.name || "").trim().toLowerCase();
+    const currentEmail = (currentUser?.email || "").trim().toLowerCase();
+
+    // 1. Assigned Specialist for THIS task
+    if (task.assignedTo?.name) {
+      const assignedName = task.assignedTo.name.trim();
+      const isSelf = assignedName.toLowerCase() === currentName;
+      if (!isSelf) {
+        candidates.push({
+          id: `assigned-${task.assignedTo.id || assignedName}`,
+          name: assignedName,
+          role: task.assignedTo.role || "Assigned Specialist",
+          type: "STAFF",
+        });
+      }
+    }
+
+    // 2. Franchise Partner for THIS task
+    if (task.partnerName) {
+      const partnerName = task.partnerName.trim();
+      const isSelf = partnerName.toLowerCase() === currentName;
+      if (!isSelf) {
+        candidates.push({
+          id: task.partnerId || `partner-${partnerName}`,
+          name: partnerName,
+          role: "Franchise Partner",
+          type: "PARTNER",
+        });
+      }
+    }
+
+    // 3. Admin Desk (the administration in charge of task assignment)
+    // Only available to tag if current user is not already the admin desk
+    if (isStaff) {
+      candidates.push({
+        id: "admin-desk",
+        name: "Admin Desk",
+        role: "HQ Administration",
+        type: "ADMIN",
+      });
+    }
+
+    return candidates;
+  }, [task, userRole, currentUser]);
+
+  // Insert mention into comment text
+  const handleSelectMention = (candidate: { name: string; role: string }) => {
+    const mentionTag = `@${candidate.name} `;
+    setNewCommentText((prev) => {
+      // If user typed "@query", replace the trailing "@..." with mentionTag
+      const atIdx = prev.lastIndexOf("@");
+      if (atIdx !== -1) {
+        return prev.slice(0, atIdx) + mentionTag;
+      }
+      return prev ? `${prev.trim()} ${mentionTag}` : mentionTag;
+    });
+    setIsMentionMenuOpen(false);
+    setMentionQuery("");
+    if (commentTextareaRef.current) {
+      commentTextareaRef.current.focus();
+    }
+  };
 
   // Normal Upload Modal State (Admin / Staff Deliverables Upload)
   const [uploadModalOpen, setUploadModalOpen] = useState(false);
@@ -251,6 +336,13 @@ export default function TaskDetailsClient({ id }: { id: string }) {
 
     if (isUnassigned && editStatus !== task.status) {
       setUnassignedWarningModal(true);
+      return;
+    }
+
+    // MANDATORY RULE: If status is being marked as Completed from edit modal, open the Final Clearance Certificate modal
+    if (editStatus === "Completed" && task.status !== "Completed") {
+      setIsEditTaskModalOpen(false);
+      openCompleteTaskModal();
       return;
     }
 
@@ -1025,14 +1117,14 @@ export default function TaskDetailsClient({ id }: { id: string }) {
 
           {/* Right Action / Controls */}
           <div className="relative z-30 flex flex-wrap items-center gap-2.5 shrink-0">
-            <div className="hidden sm:flex items-center gap-2 px-3 py-2 rounded-xl bg-white/90 dark:bg-slate-900/90 border border-slate-200/90 dark:border-slate-800 text-xs font-semibold text-slate-600 dark:text-slate-300 shadow-xs">
+            <div className="hidden sm:inline-flex items-center gap-2 h-9 px-3.5 rounded-xl bg-white/90 dark:bg-slate-900/90 border border-slate-200/90 dark:border-slate-800 text-xs font-semibold text-slate-600 dark:text-slate-300 shadow-xs">
               <Calendar className="w-3.5 h-3.5 text-amber-500" />
               <span>Created On: {task.taskDate}</span>
             </div>
 
             <Link
               href="/dashboard/tasks"
-              className="btn-glass-modern text-xs py-2 px-3.5 cursor-pointer flex items-center gap-1.5"
+              className="inline-flex items-center justify-center gap-1.5 h-9 px-3.5 rounded-xl bg-white/90 dark:bg-slate-900/90 border border-slate-200/90 dark:border-slate-800 text-xs font-bold text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800 shadow-xs transition-colors cursor-pointer"
             >
               <ArrowLeft className="w-3.5 h-3.5" />
               <span>Back to Tasks</span>
@@ -1042,7 +1134,7 @@ export default function TaskDetailsClient({ id }: { id: string }) {
               <button
                 type="button"
                 onClick={openCompleteTaskModal}
-                className="px-3.5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs shadow-md shadow-emerald-500/20 flex items-center gap-1.5 cursor-pointer transition-all active:scale-95"
+                className="inline-flex items-center justify-center gap-1.5 h-9 px-3.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs shadow-md shadow-emerald-500/20 cursor-pointer transition-all active:scale-95"
               >
                 <CheckCircle2 className="w-3.5 h-3.5" />
                 <span>Mark Completed</span>
@@ -1054,7 +1146,7 @@ export default function TaskDetailsClient({ id }: { id: string }) {
               <button
                 type="button"
                 onClick={openEditTaskModal}
-                className="btn-primary-vibrant text-xs py-2 px-4 cursor-pointer inline-flex items-center gap-1.5 shadow-md shadow-blue-500/25"
+                className="inline-flex items-center justify-center gap-1.5 h-9 px-4 rounded-xl bg-gradient-to-r from-blue-600 via-indigo-600 to-blue-700 hover:from-blue-700 hover:to-indigo-800 text-white font-bold text-xs shadow-md shadow-blue-500/25 cursor-pointer transition-all active:scale-95"
               >
                 <Edit3 className="w-3.5 h-3.5" />
                 <span>Edit Task</span>
@@ -1229,8 +1321,8 @@ export default function TaskDetailsClient({ id }: { id: string }) {
           </div>
         </div>
 
-        {/* Second Row: Category, Service, Due Date, Assigned Specialist */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-6 pt-5 border-t border-slate-100 dark:border-slate-800/80 text-xs">
+        {/* Second Row: Category, Service, Assigned Specialist */}
+        <div className="grid grid-cols-2 md:grid-cols-3 gap-4 mt-6 pt-5 border-t border-slate-100 dark:border-slate-800/80 text-xs">
           <div>
             <span className="text-slate-400 font-medium">Task Category: </span>
             <span className="font-bold text-slate-800 dark:text-slate-200">{task.taskCategory}</span>
@@ -1251,10 +1343,6 @@ export default function TaskDetailsClient({ id }: { id: string }) {
                 Unassigned
               </span>
             )}
-          </div>
-          <div className="flex items-center gap-1.5 text-slate-600 dark:text-slate-400 font-medium">
-            <Clock className="w-3.5 h-3.5 text-amber-500" />
-            <span>Due Date: <strong className="text-slate-900 dark:text-white">{task.dueDate || "Not Set"}</strong></span>
           </div>
         </div>
       </div>
@@ -1501,60 +1589,115 @@ export default function TaskDetailsClient({ id }: { id: string }) {
             <span>Comments</span>
           </h3>
 
-          {/* Comment Input Box with File Attachment (Requirement 5th ss) */}
-          <form onSubmit={handleAddComment} className="space-y-3 pt-4 shrink-0">
-            <textarea
-              rows={3}
-              placeholder="Add a comment... (Service team can attach verified files and notices)"
-              value={newCommentText}
-              onChange={(e) => setNewCommentText(e.target.value)}
-              className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-900/80 border border-slate-200 dark:border-slate-700 rounded-2xl text-xs font-medium text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500/30 focus:border-blue-500 transition-all shadow-xs"
-            />
+          {/* Comment Input Box with Tagging/Mentions */}
+          <form onSubmit={handleAddComment} className="space-y-3 pt-4 shrink-0 relative">
+            <div className="relative">
+              <textarea
+                ref={commentTextareaRef}
+                rows={3}
+                placeholder={
+                  ["STAFF", "SPECIALIST", "EXECUTIVE"].includes(userRole.toUpperCase())
+                    ? "Add a comment... Type @ to tag Partner or Admin"
+                    : "Add a comment... Type @ to tag Staff Specialist or Partner"
+                }
+                value={newCommentText}
+                onChange={(e) => {
+                  const val = e.target.value;
+                  setNewCommentText(val);
 
-            {/* Selected File Chip */}
-            {commentAttachment && (
-              <div className="flex items-center justify-between p-2.5 rounded-xl bg-blue-50 dark:bg-blue-950/40 border border-blue-200 dark:border-blue-800 text-xs">
-                <div className="flex items-center gap-2">
-                  <FileText className="w-4 h-4 text-blue-600 dark:text-sky-400" />
-                  <span className="font-bold text-slate-900 dark:text-white">{commentAttachment.fileName}</span>
-                  <span className="text-[10px] text-slate-400">({commentAttachment.fileSize})</span>
+                  // Detect typing @
+                  const cursor = e.target.selectionStart || val.length;
+                  const textBeforeCursor = val.slice(0, cursor);
+                  const lastAt = textBeforeCursor.lastIndexOf("@");
+                  if (lastAt !== -1 && !/\s/.test(textBeforeCursor.slice(lastAt + 1))) {
+                    setMentionQuery(textBeforeCursor.slice(lastAt + 1).toLowerCase());
+                    setIsMentionMenuOpen(true);
+                  } else {
+                    setIsMentionMenuOpen(false);
+                  }
+                }}
+                className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-900/80 border border-slate-200 dark:border-slate-700 rounded-2xl text-xs font-medium text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500/30 focus:border-blue-500 transition-all shadow-xs"
+              />
+
+              {/* Tagging / Mention Dropdown Menu */}
+              {isMentionMenuOpen && (
+                <div className="absolute left-0 bottom-full mb-2 w-72 bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-xl z-50 overflow-hidden animate-in fade-in zoom-in-95">
+                  <div className="px-3.5 py-2 border-b border-slate-100 dark:border-slate-800 bg-slate-50/80 dark:bg-slate-800/60 flex items-center justify-between">
+                    <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">
+                      Tag Member (Auto-Restricted)
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => setIsMentionMenuOpen(false)}
+                      className="text-slate-400 hover:text-slate-600 p-0.5 cursor-pointer"
+                    >
+                      <X className="w-3 h-3" />
+                    </button>
+                  </div>
+
+                  <div className="max-h-48 overflow-y-auto divide-y divide-slate-100 dark:divide-slate-800/60">
+                    {taggableCandidates
+                      .filter((c) => !mentionQuery || c.name.toLowerCase().includes(mentionQuery) || c.role.toLowerCase().includes(mentionQuery))
+                      .map((c) => (
+                        <button
+                          key={c.id}
+                          type="button"
+                          onClick={() => handleSelectMention(c)}
+                          className="w-full px-3.5 py-2.5 text-left flex items-center justify-between hover:bg-blue-50/80 dark:hover:bg-blue-950/40 transition-colors cursor-pointer group"
+                        >
+                          <div>
+                            <p className="text-xs font-bold text-slate-900 dark:text-white group-hover:text-blue-600 dark:group-hover:text-sky-400">
+                              @{c.name}
+                            </p>
+                            <p className="text-[10px] text-slate-400">{c.role}</p>
+                          </div>
+                          <span
+                            className={`px-2 py-0.5 rounded-full text-[9px] font-bold ${
+                              c.type === "ADMIN"
+                                ? "bg-purple-100 text-purple-700 dark:bg-purple-950/60 dark:text-purple-300"
+                                : c.type === "PARTNER"
+                                ? "bg-amber-100 text-amber-700 dark:bg-amber-950/60 dark:text-amber-300"
+                                : "bg-blue-100 text-blue-700 dark:bg-blue-950/60 dark:text-sky-300"
+                            }`}
+                          >
+                            {c.type}
+                          </span>
+                        </button>
+                      ))}
+
+                    {taggableCandidates.filter(
+                      (c) => !mentionQuery || c.name.toLowerCase().includes(mentionQuery) || c.role.toLowerCase().includes(mentionQuery)
+                    ).length === 0 && (
+                      <div className="py-4 text-center text-xs text-slate-400 font-semibold">
+                        No taggable members found
+                      </div>
+                    )}
+                  </div>
                 </div>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setCommentAttachment(null);
-                    if (commentFileInputRef.current) commentFileInputRef.current.value = "";
-                  }}
-                  className="p-1 text-slate-400 hover:text-rose-500 cursor-pointer"
-                >
-                  <X className="w-3.5 h-3.5" />
-                </button>
-              </div>
-            )}
+              )}
+            </div>
 
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2 text-slate-400">
-                {/* Paperclip Button with file input */}
-                <label
-                  title="Attach file with comment"
-                  className="p-2 hover:text-sky-500 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer flex items-center"
+                {/* Tag Button (@) */}
+                <button
+                  type="button"
+                  title="Tag member in message"
+                  onClick={() => setIsMentionMenuOpen(!isMentionMenuOpen)}
+                  className={`p-2 rounded-xl transition-colors cursor-pointer flex items-center gap-1 text-xs font-bold ${
+                    isMentionMenuOpen
+                      ? "bg-blue-600 text-white shadow-xs"
+                      : "text-slate-500 hover:text-blue-600 hover:bg-slate-100 dark:hover:bg-slate-800"
+                  }`}
                 >
-                  <Paperclip className="w-4 h-4" />
-                  <input
-                    ref={commentFileInputRef}
-                    type="file"
-                    className="hidden"
-                    onChange={handleCommentFileChange}
-                  />
-                </label>
-                <button type="button" title="Mention teammate" className="p-2 hover:text-sky-500 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer">
                   <AtSign className="w-4 h-4" />
+                  <span className="hidden sm:inline">Tag Member</span>
                 </button>
               </div>
 
               <button
                 type="submit"
-                disabled={isPostingComment || (!newCommentText.trim() && !commentAttachment)}
+                disabled={isPostingComment || !newCommentText.trim()}
                 className="btn-primary-vibrant text-xs py-2 px-5 cursor-pointer disabled:opacity-50"
               >
                 <Send className="w-3.5 h-3.5" />
@@ -1659,138 +1802,7 @@ export default function TaskDetailsClient({ id }: { id: string }) {
         </div>
       </div>
 
-      {/* 4. Issued Certificates & Licences Section - Only visible when task is Completed */}
-      {task.status === "Completed" && (
-        <div className="card-luxury p-6 space-y-5">
-          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 border-b border-slate-100 dark:border-slate-800/80 pb-4">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-2xl bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 flex items-center justify-center font-black">
-                <ShieldCheck className="w-5 h-5" />
-              </div>
-              <div>
-                <h3 className="font-black text-slate-900 dark:text-white text-base tracking-tight flex items-center gap-2">
-                  <span>Issued Certificates &amp; Licences</span>
-                  <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 border border-emerald-500/25">
-                    {(task.certificates || []).length} Issued
-                  </span>
-                </h3>
-                <p className="text-xs text-slate-500 dark:text-slate-400">
-                  Official government registrations and approved license certificates issued to client and visible on Partner Dashboard &amp; Licence Report.
-                </p>
-              </div>
-            </div>
 
-            <div className="flex items-center gap-2.5">
-              <Link
-                href="/dashboard/licence"
-                className="btn-glass-modern text-xs py-2 px-3.5 inline-flex items-center gap-1.5 font-bold"
-              >
-                <FileText className="w-3.5 h-3.5 text-blue-500" />
-                <span>Open Licence Report</span>
-              </Link>
-              <button
-                type="button"
-                onClick={() => setCertModalOpen(true)}
-                className="btn-primary-vibrant text-xs py-2 px-4 cursor-pointer inline-flex items-center gap-2 shadow-md shadow-blue-500/20"
-              >
-                <Award className="w-4 h-4" />
-                <span>Submit Certificate / Licence</span>
-              </button>
-            </div>
-          </div>
-
-          {/* Certificates Table */}
-          <div className="overflow-x-auto">
-            <table className="w-full text-left border-collapse text-xs">
-              <thead>
-                <tr className="border-b border-slate-100 dark:border-slate-800 text-[10px] font-black uppercase tracking-wider text-slate-400 bg-slate-50/60 dark:bg-slate-900/60">
-                  <th className="py-3 px-3.5">#</th>
-                  <th className="py-3 px-3.5">Certificate Number</th>
-                  <th className="py-3 px-3.5">Certificate Name</th>
-                  <th className="py-3 px-3.5">Issue Date</th>
-                  <th className="py-3 px-3.5">Valid Till</th>
-                  <th className="py-3 px-3.5">Submitted By</th>
-                  <th className="py-3 px-3.5">Status</th>
-                  <th className="py-3 px-3.5 text-right">Actions</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100 dark:divide-slate-800/60 font-medium">
-                {(task.certificates || []).length === 0 ? (
-                  <tr>
-                    <td colSpan={8} className="py-8 text-center text-slate-400">
-                      <Award className="w-8 h-8 mx-auto mb-2 text-slate-300 dark:text-slate-700" />
-                      <p className="text-xs font-semibold text-slate-700 dark:text-slate-300">
-                        No certificates issued yet for this task.
-                      </p>
-                      <p className="text-[11px] text-slate-400 mt-0.5">
-                        Once government approval is received, click &quot;+ Submit Certificate / Licence&quot; to publish the verified license.
-                      </p>
-                    </td>
-                  </tr>
-                ) : (
-                  task.certificates?.map((cert, idx) => (
-                    <tr key={cert.id} className="hover:bg-slate-50/70 dark:hover:bg-slate-800/50 transition-colors">
-                      <td className="py-3 px-3.5 font-bold text-slate-400">{idx + 1}</td>
-                      <td className="py-3 px-3.5">
-                        <span className="font-mono font-bold text-blue-600 dark:text-sky-400">
-                          {cert.certificateNumber}
-                        </span>
-                      </td>
-                      <td className="py-3 px-3.5 font-bold text-slate-900 dark:text-white">
-                        {cert.certificateName}
-                      </td>
-                      <td className="py-3 px-3.5 text-slate-600 dark:text-slate-400">
-                        {cert.issuedDate}
-                      </td>
-                      <td className="py-3 px-3.5 text-slate-600 dark:text-slate-400">
-                        {cert.validTill || "Lifetime / NA"}
-                      </td>
-                      <td className="py-3 px-3.5 text-slate-600 dark:text-slate-400">
-                        {cert.submittedBy}
-                      </td>
-                      <td className="py-3 px-3.5">
-                        <span className="px-2.5 py-0.5 rounded-full font-bold text-[10px] bg-emerald-50 text-emerald-600 dark:bg-emerald-950/60 dark:text-emerald-400 border border-emerald-200">
-                          {cert.status}
-                        </span>
-                      </td>
-                      <td className="py-3 px-3.5 text-right whitespace-nowrap">
-                        <div className="flex items-center justify-end gap-1.5">
-                          <button
-                            type="button"
-                            onClick={() =>
-                              setActivePreviewDoc({
-                                isOpen: true,
-                                title: "Official Certificate",
-                                fileName: `${cert.certificateNumber}.pdf`,
-                                fileUrl: cert.fileUrl,
-                                uploadedBy: cert.submittedBy,
-                                uploadDate: cert.issuedDate,
-                                category: cert.certificateName,
-                              })
-                            }
-                            className="px-2.5 py-1 rounded-lg bg-sky-50 dark:bg-sky-950/40 text-sky-600 dark:text-sky-400 hover:bg-sky-100 border border-sky-200 dark:border-sky-800 font-bold text-[11px] cursor-pointer inline-flex items-center gap-1"
-                          >
-                            <Eye className="w-3 h-3" />
-                            <span>View Certificate</span>
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => downloadFile(cert.fileUrl, `${cert.certificateNumber}.pdf`)}
-                            className="p-1 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-blue-600 hover:text-white transition-all cursor-pointer"
-                            title="Download PDF"
-                          >
-                            <Download className="w-3.5 h-3.5" />
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                  ))
-                )}
-              </tbody>
-            </table>
-          </div>
-        </div>
-      )}
 
       {/* POPUP MODAL: Submit Certificate / Licence (Additional Point 1) */}
       {certModalOpen && (
@@ -2498,18 +2510,20 @@ export default function TaskDetailsClient({ id }: { id: string }) {
       )}
       {/* Edit / Modify Task Modal */}
       {isEditTaskModalOpen && (
-        <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-in fade-in">
-          <div className="bg-white dark:bg-[#0c1427] border border-slate-200 dark:border-slate-800 rounded-3xl p-6 sm:p-7 w-full max-w-2xl shadow-2xl relative space-y-5">
-            <ModalHeaderBanner
-              icon={Edit3}
-              badge="CASE MODIFICATION"
-              title={`Edit Task Details (${task.id})`}
-              description="Modify client details, category, status, assignment and operational schedules."
-              badgeTag="Task Sync"
-              onClose={() => setIsEditTaskModalOpen(false)}
-            />
+        <div className="fixed inset-0 z-[9999] bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4 overflow-y-auto animate-in fade-in">
+          <div className="bg-white dark:bg-[#0c1427] border border-slate-200 dark:border-slate-800 rounded-3xl p-6 sm:p-7 w-full max-w-2xl max-h-[90vh] shadow-2xl relative flex flex-col space-y-4 my-auto animate-in fade-in zoom-in-95">
+            <div className="shrink-0">
+              <ModalHeaderBanner
+                icon={Edit3}
+                badge="CASE MODIFICATION"
+                title={`Edit Task Details (${task.id})`}
+                description="Modify client details, category, status, assignment and operational schedules."
+                badgeTag="Task Sync"
+                onClose={() => setIsEditTaskModalOpen(false)}
+              />
+            </div>
 
-            <form onSubmit={handleSaveEditTask} className="space-y-4">
+            <form onSubmit={handleSaveEditTask} className="flex-1 min-h-0 overflow-y-auto pr-1 space-y-4">
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <NameInput
                   label="Client Name"
@@ -2527,7 +2541,7 @@ export default function TaskDetailsClient({ id }: { id: string }) {
                 />
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 gap-4">
                 <div>
                   <label className="block text-[11px] font-bold text-slate-500 mb-1">
                     Name of Business
@@ -2538,20 +2552,6 @@ export default function TaskDetailsClient({ id }: { id: string }) {
                     onChange={(e) => setEditBusinessName(e.target.value)}
                     onBlur={() => setEditBusinessName(formatName(editBusinessName))}
                     className="w-full px-3.5 py-2 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-semibold text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500/20"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-[11px] font-bold text-slate-500 mb-1">
-                    Due Date *
-                  </label>
-                  <input
-                    type="date"
-                    required
-                    min={new Date().toISOString().slice(0, 10)}
-                    value={editDueDate}
-                    onChange={(e) => setEditDueDate(e.target.value)}
-                    className="w-full px-3.5 py-2 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-semibold text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500/20 cursor-pointer"
                   />
                 </div>
               </div>
@@ -2687,19 +2687,23 @@ export default function TaskDetailsClient({ id }: { id: string }) {
                 />
               </div>
 
-              <div className="flex items-center justify-end gap-3 pt-3 border-t border-slate-100 dark:border-slate-800">
+              <div className="flex items-center justify-end gap-2 pt-3 border-t border-slate-100 dark:border-slate-800 shrink-0">
                 <button
                   type="button"
-                  onClick={() => setIsEditTaskModalOpen(false)}
-                  className="px-5 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 font-bold cursor-pointer transition-colors"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    setIsEditTaskModalOpen(false);
+                  }}
+                  className="px-3.5 py-1.5 rounded-lg text-xs font-semibold text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 border border-slate-200 dark:border-slate-700 cursor-pointer transition-colors"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
-                  className="btn-primary-vibrant text-xs py-2.5 px-6 shadow-md shadow-blue-500/25 cursor-pointer inline-flex items-center gap-1.5"
+                  className="btn-primary-vibrant text-xs py-1.5 px-4 shadow-sm cursor-pointer inline-flex items-center gap-1.5 active:scale-95"
                 >
-                  <CheckCircle2 className="w-4 h-4" />
+                  <CheckCircle2 className="w-3.5 h-3.5" />
                   <span>Save Task Changes</span>
                 </button>
               </div>
@@ -2827,7 +2831,7 @@ export default function TaskDetailsClient({ id }: { id: string }) {
                 Staff Assignment Required
               </h3>
               <p className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed max-w-sm mx-auto">
-                This task is currently <span className="font-bold text-amber-600 dark:text-amber-400">Unassigned</span>. Workflow policy requires assigning an internal specialist staff member before transitioning its execution status.
+                This task is currently <span className="font-bold text-amber-600 dark:text-amber-400">Unassigned</span>. Workflow policy requires assigning an internal specialist staff member before transitioning or completing its execution status.
               </p>
             </div>
 
@@ -2838,28 +2842,21 @@ export default function TaskDetailsClient({ id }: { id: string }) {
                 <span>Next Step to Proceed:</span>
               </div>
               <p className="text-[11px] leading-snug text-slate-500 dark:text-slate-400 pl-3.5">
-                Assign a qualified team specialist to take ownership of this case. Once assigned, you can proceed with progressing or completing the status.
+                Go back and assign a qualified team specialist first. Bina specialist assign kiye task complete ya progress nahi kiya ja sakta.
               </p>
             </div>
 
-            {/* Action Buttons */}
+            {/* Action Buttons: Only Go Back & Assign First */}
             <div className="flex items-center justify-center gap-2.5 pt-2">
-              <button
-                type="button"
-                onClick={() => setUnassignedWarningModal(false)}
-                className="px-4 py-2.5 rounded-xl text-xs font-bold text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
-              >
-                Dismiss
-              </button>
               <button
                 type="button"
                 onClick={() => {
                   setUnassignedWarningModal(false);
                   openEditTaskModal();
                 }}
-                className="btn-primary-vibrant text-xs py-2.5 px-5 rounded-xl font-bold cursor-pointer inline-flex items-center gap-2 shadow-lg shadow-blue-500/25"
+                className="btn-primary-vibrant text-xs py-2.5 px-6 rounded-xl font-bold cursor-pointer inline-flex items-center gap-2 shadow-lg shadow-blue-500/25 active:scale-95"
               >
-                <span>Assign Staff Member Now</span>
+                <span>Go Back &amp; Assign First</span>
                 <ArrowRight className="w-3.5 h-3.5" />
               </button>
             </div>

@@ -137,7 +137,7 @@ export default function TeamPage() {
   // Form states
   const [formName, setFormName] = useState("");
   const [formEmail, setFormEmail] = useState("");
-  const [formPassword, setFormPassword] = useState("Password@123");
+  const [formPassword, setFormPassword] = useState("");
   const [formDesignation, setFormDesignation] = useState("");
   const [formRole, setFormRole] = useState("STAFF");
   const [formDeptId, setFormDeptId] = useState<number>(1);
@@ -263,7 +263,7 @@ export default function TeamPage() {
     setEditingUser(user);
     setFormName(user.name);
     setFormEmail(user.email || `${user.name.toLowerCase().replace(/\s+/g, ".")}@finsocap.com`);
-    setFormPassword(user.password || "Password@123");
+    setFormPassword("");
     setFormDesignation(user.role);
     setFormDept(user.dept);
     const matchedDept = departmentsList.find(
@@ -276,18 +276,14 @@ export default function TeamPage() {
     }
 
     setFormPhone(user.phone);
-    setSelectedSkills(user.skills && user.skills.length > 0 ? user.skills : [user.skill]);
+    setSelectedSkills(user.skills && user.skills.length > 0 ? user.skills : (user.skill ? [user.skill] : []));
 
-    // Find services matched by name or from apiSpecialists
+    // Strictly load real dynamic services assigned to this specialist from live API
     const spec = apiSpecialists.find((s) => String(s.id) === String(user.id));
     if (spec && Array.isArray(spec.serviceIds)) {
       setSelectedServiceIds(spec.serviceIds);
     } else {
-      const userCompetencies = user.skills && user.skills.length > 0 ? user.skills : [user.skill];
-      const matchedIds = servicesList
-        .filter((srv) => userCompetencies.includes(srv.name))
-        .map((srv) => srv.id);
-      setSelectedServiceIds(matchedIds);
+      setSelectedServiceIds([]);
     }
 
     setIsEditModalOpen(true);
@@ -311,8 +307,8 @@ export default function TeamPage() {
         role: formRole,
         email: normalizedEmail,
         phone: normalizePhoneForBackend(normalizedPhone),
-        defaultPassword: formPassword.trim() || "Password@123",
-        serviceIds: selectedServiceIds.length > 0 ? selectedServiceIds : (servicesList[0]?.id ? [servicesList[0].id] : []),
+        defaultPassword: formPassword.trim() || undefined,
+        serviceIds: selectedServiceIds,
       };
 
       await teamService.enrollSpecialist(payload as any);
@@ -321,7 +317,7 @@ export default function TeamPage() {
       addUser({
         name: normalizedName,
         email: normalizedEmail || `${normalizedName.toLowerCase().replace(/\s+/g, ".")}@finsocap.com`,
-        password: formPassword.trim() || "Password@123",
+        password: formPassword.trim(),
         role: `${formDesignation.trim()} (${formRole})`,
         dept: formDept,
         skill: selectedSkills.length > 0 ? selectedSkills.join(", ") : "General Compliance",
@@ -341,7 +337,7 @@ export default function TeamPage() {
       addUser({
         name: formName.trim(),
         email: formEmail.trim() || `${formName.trim().toLowerCase().replace(/\s+/g, ".")}@finsocap.com`,
-        password: formPassword.trim() || "Password@123",
+        password: formPassword.trim(),
         role: `${formDesignation.trim()} (${formRole})`,
         dept: formDept,
         skill: selectedSkills.length > 0 ? selectedSkills.join(", ") : "General Compliance",
@@ -447,7 +443,7 @@ export default function TeamPage() {
   const resetForm = () => {
     setFormName("");
     setFormEmail("");
-    setFormPassword("Password@123");
+    setFormPassword("");
     setFormDesignation("");
     setFormRole("STAFF");
     setFormDeptId(1);
@@ -654,7 +650,7 @@ export default function TeamPage() {
                 paginatedUsers.map((user) => {
                   const userEmailDisplay = user.email || `${user.name.toLowerCase().replace(/\s+/g, ".")}@finsocap.com`;
                   const isPasswordRevealed = showPasswordMap[user.id] || false;
-                  const userPassword = user.password || "Password@123";
+                  const userPassword = user.password || "";
                   const initials = user.name
                     .split(" ")
                     .map((n) => n[0])
@@ -704,20 +700,22 @@ export default function TeamPage() {
                             <div className="flex items-center gap-1 text-[11px] font-mono text-slate-500 dark:text-slate-400">
                               <Lock className="w-2.5 h-2.5 text-slate-400" />
                               <span className="tracking-wider">
-                                {isPasswordRevealed ? userPassword : "••••••••"}
+                                {isPasswordRevealed ? (userPassword || "Encrypted") : "••••••••"}
                               </span>
-                              <button
-                                type="button"
-                                onClick={() => toggleUserPasswordReveal(user.id)}
-                                className="text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 p-0.5 cursor-pointer ml-1"
-                                title={isPasswordRevealed ? "Hide password" : "Reveal password"}
-                              >
-                                {isPasswordRevealed ? (
-                                  <EyeOff className="w-3 h-3 text-blue-500" />
-                                ) : (
-                                  <Eye className="w-3 h-3" />
-                                )}
-                              </button>
+                              {userPassword ? (
+                                <button
+                                  type="button"
+                                  onClick={() => toggleUserPasswordReveal(user.id)}
+                                  className="text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 p-0.5 cursor-pointer ml-1"
+                                  title={isPasswordRevealed ? "Hide password" : "Reveal password"}
+                                >
+                                  {isPasswordRevealed ? (
+                                    <EyeOff className="w-3 h-3 text-blue-500" />
+                                  ) : (
+                                    <Eye className="w-3 h-3" />
+                                  )}
+                                </button>
+                              ) : null}
                             </div>
                           </div>
                         </td>
@@ -1034,7 +1032,7 @@ export default function TeamPage() {
                   type="text"
                   value={formPassword}
                   onChange={(e) => setFormPassword(e.target.value)}
-                  placeholder="Password@123"
+                  placeholder="Set initial password (optional)"
                   className="w-full px-3.5 py-2 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-semibold font-mono focus:outline-none"
                 />
               </div>
@@ -1184,9 +1182,10 @@ export default function TeamPage() {
                     System Password
                   </label>
                   <input
-                    type="text"
+                    type="password"
                     value={formPassword}
                     onChange={(e) => setFormPassword(e.target.value)}
+                    placeholder="•••••••• (Leave blank to keep unchanged)"
                     className="w-full px-3.5 py-2 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-semibold font-mono focus:outline-none"
                   />
                 </div>

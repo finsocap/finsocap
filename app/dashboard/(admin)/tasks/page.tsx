@@ -30,6 +30,7 @@ import { isDateWithinRange, getCurrentMonthRangeLabel, calculateOverdueDays } fr
 import PartnerRequestsDashboard from "@/components/Dashboard/PartnerRequestsDashboard";
 import { sortByNewest } from "@/lib/sortHelper";
 import Pagination from "@/components/Dashboard/Pagination";
+import TaskCompleteModal from "@/components/Dashboard/TaskCompleteModal";
 
 const allStatuses: { status: TaskStatus; label: string; count: number; color: string; bg: string; icon: any }[] = [
   { status: "Pending", label: "Pending", count: 47, color: "text-rose-600", bg: "bg-rose-500/10 border-rose-500/20", icon: Clock },
@@ -76,6 +77,7 @@ export default function TasksPage() {
   // Edit Task State
   const [editingTask, setEditingTask] = useState<TaskItem | null>(null);
   const [unassignedWarningModal, setUnassignedWarningModal] = useState(false);
+  const [completeModalTask, setCompleteModalTask] = useState<TaskItem | null>(null);
   const [editClient, setEditClient] = useState("");
   const [editPhone, setEditPhone] = useState("");
   const [editBusiness, setEditBusiness] = useState("");
@@ -408,6 +410,23 @@ export default function TasksPage() {
       return;
     }
 
+    // MANDATORY RULE: If status is being marked as Completed from anywhere, open Final Clearance Certificate Popup
+    if (editStatus === "Completed" && editingTask.status !== "Completed") {
+      setCompleteModalTask({
+        ...editingTask,
+        clientName: editClient.trim(),
+        clientContact: editPhone.trim(),
+        nameOfBusiness: editBusiness.trim(),
+        taskCategory: editCategory,
+        serviceName: editService,
+        dueDate: editDue,
+        partnerName: editPartnerName,
+        partnerContact: editPartnerContact,
+      });
+      setEditingTask(null);
+      return;
+    }
+
     const todayStr = new Date().toISOString().slice(0, 10);
     if (editDue && editDue < todayStr) {
       toast.error("Due date cannot be a past date. Please select today or a future date.");
@@ -622,8 +641,8 @@ export default function TasksPage() {
         tasks={scopedUserTasks}
       />
 
-      {/* 2. Top 8 Status KPI Cards (Exact match to Screenshot 4) */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 gap-3">
+      {/* 2. Top 7 Status KPI Cards (Grid cols 7 on large screens to fill 100% width with 0 negative space) */}
+      <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-3">
         {allStatuses.map((item) => {
           const Icon = item.icon;
           const isSelected = selectedStatusFilter === item.status;
@@ -631,8 +650,8 @@ export default function TasksPage() {
             <button
               key={item.status}
               onClick={() => setSelectedStatusFilter(isSelected ? "ALL" : item.status)}
-              className={`p-3.5 rounded-2xl border text-left transition-all cursor-pointer flex flex-col justify-between ${isSelected
-                  ? "bg-blue-600 text-white border-blue-600 shadow-lg shadow-blue-500/25 scale-[1.03]"
+              className={`p-3.5 rounded-2xl border text-left transition-all cursor-pointer flex flex-col justify-between w-full ${isSelected
+                  ? "bg-blue-600 text-white border-blue-600 shadow-lg shadow-blue-500/25 scale-[1.02]"
                   : "bg-white dark:bg-[#0c1427] border-slate-200/80 dark:border-slate-800 hover:border-blue-400/50 hover:shadow-sm"
                 }`}
             >
@@ -658,22 +677,21 @@ export default function TasksPage() {
         })}
       </div>
 
-      {/* 3. Filter Bar (Matching Screenshot 4) */}
-      {/* 3. Filter Bar (Responsive Grid Layout: Clean 2-col on mobile/tablet, single bar on desktop) */}
-      <div className="p-3.5 bg-white dark:bg-[#0c1427] rounded-2xl border border-slate-200/90 dark:border-slate-800 shadow-xs space-y-2.5">
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:flex lg:flex-wrap lg:items-center gap-2.5">
+      {/* 3. Filter Bar (Single Row on Desktop & Tablet) */}
+      <div className="p-3 bg-white dark:bg-[#0c1427] rounded-2xl border border-slate-200/90 dark:border-slate-800 shadow-xs">
+        <div className="flex flex-col lg:flex-row items-stretch lg:items-center gap-2.5">
           {/* Interactive Date Range Filter */}
           <DateRangeFilter
             value={dateRange}
             onChange={(range) => setDateRange(range.label)}
-            className="w-full sm:w-auto"
+            className="w-full lg:w-auto shrink-0"
           />
 
           {/* Task Category Dropdown */}
           <select
             value={selectedCategory}
             onChange={(e) => setSelectedCategory(e.target.value)}
-            className="w-full lg:w-auto h-11 px-3.5 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-semibold text-slate-800 dark:text-slate-200 focus:outline-none cursor-pointer"
+            className="w-full lg:w-auto shrink-0 h-11 px-3 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-semibold text-slate-800 dark:text-slate-200 focus:outline-none cursor-pointer"
           >
             <option value="ALL">All Task Category</option>
             {categories.map((c) => (
@@ -685,7 +703,7 @@ export default function TasksPage() {
           <select
             value={selectedService}
             onChange={(e) => setSelectedService(e.target.value)}
-            className="w-full lg:w-auto lg:max-w-[200px] h-11 px-3.5 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-semibold text-slate-800 dark:text-slate-200 focus:outline-none cursor-pointer"
+            className="w-full lg:w-auto lg:max-w-[190px] shrink-0 h-11 px-3 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-semibold text-slate-800 dark:text-slate-200 focus:outline-none cursor-pointer truncate"
           >
             <option value="ALL">All Service Name</option>
             {serviceNames.map((s) => (
@@ -697,32 +715,31 @@ export default function TasksPage() {
           <select
             value={selectedStatusFilter}
             onChange={(e) => setSelectedStatusFilter(e.target.value)}
-            className="w-full lg:w-auto h-11 px-3.5 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-semibold text-slate-800 dark:text-slate-200 focus:outline-none cursor-pointer"
+            className="w-full lg:w-auto shrink-0 h-11 px-3 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-semibold text-slate-800 dark:text-slate-200 focus:outline-none cursor-pointer"
           >
             <option value="ALL">All Status</option>
             {allStatuses.map((s) => (
               <option key={s.status} value={s.status}>{s.label}</option>
             ))}
           </select>
-        </div>
 
-        {/* Search Row */}
-        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2.5 pt-0.5">
-          <div className="relative flex-1">
+          {/* Search Input Box */}
+          <div className="relative flex-1 min-w-[200px]">
             <Search className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
             <input
               type="text"
               placeholder="Search tasks, client, partner, business..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full pl-9 pr-3 py-2.5 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-semibold text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+              className="w-full h-11 pl-9 pr-3 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-semibold text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500/20"
             />
           </div>
 
-          <div className="flex items-center gap-2">
+          {/* Actions: Search & Clear */}
+          <div className="flex items-center gap-2 shrink-0">
             <button
               type="button"
-              className="flex-1 sm:flex-initial px-5 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold shadow-md shadow-blue-500/25 transition-all cursor-pointer text-center"
+              className="h-11 px-5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold shadow-md shadow-blue-500/25 transition-all cursor-pointer flex items-center justify-center active:scale-95"
             >
               Search
             </button>
@@ -735,7 +752,7 @@ export default function TasksPage() {
                   setSelectedService("ALL");
                   setSearchQuery("");
                 }}
-                className="px-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 text-xs font-bold text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 cursor-pointer"
+                className="h-11 px-3.5 rounded-xl border border-slate-200 dark:border-slate-700 text-xs font-bold text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 cursor-pointer flex items-center justify-center"
               >
                 Clear
               </button>
@@ -1069,17 +1086,6 @@ export default function TasksPage() {
                 </div>
               </div>
 
-              <div className="space-y-1">
-                <label className="font-bold text-slate-700 dark:text-slate-300">Due Date</label>
-                <input
-                  type="date"
-                  min={new Date().toISOString().slice(0, 10)}
-                  value={newDue}
-                  onChange={(e) => setNewDue(e.target.value)}
-                  className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl"
-                />
-              </div>
-
               <div className="flex items-center justify-end gap-2 pt-3 border-t border-slate-100 dark:border-slate-800">
                 <button
                   type="button"
@@ -1219,17 +1225,6 @@ export default function TasksPage() {
                 </div>
               </div>
 
-              <div className="space-y-1">
-                <label className="font-bold text-slate-700 dark:text-slate-300">Due Date</label>
-                <input
-                  type="date"
-                  min={new Date().toISOString().slice(0, 10)}
-                  value={editDue}
-                  onChange={(e) => setEditDue(e.target.value)}
-                  className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-semibold text-slate-900 dark:text-white cursor-pointer focus:outline-none focus:ring-2 focus:ring-blue-500/20"
-                />
-              </div>
-
               <div className="flex items-center justify-end gap-2 pt-3 border-t border-slate-100 dark:border-slate-800">
                 <button
                   type="button"
@@ -1278,7 +1273,7 @@ export default function TasksPage() {
                 Staff Assignment Required
               </h3>
               <p className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed max-w-sm mx-auto">
-                This task is currently <span className="font-bold text-amber-600 dark:text-amber-400">Unassigned</span>. Workflow policy requires assigning an internal specialist staff member before transitioning its execution status.
+                This task is currently <span className="font-bold text-amber-600 dark:text-amber-400">Unassigned</span>. Workflow policy requires assigning an internal specialist staff member before transitioning or completing its execution status.
               </p>
             </div>
 
@@ -1289,36 +1284,53 @@ export default function TasksPage() {
                 <span>Next Step to Proceed:</span>
               </div>
               <p className="text-[11px] leading-snug text-slate-500 dark:text-slate-400 pl-3.5">
-                Assign a qualified team specialist to take ownership of this case. Once assigned, you can proceed with progressing or completing the status.
+                Go back and assign a qualified team specialist first. Bina specialist assign kiye task complete ya progress nahi kiya ja sakta.
               </p>
             </div>
 
-            {/* Action Buttons */}
+            {/* Action Buttons: Only Go Back & Assign First */}
             <div className="flex items-center justify-center gap-2.5 pt-2">
-              <button
-                type="button"
-                onClick={() => setUnassignedWarningModal(false)}
-                className="px-4 py-2.5 rounded-xl text-xs font-bold text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer"
-              >
-                Dismiss
-              </button>
-              {editingTask && (
+              {editingTask ? (
                 <Link
                   href={`/dashboard/tasks/${editingTask.id}`}
                   onClick={() => {
                     setUnassignedWarningModal(false);
                     setEditingTask(null);
                   }}
-                  className="btn-primary-vibrant text-xs py-2.5 px-5 rounded-xl font-bold cursor-pointer inline-flex items-center gap-2 shadow-lg shadow-blue-500/25"
+                  className="btn-primary-vibrant text-xs py-2.5 px-6 rounded-xl font-bold cursor-pointer inline-flex items-center gap-2 shadow-lg shadow-blue-500/25 active:scale-95"
                 >
-                  <span>Open Task Details &amp; Assign</span>
+                  <span>Go Back &amp; Assign First</span>
                   <ArrowRight className="w-3.5 h-3.5" />
                 </Link>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => setUnassignedWarningModal(false)}
+                  className="btn-primary-vibrant text-xs py-2.5 px-6 rounded-xl font-bold cursor-pointer inline-flex items-center gap-2 shadow-lg shadow-blue-500/25 active:scale-95"
+                >
+                  <span>Go Back &amp; Assign First</span>
+                  <ArrowRight className="w-3.5 h-3.5" />
+                </button>
               )}
             </div>
 
           </div>
         </div>
+      )}
+
+      {/* Mandatory Final Clearance Certificate Popup Modal */}
+      {completeModalTask && (
+        <TaskCompleteModal
+          task={completeModalTask}
+          isOpen={Boolean(completeModalTask)}
+          onClose={() => setCompleteModalTask(null)}
+          onSuccess={(finalizedTask) => {
+            setTasks((prev) =>
+              prev.map((t) => (t.id === finalizedTask.id ? { ...t, status: "Completed", license: finalizedTask.license } : t))
+            );
+            setCompleteModalTask(null);
+          }}
+        />
       )}
     </div>
   );

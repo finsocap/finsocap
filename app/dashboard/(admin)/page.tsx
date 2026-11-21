@@ -156,16 +156,29 @@ export default function DashboardHome() {
         return true;
       })
       .map((t) => {
-        const isUnassigned = !t.assignee || t.assignee.toLowerCase().includes("unassign");
+        // A task is only "Unassigned" if it is an active/open task without an assignee.
+        // Completed/Closed tasks already finished their work lifecycle and are not pending unassigned tasks.
+        const isClosed = t.status === "Completed" || t.status === "Cancelled";
+        const hasNoAssignee = !t.assignee || t.assignee.toLowerCase().includes("unassign");
+        const isUnassigned = !isClosed && hasNoAssignee;
+
+        const displayName = isUnassigned
+          ? "Unassigned"
+          : t.assignee && !t.assignee.toLowerCase().includes("unassign")
+          ? t.assignee
+          : "Operations Team";
+
         return {
           id: t.id,
-          initials: isUnassigned ? "UA" : (t.assignee || "TM").slice(0, 2).toUpperCase(),
-          name: isUnassigned ? "Unassigned" : t.assignee,
+          initials: isUnassigned ? "UA" : displayName.slice(0, 2).toUpperCase(),
+          name: displayName,
           role: "Member",
           text: `${t.service} - ${t.status}`,
           time: t.date || "Today",
           date: t.date,
-          color: isUnassigned ? "bg-rose-100 text-rose-600 dark:bg-rose-950/60 dark:text-rose-400 border border-rose-200 dark:border-rose-800" : "bg-blue-600 text-white",
+          color: isUnassigned
+            ? "bg-rose-100 text-rose-600 dark:bg-rose-950/60 dark:text-rose-400 border border-rose-200 dark:border-rose-800"
+            : "bg-blue-600 text-white",
           branch: t.partner || "HQ",
           partner: t.partner,
           isUnassigned,
@@ -382,8 +395,8 @@ export default function DashboardHome() {
             </div>
           </div>
 
-          {/* 5 Rows matching reference screenshot with dynamic data */}
-          <div className="space-y-2.5 my-auto">
+          {/* 4 Rows matching reference screenshot with even vertical spacing */}
+          <div className="flex-1 flex flex-col justify-around py-3">
 
             {/* 1. Pending Tasks */}
             <div className="flex items-center justify-between">
