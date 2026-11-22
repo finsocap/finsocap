@@ -129,42 +129,14 @@ export default function WeatherWidgetCard({ isCollapsed = false }: { isCollapsed
   const handleManualRefresh = (e: React.MouseEvent) => {
     e.stopPropagation();
     if (isRefreshing) return;
-    if (typeof window !== "undefined" && navigator.geolocation) {
-      navigator.geolocation.getCurrentPosition(
-        (pos) => {
-          const latLon = `${pos.coords.latitude.toFixed(4)},${pos.coords.longitude.toFixed(4)}`;
-          activeQueryRef.current = latLon;
-          fetchWeather(latLon, true);
-        },
-        () => {
-          fetchWeather("auto:ip", true);
-        },
-        { timeout: 7000 }
-      );
-    } else {
-      fetchWeather(undefined, true);
-    }
+    fetchWeather("auto:ip", true);
   };
 
   useEffect(() => {
-    if (typeof window !== "undefined" && navigator.geolocation) {
-      navigator.geolocation.getCurrentPosition(
-        (pos) => {
-          const latLon = `${pos.coords.latitude.toFixed(4)},${pos.coords.longitude.toFixed(4)}`;
-          activeQueryRef.current = latLon;
-          fetchWeather(latLon);
-        },
-        () => {
-          fetchWeather("auto:ip");
-        },
-        { timeout: 7000 }
-      );
-    } else {
-      fetchWeather("auto:ip");
-    }
+    fetchWeather("auto:ip");
 
     const interval = setInterval(() => {
-      fetchWeather();
+      fetchWeather("auto:ip");
     }, 600000);
     return () => clearInterval(interval);
   }, []);

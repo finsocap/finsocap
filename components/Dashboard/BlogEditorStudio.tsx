@@ -59,6 +59,7 @@ import StarterKit from "@tiptap/starter-kit";
 import UnderlineExtension from "@tiptap/extension-underline";
 import LinkExtension from "@tiptap/extension-link";
 import ImageExtension from "@tiptap/extension-image";
+import { sanitizeHtml } from "@/lib/sanitizeHtml";
 
 interface Category {
   id: string;
@@ -1187,7 +1188,7 @@ export default function BlogEditorStudio({ initialData, isEditMode = false }: Bl
                 <h1 className="text-3xl font-black text-slate-900">{title || "Untitled Article"}</h1>
                 <div
                   className="prose prose-lg prose-slate max-w-none"
-                  dangerouslySetInnerHTML={{ __html: editor?.getHTML() || "<p>No content yet...</p>" }}
+                  dangerouslySetInnerHTML={{ __html: sanitizeHtml(editor?.getHTML() || "<p>No content yet...</p>") }}
                 />
               </div>
             ) : (
@@ -2168,6 +2169,7 @@ export default function BlogEditorStudio({ initialData, isEditMode = false }: Bl
               <Link
                 href={`/blog/${publishedSlug}`}
                 target="_blank"
+                rel="noopener noreferrer"
                 className="w-full py-3 rounded-xl bg-[#1a2b5b] hover:bg-[#0da687] text-white text-xs font-bold transition-all shadow-md flex items-center justify-center gap-2"
               >
                 <span>View Live Article</span>

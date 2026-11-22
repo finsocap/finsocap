@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { 
@@ -216,7 +216,9 @@ export default function ServiceEditorForm({ initialData, isEditMode = false }: S
 
   // Feedback State
   const [isSaving, setIsSaving] = useState(false);
+  const isSavingRef = useRef(false);
   const [isUploadingFile, setIsUploadingFile] = useState(false);
+  const isUploadingFileRef = useRef(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
   // Submit Handler with strict validations for all required fields
@@ -1351,7 +1353,7 @@ export default function ServiceEditorForm({ initialData, isEditMode = false }: S
                         <a
                           href={link.url.startsWith("http") ? link.url : `https://${link.url}`}
                           target="_blank"
-                          rel="noreferrer"
+                          rel="noopener noreferrer"
                           className="p-1 rounded-lg text-sky-600 hover:text-sky-700 hover:bg-sky-50 dark:hover:bg-sky-950/40 cursor-pointer transition-colors"
                           title="Test / Open Link"
                         >
@@ -1588,8 +1590,9 @@ export default function ServiceEditorForm({ initialData, isEditMode = false }: S
                   className="hidden"
                   onChange={async (e) => {
                     const file = e.target.files?.[0];
-                    if (!file) return;
+                    if (!file || isUploadingFile || isUploadingFileRef.current) return;
 
+                    isUploadingFileRef.current = true;
                     setIsUploadingFile(true);
                     let uploadedUrl = "";
                     let isCloudinary = false;
@@ -1618,6 +1621,7 @@ export default function ServiceEditorForm({ initialData, isEditMode = false }: S
                             fileUrl: base64Url,
                           },
                         ]);
+                        isUploadingFileRef.current = false;
                         setIsUploadingFile(false);
                       };
                       reader.readAsDataURL(file);
@@ -1630,6 +1634,7 @@ export default function ServiceEditorForm({ initialData, isEditMode = false }: S
                           fileUrl: uploadedUrl,
                         },
                       ]);
+                      isUploadingFileRef.current = false;
                       setIsUploadingFile(false);
                     }
                     e.target.value = "";
@@ -1673,7 +1678,7 @@ export default function ServiceEditorForm({ initialData, isEditMode = false }: S
                         <a
                           href={mat.fileUrl}
                           target="_blank"
-                          rel="noreferrer"
+                          rel="noopener noreferrer"
                           download={mat.title || "document.pdf"}
                           className="p-1.5 rounded-lg text-emerald-600 dark:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-950/40 cursor-pointer transition-colors"
                           title="View / Download Attached PDF"
@@ -1848,7 +1853,7 @@ export default function ServiceEditorForm({ initialData, isEditMode = false }: S
                   <a
                     href={activeVideoPreview.url}
                     target="_blank"
-                    rel="noreferrer"
+                    rel="noopener noreferrer"
                     className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs shadow-md"
                   >
                     <ExternalLink className="w-3.5 h-3.5" />

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useMemo, useCallback } from "react";
+import { useState, useEffect, useMemo, useCallback, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { 
   GraduationCap, 
@@ -260,6 +260,7 @@ export default function PartnerLearningCentrePage() {
   const [formFile, setFormFile] = useState<File | null>(null);
   const [formError, setFormError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const isSubmittingRef = useRef(false);
   const [actionInProgressId, setActionInProgressId] = useState<number | null>(null);
 
   // Fetch Tutorials from Backend API
@@ -390,7 +391,10 @@ export default function PartnerLearningCentrePage() {
       return;
     }
 
+    if (isSubmitting || isSubmittingRef.current) return;
+
     setIsSubmitting(true);
+    isSubmittingRef.current = true;
     try {
       const res = await tutorialService.createTutorial(payloadTitle, finalFile);
       if (res?.success) {
@@ -410,6 +414,7 @@ export default function PartnerLearningCentrePage() {
       console.error(err);
       setFormError(err?.message || "An error occurred while uploading.");
     } finally {
+      isSubmittingRef.current = false;
       setIsSubmitting(false);
     }
   };
@@ -466,7 +471,10 @@ export default function PartnerLearningCentrePage() {
       }
     }
 
+    if (isSubmitting || isSubmittingRef.current) return;
+
     setIsSubmitting(true);
+    isSubmittingRef.current = true;
     try {
       const res = await tutorialService.updateTutorial(
         selectedTutorial.id,
@@ -489,6 +497,7 @@ export default function PartnerLearningCentrePage() {
       console.error(err);
       setFormError(err?.message || "An error occurred while updating.");
     } finally {
+      isSubmittingRef.current = false;
       setIsSubmitting(false);
     }
   };
@@ -1190,7 +1199,7 @@ export default function PartnerLearningCentrePage() {
                 <a
                   href={previewPdfUrl}
                   target="_blank"
-                  rel="noreferrer"
+                  rel="noopener noreferrer"
                   className="p-1.5 rounded-lg text-slate-500 hover:text-blue-600 hover:bg-slate-100 dark:hover:bg-slate-800 text-xs font-bold flex items-center gap-1 cursor-pointer"
                 >
                   <ExternalLink className="w-4 h-4" />

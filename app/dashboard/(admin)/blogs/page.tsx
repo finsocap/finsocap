@@ -900,6 +900,7 @@ export default function BlogsPage() {
                         <Link
                           href={`/blog/${blog.slug}`}
                           target="_blank"
+                          rel="noopener noreferrer"
                           className="p-1.5 text-slate-400 hover:text-emerald-600 hover:bg-emerald-50 rounded-xl transition-colors border border-transparent hover:border-emerald-200"
                           title="View Live on Website"
                         >
@@ -1223,7 +1224,7 @@ export default function BlogsPage() {
                     <span>💡 How to get Permanent Page Access Token:</span>
                   </p>
                   <ol className="list-decimal list-inside space-y-0.5 text-[10px] text-slate-500">
-                    <li>Open <a href="https://developers.facebook.com/tools/explorer/" target="_blank" rel="noreferrer" className="text-blue-600 underline font-bold">Meta Graph API Explorer</a>.</li>
+                    <li>Open <a href="https://developers.facebook.com/tools/explorer/" target="_blank" rel="noopener noreferrer" className="text-blue-600 underline font-bold">Meta Graph API Explorer</a>.</li>
                     <li>Select your App &amp; grant: <code>pages_show_list</code>, <code>pages_manage_posts</code>, <code>pages_read_engagement</code>.</li>
                     <li>In the <strong>User or Page</strong> dropdown, choose your <strong>Finsocap Page</strong> (not User Token).</li>
                     <li>Copy the generated <strong>Page Access Token</strong> &amp; <strong>Page ID</strong> here.</li>

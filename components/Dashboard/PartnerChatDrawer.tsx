@@ -184,7 +184,7 @@ export default function PartnerChatDrawer({
                         <a
                           href={m.attachment.downloadPath}
                           target="_blank"
-                          rel="noreferrer"
+                          rel="noopener noreferrer"
                           className={`p-1 rounded-md text-[10px] font-bold flex items-center gap-1 ${
                             isPartner
                               ? "bg-blue-700 hover:bg-blue-800 text-white"

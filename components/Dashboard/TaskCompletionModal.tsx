@@ -206,7 +206,7 @@ export default function TaskCompletionModal({
                         <a
                           href={att.downloadUrl}
                           target="_blank"
-                          rel="noreferrer"
+                          rel="noopener noreferrer"
                           className="px-3.5 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs flex items-center gap-1.5 shrink-0 transition-colors shadow-sm"
                         >
                           <Download className="w-3.5 h-3.5" />

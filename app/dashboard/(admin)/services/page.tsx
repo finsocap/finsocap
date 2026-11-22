@@ -25,6 +25,7 @@ import ModalHeaderBanner from "@/components/Dashboard/ModalHeaderBanner";
 import { toTitleCase } from "@/lib/formatters";
 import { sortByNewest } from "@/lib/sortHelper";
 import Pagination from "@/components/Dashboard/Pagination";
+import { sanitizeHtml } from "@/lib/sanitizeHtml";
 
 const DEFAULT_CATEGORIES = [
   "Food & Beverage",
@@ -1210,7 +1211,7 @@ export default function ServicesPage() {
               <a 
                 href="https://www.finsocap.com" 
                 target="_blank" 
-                rel="noreferrer" 
+                rel="noopener noreferrer" 
                 className="text-xs font-bold text-blue-600 hover:underline tracking-wide mt-1.5 font-mono"
               >
                 www.finsocap.com
@@ -1438,7 +1439,7 @@ export default function ServicesPage() {
                     {viewingService.contentDetails && /<[a-z][\s\S]*>/i.test(viewingService.contentDetails) ? (
                       <div 
                         className="prose prose-xs dark:prose-invert max-w-none text-xs text-slate-700 dark:text-slate-300 font-medium leading-relaxed overflow-hidden break-words [&>p]:mb-1.5 [&>p]:text-xs [&>p]:text-slate-700 dark:[&>p]:text-slate-300 [&>p]:leading-relaxed [&>ul]:list-disc [&>ul]:pl-4 [&>ul]:mb-1.5 [&>ol]:list-decimal [&>ol]:pl-4 [&>ol]:mb-1.5 [&>li]:mb-0.5 [&>li]:text-xs [&>li]:text-slate-700 dark:[&>li]:text-slate-300"
-                        dangerouslySetInnerHTML={{ __html: viewingService.contentDetails }}
+                        dangerouslySetInnerHTML={{ __html: sanitizeHtml(viewingService.contentDetails) }}
                       />
                     ) : (
                       <span className="text-xs text-slate-700 dark:text-slate-300 font-medium leading-relaxed whitespace-pre-wrap">
@@ -1542,7 +1543,7 @@ export default function ServicesPage() {
                         key={idx}
                         href={link}
                         target="_blank"
-                        rel="noreferrer"
+                        rel="noopener noreferrer"
                         className="flex items-center justify-between p-2 rounded-lg bg-white dark:bg-slate-800 border border-slate-200/70 dark:border-slate-700 text-blue-600 dark:text-sky-400 hover:border-blue-400 text-[11px] font-bold transition-all shadow-2xs"
                       >
                         <div className="flex items-center gap-1.5 truncate pr-2">

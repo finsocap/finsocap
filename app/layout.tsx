@@ -32,6 +32,7 @@ export const metadata: Metadata = {
 };
 
 import { ToastProvider } from "@/components/Global/ToastNotification";
+import ProductionConsoleGuard from "@/components/Global/ProductionConsoleGuard";
 
 export default function RootLayout({
   children,
@@ -65,6 +66,7 @@ export default function RootLayout({
         <ThemeProvider>
           <AuthProvider>
             <ToastProvider>
+              <ProductionConsoleGuard />
               <GlobalTopProgressBar />
               {children}
             </ToastProvider>
