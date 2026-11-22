@@ -26,6 +26,7 @@ import ModalHeaderBanner from "@/components/Dashboard/ModalHeaderBanner";
 import { formatName, formatIndianPhoneNumber, normalizePhoneForBackend, mapBackendTaskStatus, toTitleCase } from "@/lib/formatters";
 import { PhoneInput } from "@/components/Global/PhoneInput";
 import { NameInput } from "@/components/Global/NameInput";
+import SearchableSelect from "@/components/Global/SearchableSelect";
 import { isDateWithinRange, getCurrentMonthRangeLabel, calculateOverdueDays } from "@/lib/dateRangeHelper";
 import PartnerRequestsDashboard from "@/components/Dashboard/PartnerRequestsDashboard";
 import { sortByNewest } from "@/lib/sortHelper";
@@ -947,16 +948,6 @@ export default function TasksPage() {
                           <Edit3 className="w-3 h-3" />
                           <span>Edit</span>
                         </button>
-                        {["STAFF", "SPECIALIST", "EXECUTIVE"].includes(userRole) && t.status !== "Completed" && (
-                          <button
-                            type="button"
-                            onClick={() => setCompleteModalTask(t)}
-                            className="inline-flex items-center gap-1 px-2.5 py-1 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs shadow-xs cursor-pointer transition-all active:scale-95"
-                          >
-                            <CheckCircle2 className="w-3 h-3" />
-                            <span>Complete</span>
-                          </button>
-                        )}
                         <Link
                           href={`/dashboard/tasks/${t.id}`}
                           className="btn-glass-modern text-xs py-1 px-3.5 cursor-pointer inline-flex items-center gap-1.5 hover:bg-blue-600 hover:text-white transition-all shadow-xs"
@@ -1203,26 +1194,22 @@ export default function TasksPage() {
               </div>
 
               <div className="grid grid-cols-2 gap-3">
-                <div className="space-y-1">
-                  <label className="font-bold text-slate-700 dark:text-slate-300">Service Name * (Catalog Only)</label>
-                  <select
-                    required
-                    value={editService}
-                    onChange={(e) => {
-                      const val = e.target.value;
-                      setEditService(val);
-                      const match = services.find((s) => s.name === val);
-                      if (match) setEditCategory(match.category);
-                    }}
-                    className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl font-semibold text-slate-900 dark:text-white"
-                  >
-                    {services.map((s) => (
-                      <option key={s.id} value={s.name}>
-                        {s.name} ({s.category})
-                      </option>
-                    ))}
-                  </select>
-                </div>
+                <SearchableSelect
+                  label="Service Name (Catalog Only)"
+                  required
+                  value={editService}
+                  onChange={(val) => {
+                    setEditService(val);
+                    const match = services.find((s) => s.name === val);
+                    if (match) setEditCategory(match.category);
+                  }}
+                  options={services.map((s) => ({
+                    value: s.name,
+                    label: s.name,
+                    subtitle: s.category,
+                  }))}
+                  placeholder="Search or select service..."
+                />
                 <div className="space-y-1">
                   <label className="font-bold text-slate-700 dark:text-slate-300">Status (Stepwise Allowed)</label>
                   <select
@@ -1242,20 +1229,20 @@ export default function TasksPage() {
                 </div>
               </div>
 
-              <div className="flex items-center justify-end gap-2 pt-3 border-t border-slate-100 dark:border-slate-800">
+              <div className="flex items-center justify-end gap-2.5 pt-3 border-t border-slate-100 dark:border-slate-800">
                 <button
                   type="button"
                   onClick={() => setEditingTask(null)}
-                  className="px-4 py-2 text-slate-500 font-bold cursor-pointer"
+                  className="px-4 py-2 rounded-xl text-xs font-bold text-slate-600 dark:text-slate-300 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 border border-slate-200 dark:border-slate-700 cursor-pointer transition-all active:scale-95 inline-flex items-center justify-center"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
-                  className="btn-primary-vibrant text-xs py-2 px-5 cursor-pointer inline-flex items-center gap-1.5"
+                  className="btn-primary-vibrant text-xs py-2 px-5 cursor-pointer inline-flex items-center gap-1.5 active:scale-95"
                 >
                   <Save className="w-3.5 h-3.5" />
-                  Save Changes
+                  <span>Save Changes</span>
                 </button>
               </div>
             </form>

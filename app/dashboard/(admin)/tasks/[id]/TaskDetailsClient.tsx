@@ -19,6 +19,7 @@ import ModalHeaderBanner from "@/components/Dashboard/ModalHeaderBanner";
 import { formatName, formatIndianPhoneNumber, normalizePhoneForBackend, toTitleCase } from "@/lib/formatters";
 import { PhoneInput } from "@/components/Global/PhoneInput";
 import { NameInput } from "@/components/Global/NameInput";
+import SearchableSelect from "@/components/Global/SearchableSelect";
 import { taskCollaborationService, TaskDocumentItem, TaskChatMessage } from "@/lib/api/taskCollaborationService";
 import { reportsService } from "@/lib/api/reportsService";
 import { downloadFile } from "@/lib/fileViewer";
@@ -243,6 +244,9 @@ export default function TaskDetailsClient({ id }: { id: string }) {
   const staffFileInputRef = useRef<HTMLInputElement>(null);
   const [selectedStaffFile, setSelectedStaffFile] = useState<File | null>(null);
   const [isUploadingDeliverable, setIsUploadingDeliverable] = useState(false);
+  const isUploadingDeliverableRef = useRef(false);
+  const [isCompletingTask, setIsCompletingTask] = useState(false);
+  const isCompletingTaskRef = useRef(false);
 
   // Preview Document Modal State
   const [activePreviewDoc, setActivePreviewDoc] = useState<{
@@ -315,9 +319,20 @@ export default function TaskDetailsClient({ id }: { id: string }) {
     setEditDueDate(dueVal);
     setEditStatus(task.status);
     setEditAssignedTo(task.assignedTo?.name || "");
-    setEditPartnerId(task.partnerId || "");
-    setEditPartnerName(task.partnerName);
-    setEditPartnerContact(task.partnerContact);
+    // Find matching partner by task.partnerId or fallback to task.partnerName
+    const matchedPartner = partners.find(
+      (p) =>
+        (task.partnerId && (p.partnerId === task.partnerId || String(p.id) === String(task.partnerId))) ||
+        (task.partnerName && p.name.toLowerCase().trim() === task.partnerName.toLowerCase().trim())
+    );
+
+    const resolvedPartnerId = matchedPartner?.partnerId || task.partnerId || (partners.length > 0 ? partners[0].partnerId : "");
+    const resolvedPartnerName = matchedPartner?.name || task.partnerName || "";
+    const resolvedPartnerContact = matchedPartner?.phone || task.partnerContact || "";
+
+    setEditPartnerId(resolvedPartnerId);
+    setEditPartnerName(resolvedPartnerName);
+    setEditPartnerContact(resolvedPartnerContact);
     setIsEditTaskModalOpen(true);
   };
 
@@ -598,6 +613,8 @@ export default function TaskDetailsClient({ id }: { id: string }) {
   const handleMarkTaskCompletedSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
+    if (isCompletingTask || isCompletingTaskRef.current) return;
+
     // 1. Mandatory Validation: All fields and attachments are compulsory
     if (!completeLicenceNumber.trim()) {
       showToast("Licence Number is mandatory to complete the task.");
@@ -623,6 +640,11 @@ export default function TaskDetailsClient({ id }: { id: string }) {
       showToast("Official Certificate Attachment is mandatory. Please upload the file.");
       return;
     }
+
+    isCompletingTaskRef.current = true;
+    setIsCompletingTask(true);
+
+    try {
 
     const fileName = completeAttachments[0] || `${completeServiceName.replace(/\s+/g, "_")}_Official_Licence.pdf`;
 
@@ -809,7 +831,14 @@ export default function TaskDetailsClient({ id }: { id: string }) {
 
     setIsCompleteModalOpen(false);
     showToast(`Task ${task.id} marked as Completed & licence saved to Licence Report!`);
-  };
+  } catch (completeErr: any) {
+    console.error("Task completion error:", completeErr);
+    showToast(completeErr?.message || "Failed to complete task");
+  } finally {
+    isCompletingTaskRef.current = false;
+    setIsCompletingTask(false);
+  }
+};
 
   // Handle comment file selection
   const handleCommentFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -922,8 +951,9 @@ export default function TaskDetailsClient({ id }: { id: string }) {
   // Handle Admin & Staff Deliverables Upload (Integrated with Backend API /documents)
   const handleUploadFile = async () => {
     const finalFileName = selectedStaffFile?.name || uploadFileName.trim();
-    if (!finalFileName || isUploadingDeliverable) return;
+    if (!finalFileName || isUploadingDeliverable || isUploadingDeliverableRef.current) return;
 
+    isUploadingDeliverableRef.current = true;
     setIsUploadingDeliverable(true);
 
     const initials = currentUser?.name
@@ -1013,6 +1043,7 @@ export default function TaskDetailsClient({ id }: { id: string }) {
     setSelectedStaffFile(null);
     setUploadFileName("");
     if (staffFileInputRef.current) staffFileInputRef.current.value = "";
+    isUploadingDeliverableRef.current = false;
     setIsUploadingDeliverable(false);
 
     setTask((prev) => {
@@ -2508,16 +2539,25 @@ export default function TaskDetailsClient({ id }: { id: string }) {
               <div className="flex items-center justify-end gap-3 pt-3 border-t border-slate-100 dark:border-slate-800">
                 <button
                   type="button"
+                  disabled={isCompletingTask}
                   onClick={() => setIsCompleteModalOpen(false)}
-                  className="px-5 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 font-bold cursor-pointer transition-colors"
+                  className="px-5 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 font-bold cursor-pointer transition-colors disabled:opacity-50"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
-                  className="px-6 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold shadow-md shadow-blue-500/25 cursor-pointer transition-all active:scale-95"
+                  disabled={isCompletingTask}
+                  className="px-6 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold shadow-md shadow-blue-500/25 cursor-pointer transition-all active:scale-95 disabled:opacity-50 inline-flex items-center gap-1.5"
                 >
-                  Complete
+                  {isCompletingTask ? (
+                    <>
+                      <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                      <span>Completing...</span>
+                    </>
+                  ) : (
+                    <span>Complete</span>
+                  )}
                 </button>
               </div>
             </form>
@@ -2574,103 +2614,98 @@ export default function TaskDetailsClient({ id }: { id: string }) {
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-[11px] font-bold text-slate-500 mb-1">
-                    Task Category
-                  </label>
-                  <select
+                  <SearchableSelect
+                    label="Task Category"
                     value={editCategory}
-                    onChange={(e) => setEditCategory(e.target.value)}
-                    className="w-full px-3.5 py-2 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-semibold text-slate-900 dark:text-white cursor-pointer"
-                  >
-                    <option value="Food & Beverage">Food &amp; Beverage</option>
-                    <option value="Compliance">Compliance</option>
-                    <option value="Taxation">Taxation</option>
-                    <option value="Registration">Registration</option>
-                    <option value="Licence">Licence</option>
-                  </select>
+                    onChange={(val) => setEditCategory(val)}
+                    placeholder="Select category..."
+                    searchPlaceholder="Search category..."
+                    options={[
+                      { value: "Food & Beverage", label: "Food & Beverage" },
+                      { value: "Compliance", label: "Compliance" },
+                      { value: "Taxation", label: "Taxation" },
+                      { value: "Registration", label: "Registration" },
+                      { value: "Licence", label: "Licence" },
+                    ]}
+                  />
                 </div>
 
                 <div>
-                  <label className="block text-[11px] font-bold text-slate-500 mb-1">
-                    Service Name * (Catalog Only)
-                  </label>
-                  <select
+                  <SearchableSelect
+                    label="Service Name (Catalog Only)"
                     required
                     value={editService}
-                    onChange={(e) => {
-                      const val = e.target.value;
+                    onChange={(val) => {
                       setEditService(val);
                       const match = services.find((s) => s.name === val);
                       if (match) setEditCategory(match.category);
                     }}
-                    className="w-full px-3.5 py-2 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-semibold text-slate-900 dark:text-white cursor-pointer"
-                  >
-                    {services.map((s) => (
-                      <option key={s.id} value={s.name}>
-                        {s.name} ({s.category})
-                      </option>
-                    ))}
-                  </select>
+                    options={services.map((s) => ({
+                      value: s.name,
+                      label: s.name,
+                      subtitle: s.category,
+                    }))}
+                    placeholder="Select service..."
+                    searchPlaceholder="Search service..."
+                  />
                 </div>
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-[11px] font-bold text-slate-500 mb-1">
-                    Task Status (Stepwise Allowed)
-                  </label>
-                  <select
+                  <SearchableSelect
+                    label="Task Status (Stepwise Allowed)"
                     value={editStatus}
-                    onChange={(e) => setEditStatus(e.target.value as TaskStatus)}
-                    className="w-full px-3.5 py-2 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-semibold text-slate-900 dark:text-white cursor-pointer"
-                  >
-                    <option value={task.status}>{task.status} (Current)</option>
-                    {allowedNextStatuses
-                      .filter((s) => s !== task.status)
-                      .map((s) => (
-                        <option key={s} value={s}>
-                          {s}
-                        </option>
-                      ))}
-                  </select>
+                    onChange={(val) => setEditStatus(val as TaskStatus)}
+                    placeholder="Select status..."
+                    searchPlaceholder="Search status..."
+                    options={[
+                      { value: task.status, label: `${task.status} (Current)` },
+                      ...allowedNextStatuses
+                        .filter((s) => s !== task.status)
+                        .map((s) => ({
+                          value: s,
+                          label: s,
+                        })),
+                    ]}
+                  />
                 </div>
 
                 <div>
-                  <label className="block text-[11px] font-bold text-slate-500 mb-1">
-                    Assigned Staff Member
-                  </label>
-                  <select
+                  <SearchableSelect
+                    label="Assigned Staff Member"
                     value={editAssignedTo}
-                    onChange={(e) => setEditAssignedTo(e.target.value)}
-                    className="w-full px-3.5 py-2 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-semibold text-slate-900 dark:text-white cursor-pointer"
-                  >
-                    <option value="">Unassigned</option>
-                    {specialistsList.length > 0 ? (
-                      specialistsList.map((spec) => (
-                        <option key={spec.id} value={spec.fullName}>
-                          {spec.fullName} ({spec.designation})
-                        </option>
-                      ))
-                    ) : (
-                      task?.assignedTo?.name && (
-                        <option value={task.assignedTo.name}>
-                          {task.assignedTo.name} ({task.assignedTo.role || "Specialist"})
-                        </option>
-                      )
-                    )}
-                  </select>
+                    onChange={(val) => setEditAssignedTo(val)}
+                    placeholder="Select staff member..."
+                    searchPlaceholder="Search staff member..."
+                    options={[
+                      { value: "", label: "Unassigned" },
+                      ...(specialistsList.length > 0
+                        ? specialistsList.map((spec) => ({
+                            value: spec.fullName,
+                            label: spec.fullName,
+                            subtitle: spec.designation,
+                          }))
+                        : task?.assignedTo?.name
+                        ? [
+                            {
+                              value: task.assignedTo.name,
+                              label: task.assignedTo.name,
+                              subtitle: task.assignedTo.role || "Specialist",
+                            },
+                          ]
+                        : []),
+                    ]}
+                  />
                 </div>
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                 <div>
-                  <label className="block text-[11px] font-bold text-slate-500 mb-1">
-                    Partner ID
-                  </label>
-                  <select
+                  <SearchableSelect
+                    label="Partner ID"
                     value={editPartnerId}
-                    onChange={(e) => {
-                      const pid = e.target.value;
+                    onChange={(pid) => {
                       setEditPartnerId(pid);
                       const found = partners.find((p) => p.partnerId === pid);
                       if (found) {
@@ -2678,14 +2713,18 @@ export default function TaskDetailsClient({ id }: { id: string }) {
                         setEditPartnerContact(found.phone);
                       }
                     }}
-                    className="w-full px-3.5 py-2 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-mono font-bold text-slate-900 dark:text-white cursor-pointer"
-                  >
-                    {partners.map((p) => (
-                      <option key={p.partnerId} value={p.partnerId}>
-                        {p.partnerId} • {p.name}
-                      </option>
-                    ))}
-                  </select>
+                    placeholder="Select partner..."
+                    searchPlaceholder="Search partner ID or name..."
+                    options={[
+                      ...(editPartnerId && !partners.some((p) => p.partnerId === editPartnerId)
+                        ? [{ value: editPartnerId, label: `${editPartnerId} • ${editPartnerName || "Partner"}` }]
+                        : []),
+                      ...partners.map((p) => ({
+                        value: p.partnerId,
+                        label: `${p.partnerId} • ${p.name}`,
+                      })),
+                    ]}
+                  />
                 </div>
 
                 <NameInput
@@ -2703,7 +2742,7 @@ export default function TaskDetailsClient({ id }: { id: string }) {
                 />
               </div>
 
-              <div className="flex items-center justify-end gap-2 pt-3 border-t border-slate-100 dark:border-slate-800 shrink-0">
+              <div className="flex items-center justify-end gap-2.5 pt-3 border-t border-slate-100 dark:border-slate-800 shrink-0">
                 <button
                   type="button"
                   onClick={(e) => {
@@ -2711,13 +2750,13 @@ export default function TaskDetailsClient({ id }: { id: string }) {
                     e.stopPropagation();
                     setIsEditTaskModalOpen(false);
                   }}
-                  className="px-3.5 py-1.5 rounded-lg text-xs font-semibold text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 border border-slate-200 dark:border-slate-700 cursor-pointer transition-colors"
+                  className="px-4 py-2 rounded-xl text-xs font-bold text-slate-600 dark:text-slate-300 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 border border-slate-200 dark:border-slate-700 cursor-pointer transition-all active:scale-95 inline-flex items-center justify-center"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
-                  className="btn-primary-vibrant text-xs py-1.5 px-4 shadow-sm cursor-pointer inline-flex items-center gap-1.5 active:scale-95"
+                  className="btn-primary-vibrant text-xs py-2 px-5 shadow-sm cursor-pointer inline-flex items-center gap-1.5 active:scale-95"
                 >
                   <CheckCircle2 className="w-3.5 h-3.5" />
                   <span>Save Task Changes</span>

@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { 
   AlertTriangle, 
   Upload, 
@@ -33,12 +33,14 @@ export default function ApplicationCorrectionModal({
 }: ApplicationCorrectionModalProps) {
   const toast = useToast();
   const [submitting, setSubmitting] = useState(false);
+  const submittingRef = useRef(false);
 
   // Form answer fields
   const [answers, setAnswers] = useState<Record<string, any>>({});
   
   // Document replacements map: docKey -> { uploadId, fileName, isUploading }
   const [docUploads, setDocUploads] = useState<Record<string, { uploadId: number; fileName: string; isUploading: boolean }>>({});
+  const docUploadLocksRef = useRef<Record<string, boolean>>({});
 
   useEffect(() => {
     if (detail.answers) {
@@ -60,11 +62,14 @@ export default function ApplicationCorrectionModal({
 
   // Op 09 upload replacement document
   const handleUploadFile = async (docKey: string, file: File) => {
+    if (docUploadLocksRef.current[docKey]) return;
+
     if (file.size > 10 * 1024 * 1024) {
       toast.error("File size cannot exceed 10 MB limit.", "File Too Large");
       return;
     }
 
+    docUploadLocksRef.current[docKey] = true;
     try {
       setDocUploads((prev) => ({
         ...prev,
@@ -93,6 +98,8 @@ export default function ApplicationCorrectionModal({
         return next;
       });
       toast.error(err?.message || "Failed to upload document", "Upload Error");
+    } finally {
+      docUploadLocksRef.current[docKey] = false;
     }
   };
 
@@ -100,6 +107,7 @@ export default function ApplicationCorrectionModal({
   // CRITICAL PDF RULE: expectedVersion must be detail.submissionVersion (NOT task.version)
   const handleSubmitCorrection = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (submitting || submittingRef.current) return;
 
     const finalDocs: Array<{ fieldKey: string; uploadId: number }> = [];
     Object.entries(docUploads).forEach(([k, v]) => {
@@ -108,6 +116,7 @@ export default function ApplicationCorrectionModal({
       }
     });
 
+    submittingRef.current = true;
     try {
       setSubmitting(true);
       await partnerPortalService.requests.correctApplication(detail.id, {
@@ -127,6 +136,7 @@ export default function ApplicationCorrectionModal({
         "Submission Failed"
       );
     } finally {
+      submittingRef.current = false;
       setSubmitting(false);
     }
   };

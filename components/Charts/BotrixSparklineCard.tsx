@@ -39,7 +39,7 @@ export default function BotrixSparklineCard({
               {title}
             </p>
             <div className="flex items-baseline gap-1.5 sm:gap-2 mt-0.5 sm:mt-1 flex-wrap">
-              <span className="text-xl sm:text-2xl lg:text-3xl font-black text-slate-900 dark:text-white tracking-tight">
+              <span className="text-xl sm:text-2xl font-black text-slate-900 dark:text-white tracking-tight">
                 {isCurrency && "₹"}
                 {typeof value === "number" ? <AnimatedCounter value={value} /> : value}
               </span>

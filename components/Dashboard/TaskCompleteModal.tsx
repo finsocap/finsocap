@@ -53,6 +53,7 @@ export default function TaskCompleteModal({
   const [completeAttachments, setCompleteAttachments] = useState<string[]>([]);
   const [completeAttachmentFile, setCompleteAttachmentFile] = useState<File | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const isSubmittingRef = useRef(false);
   const completeFileInputRef = useRef<HTMLInputElement>(null);
 
   // Initialize modal form fields whenever task changes or modal opens
@@ -93,6 +94,8 @@ export default function TaskCompleteModal({
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
+    if (isSubmitting || isSubmittingRef.current) return;
+
     // 1. Mandatory Validation: All fields and attachments are compulsory
     if (!completeLicenceNumber.trim()) {
       toast.error("Licence Number is mandatory to complete the task.");
@@ -119,6 +122,7 @@ export default function TaskCompleteModal({
       return;
     }
 
+    isSubmittingRef.current = true;
     setIsSubmitting(true);
 
     try {
@@ -325,6 +329,7 @@ export default function TaskCompleteModal({
       console.error("Task completion failed:", err);
       toast.error(err?.message || "Failed to mark task as completed", "Error");
     } finally {
+      isSubmittingRef.current = false;
       setIsSubmitting(false);
     }
   };

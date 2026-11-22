@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useRef } from "react";
 import { 
   FileText, 
   UploadCloud, 
@@ -45,9 +45,12 @@ export default function DynamicApplicationForm({
   const [docUploads, setDocUploads] = useState<
     Record<string, { uploadId?: number; fileName?: string; sizeBytes?: number; uploading?: boolean; error?: string }>
   >({});
+  const docUploadLocksRef = useRef<Record<string, boolean>>({});
 
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const isSubmittingRef = useRef(false);
   const [isSavingDraft, setIsSavingDraft] = useState(false);
+  const isSavingDraftRef = useRef(false);
   const [formError, setFormError] = useState<string | null>(null);
 
   const { schema, ui, documents, service } = formVersion;
@@ -60,6 +63,8 @@ export default function DynamicApplicationForm({
 
   // Upload Document (Op 09)
   const handleFileUpload = async (docReq: ApplicationDocumentRequirement, file: File) => {
+    if (docUploadLocksRef.current[docReq.fieldKey]) return;
+
     if (!selectedCustomer) {
       setFormError("Please select or create a customer first before uploading files.");
       return;
@@ -85,6 +90,7 @@ export default function DynamicApplicationForm({
       }
     }
 
+    docUploadLocksRef.current[docReq.fieldKey] = true;
     setDocUploads((prev) => ({
       ...prev,
       [docReq.fieldKey]: { uploading: true, error: undefined },
@@ -127,6 +133,8 @@ export default function DynamicApplicationForm({
         ...prev,
         [docReq.fieldKey]: { uploading: false, error: err?.message || "Failed to upload document" },
       }));
+    } finally {
+      docUploadLocksRef.current[docReq.fieldKey] = false;
     }
   };
 
@@ -174,6 +182,8 @@ export default function DynamicApplicationForm({
       }
     }
 
+    if (isSubmitting || isSubmittingRef.current) return;
+
     // Validate required documents
     for (const doc of documents) {
       if (doc.required && !docUploads[doc.fieldKey]?.uploadId) {
@@ -182,6 +192,7 @@ export default function DynamicApplicationForm({
       }
     }
 
+    isSubmittingRef.current = true;
     setIsSubmitting(true);
     setFormError(null);
 
@@ -209,19 +220,22 @@ export default function DynamicApplicationForm({
       onSuccess(res.data.requestCode || `T-${res.data.id}`);
     } catch (err: any) {
       setFormError(err?.message || "Submission failed. Please check required fields.");
+    } finally {
+      isSubmittingRef.current = false;
       setIsSubmitting(false);
     }
   };
 
   // Save as Draft (Op 13)
   const handleSaveDraft = async () => {
-    if (isSavingDraft) return;
+    if (isSavingDraft || isSavingDraftRef.current) return;
 
     if (!selectedCustomer) {
       setFormError("Please select a customer to save a draft.");
       return;
     }
 
+    isSavingDraftRef.current = true;
     setIsSavingDraft(true);
     setFormError(null);
 
@@ -235,7 +249,6 @@ export default function DynamicApplicationForm({
     try {
       if (isPartnerMockEnabled()) {
         alert("Draft saved successfully!");
-        setIsSavingDraft(false);
         return;
       }
 
@@ -248,9 +261,10 @@ export default function DynamicApplicationForm({
       });
 
       alert("Draft saved! You can resume and submit it anytime from your Drafts locker.");
-      setIsSavingDraft(false);
     } catch (err: any) {
-      setFormError(err?.message || "Could not save draft.");
+      setFormError(err?.message || "Failed to save draft.");
+    } finally {
+      isSavingDraftRef.current = false;
       setIsSavingDraft(false);
     }
   };

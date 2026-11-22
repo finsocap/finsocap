@@ -43,6 +43,7 @@ import TaskIdBadge, { formatShortTaskId } from "@/components/Dashboard/TaskIdBad
 import UniversalFilePreviewModal from "@/components/Dashboard/UniversalFilePreviewModal";
 import { toTitleCase } from "@/lib/formatters";
 import { sortByNewest } from "@/lib/sortHelper";
+import SearchableSelect from "@/components/Global/SearchableSelect";
 import { WorkloadMetrics, BalancingRecommendation } from "@/types/api";
 
 interface AttachedDocItem {
@@ -597,33 +598,19 @@ export default function AllocationPage() {
             
             {/* Select Task */}
             <div className="space-y-1">
-              <div className="flex items-center justify-between">
-                <label className="text-xs font-bold text-slate-700 dark:text-slate-300">
-                  Select Task *
-                </label>
-                {selectedTask && (
-                  <span className="text-[10px] font-bold text-blue-600 dark:text-sky-400">
-                    {toTitleCase(selectedTask.business || selectedTask.client)}
-                  </span>
-                )}
-              </div>
-              <div className="relative">
-                <select
-                  value={activeSelectedTaskId}
-                  onChange={(e) => setSelectedTaskId(e.target.value)}
-                  className="w-full px-3.5 py-2.5 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-semibold focus:outline-none cursor-pointer"
-                >
-                  {unassignedTasks.length === 0 ? (
-                    <option value="">No unassigned tasks remaining</option>
-                  ) : (
-                    unassignedTasks.map((t) => (
-                      <option key={t.id} value={t.id}>
-                        {formatShortTaskId(t.id)} &nbsp; &nbsp; &nbsp; • &nbsp; &nbsp; &nbsp; {toTitleCase(t.client)} &nbsp; &nbsp; &nbsp; • &nbsp; &nbsp; &nbsp; {toTitleCase(t.service)}
-                      </option>
-                    ))
-                  )}
-                </select>
-              </div>
+              <SearchableSelect
+                label="Select Task"
+                required
+                value={activeSelectedTaskId}
+                onChange={(val) => setSelectedTaskId(val)}
+                placeholder={unassignedTasks.length === 0 ? "No unassigned tasks remaining" : "Select task to assign..."}
+                searchPlaceholder="Search task ID, client, or service..."
+                options={unassignedTasks.map((t) => ({
+                  value: t.id,
+                  label: `${formatShortTaskId(t.id)} • ${toTitleCase(t.client)} • ${toTitleCase(t.service)}`,
+                  subtitle: t.business ? `Business: ${toTitleCase(t.business)}` : undefined,
+                }))}
+              />
             </div>
 
             {/* Client & Partner Uploaded Documents Card (Exact Feature Request) */}
@@ -724,41 +711,35 @@ export default function AllocationPage() {
 
             {/* Assign to Employee */}
             <div className="space-y-1">
-              <label className="text-xs font-bold text-slate-700 dark:text-slate-300">
-                Assign to Employee *
-              </label>
-              <div className="relative">
-                <select
-                  value={selectedAssignee}
-                  onChange={(e) => setSelectedAssignee(e.target.value)}
-                  className="w-full px-3.5 py-2.5 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-semibold focus:outline-none cursor-pointer"
-                >
-                  <option value="">-- Choose certified specialist --</option>
-                  {qualifiedUsers.map((u) => (
-                    <option key={u.id} value={u.name}>
-                      {u.name} ({u.role} — Knowledge: {u.skills?.join(", ") || u.skill})
-                    </option>
-                  ))}
-                </select>
-              </div>
+              <SearchableSelect
+                label="Assign to Employee"
+                required
+                value={selectedAssignee}
+                onChange={(val) => setSelectedAssignee(val)}
+                placeholder="-- Choose certified specialist --"
+                searchPlaceholder="Search staff member..."
+                options={qualifiedUsers.map((u) => ({
+                  value: u.name,
+                  label: u.name,
+                  subtitle: u.role || (u.dept ? `Dept: ${u.dept}` : undefined),
+                }))}
+              />
             </div>
 
             {/* Priority Selection */}
             <div className="space-y-1">
-              <label className="text-xs font-bold text-slate-700 dark:text-slate-300">
-                Priority
-              </label>
-              <div className="relative">
-                <select
-                  value={priority}
-                  onChange={(e) => setPriority(e.target.value as any)}
-                  className="w-full px-3.5 py-2 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-semibold focus:outline-none cursor-pointer"
-                >
-                  <option value="Normal">Normal</option>
-                  <option value="High">High</option>
-                  <option value="Low">Low</option>
-                </select>
-              </div>
+              <SearchableSelect
+                label="Priority"
+                value={priority}
+                onChange={(val) => setPriority(val as any)}
+                placeholder="Select priority..."
+                searchPlaceholder="Search priority..."
+                options={[
+                  { value: "Normal", label: "Normal" },
+                  { value: "High", label: "High" },
+                  { value: "Low", label: "Low" },
+                ]}
+              />
             </div>
 
             {/* Instructions / Notes (Optional) */}
@@ -945,8 +926,8 @@ export default function AllocationPage() {
               </div>
             </div>
 
-            {/* Scrollable Container: accommodates ~6-7 visible rows cleanly without bottom cutoff */}
-            <div ref={assignedScrollRef} className="overflow-x-auto min-h-[360px] max-h-[420px] overflow-y-auto pr-1.5 custom-slim-scrollbar scroll-smooth flex-1 pb-2">
+            {/* Scrollable Container: exactly 5 visible rows with smooth scrolling for remaining */}
+            <div ref={assignedScrollRef} className="overflow-x-auto max-h-[240px] overflow-y-auto pr-1.5 custom-slim-scrollbar scroll-smooth">
               <table className="w-full text-left border-collapse text-xs">
                 <thead className="sticky top-0 bg-white dark:bg-[#0c1427] z-10">
                   <tr className="border-b border-slate-100 dark:border-slate-800 text-[10px] font-bold text-slate-400 uppercase tracking-wider">

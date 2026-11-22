@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo, useEffect } from "react";
+import { useState, useMemo, useEffect, useRef } from "react";
 import { createPortal } from "react-dom";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -99,6 +99,7 @@ export default function PartnersManagePage() {
   const [showAddPassword, setShowAddPassword] = useState(false);
   const [sendWelcomeEmail, setSendWelcomeEmail] = useState(true);
   const [isSendingEmail, setIsSendingEmail] = useState(false);
+  const isEnrollingPartnerRef = useRef(false);
   const [formDob, setFormDob] = useState("");
   const [formShopName, setFormShopName] = useState("");
   const [formCurrentAddress, setFormCurrentAddress] = useState("");
@@ -358,11 +359,14 @@ export default function PartnersManagePage() {
 
   const handleAddSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (isSendingEmail || isEnrollingPartnerRef.current) return;
+
     if (!formName.trim() || !formPhone.trim() || !formPartnerId.trim()) {
       showToast("Partner ID, Name, and Phone number are required.");
       return;
     }
 
+    isEnrollingPartnerRef.current = true;
     const partnerEmail = formEmail.trim() || `${formName.trim().toLowerCase().replace(/\s+/g, ".")}@finsocap.com`;
     const finalPassword = formPassword.trim() || "Partner@123";
 
@@ -411,6 +415,7 @@ export default function PartnersManagePage() {
       showToast(`Partner ${formPartnerId.toUpperCase()} (${formName}) enrolled successfully.`);
     }
 
+    isEnrollingPartnerRef.current = false;
     setIsAddModalOpen(false);
     setAddStep(1);
   };

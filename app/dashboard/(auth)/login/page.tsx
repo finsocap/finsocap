@@ -33,7 +33,11 @@ export default function LoginPage() {
       });
 
       if (res.success && res.data?.token) {
-        router.push("/dashboard");
+        if (typeof window !== "undefined") {
+          window.location.href = "/dashboard";
+        } else {
+          router.push("/dashboard");
+        }
       } else {
         setError(res.message || "Invalid email or password.");
         setLoading(false);

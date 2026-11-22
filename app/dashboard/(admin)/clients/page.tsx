@@ -282,24 +282,34 @@ export default function ClientsPage() {
     setEditingClient(null);
   };
 
+  const formatStatusDisplay = (status: string) => {
+    if (!status) return "Pending";
+    const cleaned = status.replace(/_/g, " ").trim();
+    return toTitleCase(cleaned);
+  };
+
   const getStatusBadge = (status: string) => {
-    switch (status) {
-      case "Active":
-      case "Completed":
-      case "Converted":
+    const s = (status || "").toLowerCase().replace(/_/g, " ").trim();
+    switch (s) {
+      case "active":
+      case "completed":
+      case "converted":
         return "bg-emerald-50 text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800";
-      case "In Progress":
-      case "Assigned":
+      case "in progress":
+      case "assigned":
         return "bg-blue-50 text-blue-700 dark:bg-blue-950/60 dark:text-sky-400 border border-blue-200 dark:border-blue-800";
-      case "Sent for Review":
-      case "Under Review":
+      case "sent for review":
+      case "under review":
+      case "see full review":
         return "bg-purple-50 text-purple-700 dark:bg-purple-950/60 dark:text-purple-400 border border-purple-200 dark:border-purple-800";
-      case "Pending from Client":
-      case "Pending from Department":
-      case "Draft":
+      case "pending from client":
+        return "bg-orange-50 text-orange-700 dark:bg-orange-950/60 dark:text-orange-400 border border-orange-200 dark:border-orange-800";
+      case "pending from department":
+        return "bg-yellow-50 text-yellow-800 dark:bg-yellow-950/60 dark:text-yellow-400 border border-yellow-200 dark:border-yellow-800";
+      case "draft":
         return "bg-amber-50 text-amber-700 dark:bg-amber-950/60 dark:text-amber-400 border border-amber-200 dark:border-amber-800";
-      case "Pending":
-      case "Cancelled":
+      case "pending":
+      case "cancelled":
         return "bg-rose-50 text-rose-700 dark:bg-rose-950/60 dark:text-rose-400 border border-rose-200 dark:border-rose-800";
       default:
         return "bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300 border border-slate-200 dark:border-slate-700";
@@ -549,7 +559,7 @@ export default function ClientsPage() {
                     <td className="py-3.5 px-5">
                       <span className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full font-bold text-[10px] ${getStatusBadge(client.status)}`}>
                         <span className="w-1.5 h-1.5 rounded-full bg-current" />
-                        {toTitleCase(client.status)}
+                        {formatStatusDisplay(client.status)}
                       </span>
                     </td>
                     <td className="py-3.5 px-5 text-right">
@@ -720,7 +730,7 @@ export default function ClientsPage() {
                         <td className="py-3 px-4">
                           <span className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full font-bold text-[10px] ${getStatusBadge(t.status)}`}>
                             <span className="w-1.5 h-1.5 rounded-full bg-current" />
-                            {t.status}
+                            {formatStatusDisplay(t.status)}
                           </span>
                         </td>
                         <td className="py-3 px-4 text-slate-500 font-mono">

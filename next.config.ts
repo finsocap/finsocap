@@ -5,6 +5,12 @@ const isProd = process.env.NODE_ENV === "production";
 const basePath = process.env.NEXT_PUBLIC_BASE_PATH ?? (isProd && isStaticExport ? "/finsocap" : "");
 
 const nextConfig: NextConfig = {
+  allowedDevOrigins: [
+    "dynamic-interviews-interventions-butterfly.trycloudflare.com",
+    "*.trycloudflare.com",
+    "192.168.1.10",
+    "localhost",
+  ],
   ...(isStaticExport ? { output: "export" } : {}),
   basePath: basePath || undefined,
   assetPrefix: basePath ? `${basePath}/` : undefined,

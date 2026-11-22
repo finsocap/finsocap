@@ -63,7 +63,7 @@ export const PhoneInput = forwardRef<HTMLInputElement, PhoneInputProps>(
             onBlur={handleBlur}
             placeholder={props.placeholder || "98765 43210"}
             maxLength={10}
-            className={`w-full pl-14 pr-9 py-2 bg-slate-50 dark:bg-slate-900 border rounded-xl text-xs font-mono font-semibold transition-all focus:outline-none focus:ring-2 ${
+            className={`w-full !pl-14 !pr-9 py-2 bg-slate-50 dark:bg-slate-900 border rounded-xl text-xs font-mono font-semibold transition-all focus:outline-none focus:ring-2 ${
               hasError
                 ? "border-rose-400 focus:ring-rose-400/20 text-rose-900 dark:text-rose-200"
                 : "border-slate-200 dark:border-slate-700 focus:ring-blue-500/20 text-slate-900 dark:text-white"

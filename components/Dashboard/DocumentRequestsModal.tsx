@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { 
   FolderLock, 
   Upload, 
@@ -40,7 +40,9 @@ export default function DocumentRequestsModal({
   
   // Stored uploads map: itemKey -> { fileId, fileName, isUploading }
   const [itemUploads, setItemUploads] = useState<Record<string, { fileId: number; fileName: string; isUploading: boolean }>>({});
+  const uploadLocksRef = useRef<Record<string, boolean>>({});
   const [submittingRequestId, setSubmittingRequestId] = useState<number | null>(null);
+  const submitLockRef = useRef(false);
 
   // Op 27: List document requests for this task
   const loadRequests = async () => {
@@ -66,11 +68,14 @@ export default function DocumentRequestsModal({
 
   // Op 28: Upload file for a specific itemKey in a document request
   const handleFileUpload = async (requestId: number | string, itemKey: string, file: File) => {
+    if (uploadLocksRef.current[itemKey]) return;
+
     if (file.size > 10 * 1024 * 1024) {
       toast.error("Document file exceeds maximum allowed limit of 10 MB.", "File Too Large");
       return;
     }
 
+    uploadLocksRef.current[itemKey] = true;
     try {
       setItemUploads((prev) => ({
         ...prev,
@@ -92,11 +97,15 @@ export default function DocumentRequestsModal({
         return next;
       });
       toast.error(e?.message || `Failed to upload ${file.name}`, "Upload Failed");
+    } finally {
+      uploadLocksRef.current[itemKey] = false;
     }
   };
 
   // Op 29: Submit fulfilled document request with version check
   const handleSubmitRequest = async (docReq: PartnerDocumentRequest) => {
+    if (submitLockRef.current) return;
+
     // Validate every item in the request has a valid fileId
     const missingItems = docReq.items.filter((item) => !itemUploads[item.itemKey]?.fileId);
     if (missingItems.length > 0) {
@@ -112,6 +121,7 @@ export default function DocumentRequestsModal({
       fileId: itemUploads[item.itemKey].fileId
     }));
 
+    submitLockRef.current = true;
     try {
       setSubmittingRequestId(docReq.id);
       // PDF specification strictly mandates documentRequest.version as expectedVersion
@@ -135,6 +145,7 @@ export default function DocumentRequestsModal({
         loadRequests();
       }
     } finally {
+      submitLockRef.current = false;
       setSubmittingRequestId(null);
     }
   };

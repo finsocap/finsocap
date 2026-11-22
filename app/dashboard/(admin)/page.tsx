@@ -197,17 +197,31 @@ export default function DashboardHome() {
     dateRange !== getCurrentMonthRangeLabel();
 
   const getStatusBadge = (status: string) => {
-    switch (status) {
-      case "New":
-        return "bg-amber-50 text-amber-600 dark:bg-amber-950/60 dark:text-amber-400 border border-amber-200/80 dark:border-amber-800/80";
-      case "Follow Up":
-        return "bg-rose-50 text-rose-600 dark:bg-rose-950/60 dark:text-rose-400 border border-rose-200/80 dark:border-rose-800/80";
-      case "In Progress":
-        return "bg-sky-50 text-sky-600 dark:bg-sky-950/60 dark:text-sky-400 border border-sky-200/80 dark:border-sky-800/80";
-      case "Converted":
-        return "bg-emerald-50 text-emerald-600 dark:bg-emerald-950/60 dark:text-emerald-400 border border-emerald-200/80 dark:border-emerald-800/80";
+    const s = (status || "").toLowerCase().replace(/_/g, " ").trim();
+    switch (s) {
+      case "completed":
+      case "active":
+      case "converted":
+        return "bg-emerald-50 text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800";
+      case "in progress":
+      case "assigned":
+        return "bg-sky-50 text-sky-700 dark:bg-sky-950/60 dark:text-sky-400 border border-sky-200 dark:border-sky-800";
+      case "sent for review":
+      case "under review":
+      case "see full review":
+        return "bg-purple-50 text-purple-700 dark:bg-purple-950/60 dark:text-purple-400 border border-purple-200 dark:border-purple-800";
+      case "pending from client":
+        return "bg-orange-50 text-orange-700 dark:bg-orange-950/60 dark:text-orange-400 border border-orange-200 dark:border-orange-800";
+      case "pending from department":
+        return "bg-yellow-50 text-yellow-800 dark:bg-yellow-950/60 dark:text-yellow-400 border border-yellow-200 dark:border-yellow-800";
+      case "pending":
+      case "cancelled":
+        return "bg-rose-50 text-rose-700 dark:bg-rose-950/60 dark:text-rose-400 border border-rose-200 dark:border-rose-800";
+      case "new":
+      case "follow up":
+        return "bg-amber-50 text-amber-700 dark:bg-amber-950/60 dark:text-amber-400 border border-amber-200/80 dark:border-amber-800/80";
       default:
-        return "bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300";
+        return "bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300 border border-slate-200 dark:border-slate-700";
     }
   };
 
