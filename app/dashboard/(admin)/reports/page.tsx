@@ -449,18 +449,41 @@ function ReportsPageContent() {
     });
   };
 
-  // Dynamically compute Service Team rows from real users & tasks
+  // Dynamically compute Service Team rows from real users & tasks (or live staff tasks for operational users)
   const dynamicServiceRows: ServiceEmployeeRow[] = useMemo(() => {
-    return users.map((u) => {
+    const isOp = ["STAFF", "SPECIALIST", "EXECUTIVE"].includes(userRole.toUpperCase());
+
+    // If current logged in user is staff/specialist and users array from store is empty or does not have them,
+    // ensure their current session profile is included so they immediately see their own live task reporting!
+    const effectiveUsers = [...users];
+    if (isOp && currentUser && !effectiveUsers.some(u => String(u.id) === String(currentUser.id) || u.name?.toLowerCase() === currentUser.name?.toLowerCase())) {
+      effectiveUsers.unshift({
+        id: Number(currentUser.id) || 1,
+        name: currentUser.name || "Specialist",
+        email: currentUser.email || "",
+        role: "Specialist",
+        dept: "Operations",
+        skill: "Compliance",
+        phone: currentUser.phone || "",
+        status: "Active",
+        tasks: tasks.length,
+      });
+    }
+
+    return effectiveUsers.map((u) => {
       const uName = (u.name || "").toLowerCase().trim();
       const uEmail = (u.email || "").toLowerCase().trim();
+      const uId = String(u.id || "").trim();
 
       const userTasks = tasks.filter((t) => {
         const a = (t.assignee || "").toLowerCase().trim();
+        const aId = String(t.assigneeId || "").trim();
         const matchesAssignee =
+          (uId && aId && uId === aId) ||
           (uName && a.includes(uName)) ||
           (uName && uName.includes(a)) ||
-          (uEmail && a.includes(uEmail));
+          (uEmail && a.includes(uEmail)) ||
+          (isOp && tasks.length > 0); // for staff viewing own tasks, tasks in store are already scoped to them
         if (!matchesAssignee) return false;
         if (dateRange && !isDateWithinRange(t.date || t.due, dateRange)) {
           return false;

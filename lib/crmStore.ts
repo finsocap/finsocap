@@ -203,21 +203,25 @@ export async function fetchLiveDbData(): Promise<void> {
   // Prevent multiple concurrent in-flight batch requests from overlapping
   if (isSyncInProgress) return;
 
-  // For non-admin roles (STAFF, SPECIALIST, EXECUTIVE, PARTNER, CLIENT), do not attempt admin-only batch fetch
+  // For operational roles (STAFF, SPECIALIST, EXECUTIVE), load live assigned tasks & catalog
+  let isOpUser = false;
   try {
     const sessStr = localStorage.getItem("finsocap_user_session");
     if (sessStr) {
       const sess = JSON.parse(sessStr);
       const role = (sess?.user?.role || sess?.role || "ADMIN").toUpperCase();
-      if (["STAFF", "SPECIALIST", "EXECUTIVE", "PARTNER", "CLIENT"].includes(role)) {
+      if (["PARTNER", "CLIENT"].includes(role)) {
         return;
+      }
+      if (["STAFF", "SPECIALIST", "EXECUTIVE"].includes(role)) {
+        isOpUser = true;
       }
     }
   } catch (e) {}
 
   isSyncInProgress = true;
   try {
-    const [tasksRes, partnersRes, clientsRes, specialistsRes, servicesRes, licencesRes, adminPartnersRes] = await Promise.allSettled([
+    const [tasksRes, partnersRes, clientsRes, specialistsRes, servicesRes, licencesRes, adminPartnersRes, staffTasksRes] = await Promise.allSettled([
       apiClient.get<ApiResponse<BackendTask[]>>("/tasks"),
       apiClient.get<ApiResponse<PartnerSummary[]>>("/partners/network"),
       apiClient.get<ApiResponse<ClientProfile[]>>("/clients"),
@@ -225,6 +229,7 @@ export async function fetchLiveDbData(): Promise<void> {
       apiClient.get<ApiResponse<CatalogService[]>>("/services"),
       apiClient.get<ApiResponse<LicenceReportMetrics>>("/reports/licences"),
       apiClient.get<ApiResponse<any[]>>("/admin/partners?size=100"),
+      isOpUser ? apiClient.get<ApiResponse<{ items: any[] }>>("/staff/tasks") : Promise.resolve({ success: false, data: null } as any),
     ]);
 
     // Fetch live documents for all tasks from service-requests and admin documents API
@@ -278,6 +283,30 @@ export async function fetchLiveDbData(): Promise<void> {
             sales: toTitleCase(bt.partnerName || "Admin"),
             comments: bt.adminRemarks ? [bt.adminRemarks] : [],
             files: taskDocsMap[bt.id] || [],
+          };
+        });
+      } else if (staffTasksRes.status === "fulfilled" && (staffTasksRes.value as any)?.success && Array.isArray((staffTasksRes.value as any)?.data?.items)) {
+        newTasks = (staffTasksRes.value as any).data.items.map((it: any) => {
+          const mappedStatus = mapBackendTaskStatus(it.status);
+          return {
+            id: it.requestCode || `T-${it.id}`,
+            numericId: it.id,
+            partner: toTitleCase(it.partnerName || "HQ"),
+            partnerPhone: it.partnerContact || it.partnerPhone || "",
+            client: toTitleCase(it.customerName || it.clientName || ""),
+            phone: it.contactNumber || it.clientContact || "",
+            business: toTitleCase(it.nameOfBusiness || it.customerName || ""),
+            category: toTitleCase(it.taskCategory || "General"),
+            service: toTitleCase(it.serviceName || ""),
+            status: mappedStatus as TaskModel["status"],
+            date: it.createdAt ? new Date(it.createdAt).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" }) : "Today",
+            due: it.dueDate || "",
+            assignee: toTitleCase(it.assignedTo?.name || ""),
+            assigneeId: it.assignedTo?.id || null,
+            priority: (it.priority === "URGENT" || it.priority === "HIGH" ? "High" : "Normal") as TaskModel["priority"],
+            sales: toTitleCase(it.partnerName || "HQ"),
+            comments: it.instructions ? [it.instructions] : [],
+            files: [],
           };
         });
       }

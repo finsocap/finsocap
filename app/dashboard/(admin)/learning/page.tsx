@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useMemo, useCallback } from "react";
+import { useRouter } from "next/navigation";
 import { 
   GraduationCap, 
   FileText, 
@@ -215,6 +216,7 @@ function formatDate(dateStr?: string | null) {
 
 export default function PartnerLearningCentrePage() {
   const toast = useToast();
+  const router = useRouter();
   const [userRole, setUserRole] = useState("ADMIN");
 
   useEffect(() => {
@@ -224,9 +226,13 @@ export default function PartnerLearningCentrePage() {
         const p = JSON.parse(sess);
         const r = (p?.user?.role || p?.role || "ADMIN").toUpperCase();
         setUserRole(r);
+        if (["STAFF", "SPECIALIST", "EXECUTIVE"].includes(r)) {
+          toast.warning("Access Restricted", "Partner Learning Centre is only accessible to Franchise Partners and Admins.");
+          router.replace("/dashboard");
+        }
       }
     } catch (e) {}
-  }, []);
+  }, [router, toast]);
 
   const isRestrictedRole = ["STAFF", "SPECIALIST", "EXECUTIVE"].includes(userRole);
 

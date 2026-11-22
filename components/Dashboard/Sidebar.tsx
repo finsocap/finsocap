@@ -225,7 +225,6 @@ export default function Sidebar({ userRole = "ADMIN" }: { userRole?: string }) {
         { label: "Clients", href: "/dashboard/clients", icon: Users },
         { label: "Team", href: "/dashboard/team", icon: ShieldCheck },
         { label: "Partners", href: "/dashboard/partners", icon: Handshake },
-        { label: "Partner Learning Centre", href: "/dashboard/learning", icon: GraduationCap },
       ]
       : [
         { label: "Dashboard", href: "/dashboard", icon: Home },

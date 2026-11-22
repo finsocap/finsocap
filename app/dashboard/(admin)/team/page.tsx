@@ -1042,13 +1042,15 @@ export default function TeamPage() {
                   <label className="block text-[11px] font-bold text-slate-500 uppercase tracking-wider">
                     Assigned Services (Catalog)
                   </label>
-                  <Link
-                    href="/dashboard/services/new"
-                    className="text-[11px] font-bold text-blue-600 dark:text-sky-400 hover:text-blue-700 dark:hover:text-sky-300 inline-flex items-center gap-1 transition-colors cursor-pointer"
-                  >
-                    <Plus className="w-3 h-3" />
-                    Add New Service
-                  </Link>
+                  {!["STAFF", "SPECIALIST", "EXECUTIVE"].includes(userRole.toUpperCase()) && (
+                    <Link
+                      href="/dashboard/services/new"
+                      className="text-[11px] font-bold text-blue-600 dark:text-sky-400 hover:text-blue-700 dark:hover:text-sky-300 inline-flex items-center gap-1 transition-colors cursor-pointer"
+                    >
+                      <Plus className="w-3 h-3" />
+                      Add New Service
+                    </Link>
+                  )}
                 </div>
 
                 <div className="p-3 bg-slate-50 dark:bg-slate-900/60 rounded-2xl border border-slate-200/80 dark:border-slate-700/80">
@@ -1203,13 +1205,15 @@ export default function TeamPage() {
                   <label className="block text-[11px] font-bold text-slate-500 uppercase tracking-wider">
                     Assigned Services (Catalog)
                   </label>
-                  <Link
-                    href="/dashboard/services/new"
-                    className="text-[11px] font-bold text-blue-600 dark:text-sky-400 hover:text-blue-700 dark:hover:text-sky-300 inline-flex items-center gap-1 transition-colors cursor-pointer"
-                  >
-                    <Plus className="w-3 h-3" />
-                    Add New Service
-                  </Link>
+                  {!["STAFF", "SPECIALIST", "EXECUTIVE"].includes(userRole.toUpperCase()) && (
+                    <Link
+                      href="/dashboard/services/new"
+                      className="text-[11px] font-bold text-blue-600 dark:text-sky-400 hover:text-blue-700 dark:hover:text-sky-300 inline-flex items-center gap-1 transition-colors cursor-pointer"
+                    >
+                      <Plus className="w-3 h-3" />
+                      Add New Service
+                    </Link>
+                  )}
                 </div>
 
                 <div className="p-3 bg-slate-50 dark:bg-slate-900/60 rounded-2xl border border-slate-200/80 dark:border-slate-700/80">

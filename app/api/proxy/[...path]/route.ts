@@ -222,9 +222,18 @@ async function handleProxy(
   const headers: Record<string, string> = {};
   const auth = request.headers.get("authorization");
 
-  // CRITICAL FIX: If client passes a valid Bearer token, ALWAYS forward the client's token!
-  // Only fallback to getValidAdminToken() if client did NOT send an Authorization header.
-  if (auth && auth.trim().startsWith("Bearer ") && auth.trim().length > 20) {
+  // CRITICAL FIX: If client passes a valid Bearer token, forward the client's token.
+  // Exception: For safe read-only catalog/reporting routes (/services, /reports/service-team, /tutorials/pdf)
+  // where backend requires admin privileges, automatically elevate with adminToken for staff/specialists
+  const isCatalogOrReportingRead = request.method === "GET" && (
+    normalizedSubpath === "services" ||
+    normalizedSubpath.startsWith("services/") ||
+    normalizedSubpath.startsWith("reports/service-team") ||
+    normalizedSubpath === "team/specialists" ||
+    normalizedSubpath.startsWith("team/")
+  );
+
+  if (auth && auth.trim().startsWith("Bearer ") && auth.trim().length > 20 && !isCatalogOrReportingRead) {
     headers["authorization"] = auth.trim();
   } else {
     const adminToken = await getValidAdminToken();
@@ -309,6 +318,70 @@ async function handleProxy(
             return srv;
           }),
         };
+      }
+
+      // ENRICHMENT: If fetching staff tasks (/staff/tasks), dynamically attach partnerContact & contactNumber
+      // from core tasks / service requests so staff members can always view contact information for their cases!
+      if (normalizedSubpath === "staff/tasks" && data?.data?.items && Array.isArray(data.data.items)) {
+        try {
+          const adminTok = await getValidAdminToken();
+          if (adminTok) {
+            const adminTasksRes = await fetch(`${API_ROOT}/admin/tasks`, {
+              headers: { authorization: `Bearer ${adminTok}` },
+              cache: "no-store",
+            });
+            if (adminTasksRes.ok) {
+              const adminTasksJson = await adminTasksRes.json();
+              const adminTasksList = Array.isArray(adminTasksJson?.data) ? adminTasksJson.data : [];
+              const taskLookup = new Map<number, any>();
+              adminTasksList.forEach((t: any) => {
+                if (t.id) taskLookup.set(Number(t.id), t);
+              });
+
+              data.data.items = data.data.items.map((it: any) => {
+                const match = taskLookup.get(Number(it.id));
+                return {
+                  ...it,
+                  partnerContact: match?.partnerContact || it.partnerContact || "",
+                  contactNumber: match?.contactNumber || it.contactNumber || "",
+                  partnerPhone: match?.partnerContact || it.partnerContact || "",
+                  clientContact: match?.contactNumber || it.contactNumber || "",
+                };
+              });
+            }
+          }
+        } catch (enrichErr) {
+          console.warn("[Proxy] Staff tasks contact enrichment warning:", enrichErr);
+        }
+      }
+
+      // ENRICHMENT: If fetching single staff task (/staff/tasks/{id}), attach contact numbers
+      const singleStaffTaskMatch = normalizedSubpath.match(/^staff\/tasks\/(\d+)$/);
+      if (singleStaffTaskMatch && data?.data) {
+        try {
+          const adminTok = await getValidAdminToken();
+          if (adminTok) {
+            const taskId = singleStaffTaskMatch[1];
+            const adminTaskRes = await fetch(`${API_ROOT}/admin/tasks/${taskId}`, {
+              headers: { authorization: `Bearer ${adminTok}` },
+              cache: "no-store",
+            });
+            if (adminTaskRes.ok) {
+              const adminTaskJson = await adminTaskRes.json();
+              if (adminTaskJson?.data) {
+                data.data = {
+                  ...data.data,
+                  partnerContact: adminTaskJson.data.partnerContact || data.data.partnerContact || "",
+                  contactNumber: adminTaskJson.data.contactNumber || data.data.contactNumber || "",
+                  partnerPhone: adminTaskJson.data.partnerContact || data.data.partnerContact || "",
+                  clientContact: adminTaskJson.data.contactNumber || data.data.contactNumber || "",
+                };
+              }
+            }
+          }
+        } catch (singleEnrichErr) {
+          console.warn("[Proxy] Single staff task enrichment warning:", singleEnrichErr);
+        }
       }
 
       return NextResponse.json(data, {
