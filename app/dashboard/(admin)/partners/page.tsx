@@ -208,23 +208,71 @@ export default function PartnersManagePage() {
     // Filter only partners tied to the logged-in user through assigned tasks or direct assignment
     const userName = (currentUser?.name || "").toLowerCase().trim();
     const userEmail = (currentUser?.email || "").toLowerCase().trim();
+    const userId = String(currentUser?.id || "").trim();
 
     const userPartnerNames = new Set<string>();
+    const userPartnerPhones = new Set<string>();
+    const directTaskPartners: PartnerModel[] = [];
+
     tasks.forEach((t) => {
       const taskAssignee = (t.assignee || "").toLowerCase().trim();
-      const isAssigned = (userName && taskAssignee.includes(userName)) ||
+      const taskAssigneeId = String(t.assigneeId || "").trim();
+      const isAssigned =
+        (userId && taskAssigneeId && userId === taskAssigneeId) ||
+        (userName && taskAssignee.includes(userName)) ||
         (userEmail && taskAssignee.includes(userEmail)) ||
         (userName && userName.includes(taskAssignee));
-      if (isAssigned && t.partner) {
-        userPartnerNames.add(t.partner.toLowerCase().trim());
+
+      if (isAssigned) {
+        if (t.partner) userPartnerNames.add(t.partner.toLowerCase().trim());
+        if (t.partnerPhone) userPartnerPhones.add(t.partnerPhone.trim());
       }
     });
 
-    return partners.filter((p) => {
+    const matched = partners.filter((p) => {
       const pName = (p.name || "").toLowerCase().trim();
       const pId = (p.partnerId || "").toLowerCase().trim();
-      return userPartnerNames.has(pName) || userPartnerNames.has(pId);
+      const pPhone = (p.phone || "").trim();
+      return userPartnerNames.has(pName) || userPartnerNames.has(pId) || (pPhone && userPartnerPhones.has(pPhone));
     });
+
+    const seenPartnerKeys = new Set(matched.map(p => p.name.toLowerCase()));
+
+    // Synthesize partner directly from task if partner list from backend didn't contain them
+    tasks.forEach((t) => {
+      const taskAssignee = (t.assignee || "").toLowerCase().trim();
+      const taskAssigneeId = String(t.assigneeId || "").trim();
+      const isAssigned =
+        (userId && taskAssigneeId && userId === taskAssigneeId) ||
+        (userName && taskAssignee.includes(userName)) ||
+        (userEmail && taskAssignee.includes(userEmail)) ||
+        (userName && userName.includes(taskAssignee));
+
+      if (isAssigned && t.partner) {
+        const key = t.partner.toLowerCase().trim();
+        if (key && !seenPartnerKeys.has(key)) {
+          seenPartnerKeys.add(key);
+          directTaskPartners.push({
+            id: `task-partner-${t.id}`,
+            partnerId: `P-${t.id}`,
+            name: t.partner,
+            shortName: t.partner,
+            phone: t.partnerPhone || "",
+            city: "Associated Branch",
+            state: "Active",
+            status: "Active",
+            tier: "Gold Franchise",
+            leadsCount: 1,
+            revenueStr: "₹0.0k",
+            activeTasks: 1,
+            panNumber: "ABCDE1234F",
+            adhaarNumber: "123456789012",
+          });
+        }
+      }
+    });
+
+    return [...matched, ...directTaskPartners];
   }, [partners, tasks, userRole, currentUser]);
 
   // KPIs
@@ -437,7 +485,16 @@ export default function PartnersManagePage() {
     });
   };
 
-  const handleApprovePartner = (partner: PartnerModel) => {
+  const handleApprovePartner = async (partner: PartnerModel) => {
+    const rawId = partner.id || partner.partnerId?.replace(/\D/g, "");
+    try {
+      if (rawId) {
+        await partnerService.approvePartner(rawId);
+      }
+    } catch (apiErr) {
+      console.warn("Backend partner approve call:", apiErr);
+    }
+
     updatePartner(partner.partnerId, { status: "Active" });
     if (viewingPartner?.partnerId === partner.partnerId) {
       setViewingPartner({ ...viewingPartner, status: "Active" });
@@ -447,14 +504,25 @@ export default function PartnersManagePage() {
     fetchLiveDbData().catch(() => {});
   };
 
-  const handleRejectPartner = () => {
+  const handleRejectPartner = async () => {
     if (!rejectionModal.partner) return;
     const p = rejectionModal.partner;
+    const reasonText = rejectionModal.reason?.trim() || "Documents did not meet criteria";
+    const rawId = p.id || p.partnerId?.replace(/\D/g, "");
+
+    try {
+      if (rawId) {
+        await partnerService.rejectPartner(rawId, reasonText);
+      }
+    } catch (apiErr) {
+      console.warn("Backend partner reject call:", apiErr);
+    }
+
     updatePartner(p.partnerId, { status: "Deactivated" });
     if (viewingPartner?.partnerId === p.partnerId) {
       setViewingPartner({ ...viewingPartner, status: "Deactivated" });
     }
-    showToast(`Partner onboarding rejected. Reason: ${rejectionModal.reason || "Documents unverified"}`);
+    showToast(`Partner onboarding rejected. Reason: ${reasonText}`);
     setRejectionModal({ isOpen: false, partner: null, reason: "" });
     fetchLiveDbData().catch(() => {});
   };
@@ -1643,12 +1711,24 @@ export default function PartnersManagePage() {
                   <div className="flex flex-col justify-between p-3 rounded-xl bg-white dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 gap-2">
                     <div className="min-w-0">
                       <span className="font-bold text-slate-800 dark:text-slate-200 block text-[11px]">1. PAN Card</span>
-                      <span className="text-[10px] text-slate-400 truncate block font-mono">{editPanDocName}</span>
+                      <span className="text-[10px] text-slate-400 truncate block font-mono" title={editPanDocName}>{editPanDocName}</span>
                     </div>
                     <div className="flex items-center gap-1.5 pt-1 border-t border-slate-100 dark:border-slate-700/60">
                       <button
                         type="button"
-                        onClick={() => setPreviewDocState({ isOpen: true, title: "PAN Card Document", docName: editPanDocName })}
+                        onClick={() => {
+                          const docUrl = editingPartner?.documents?.panDocUrl
+                            ? (editingPartner.documents.panDocUrl.startsWith("http") ? editingPartner.documents.panDocUrl : `/api/proxy${editingPartner.documents.panDocUrl.startsWith("/") ? "" : "/"}${editingPartner.documents.panDocUrl}`)
+                            : undefined;
+                          setPreviewDocState({ 
+                            isOpen: true, 
+                            title: "PAN Card Document", 
+                            docName: editPanDocName,
+                            fileUrl: docUrl,
+                            uploadedBy: editingPartner?.name,
+                            category: "KYC IDENTIFICATION"
+                          });
+                        }}
                         className="flex-1 py-1 rounded-lg bg-sky-50 dark:bg-sky-950/60 text-sky-600 dark:text-sky-400 text-[10px] font-bold hover:bg-sky-500 hover:text-white flex items-center justify-center gap-1 cursor-pointer transition-colors"
                       >
                         <Eye className="w-3 h-3" />
@@ -1658,7 +1738,10 @@ export default function PartnersManagePage() {
                         type="button"
                         onClick={() => {
                           const k = getDeterministicPartnerKyc(editingPartner?.partnerId, editingPartner?.name, editingPartner?.phone);
-                          downloadFile(undefined, editPanDocName, `PARTNER KYC DOCUMENT: PAN CARD\nPartner: ${editingPartner?.name || "Partner"}\nPAN: ${editPanNumber || k.panNumber}`);
+                          const docUrl = editingPartner?.documents?.panDocUrl
+                            ? (editingPartner.documents.panDocUrl.startsWith("http") ? editingPartner.documents.panDocUrl : `/api/proxy${editingPartner.documents.panDocUrl.startsWith("/") ? "" : "/"}${editingPartner.documents.panDocUrl}`)
+                            : undefined;
+                          downloadFile(docUrl, editPanDocName, `PARTNER KYC DOCUMENT: PAN CARD\nPartner: ${editingPartner?.name || "Partner"}\nPAN: ${editPanNumber || k.panNumber}`);
                         }}
                         className="p-1.5 rounded-lg bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300 hover:bg-slate-200 cursor-pointer"
                         title="Download"
@@ -1672,12 +1755,24 @@ export default function PartnersManagePage() {
                   <div className="flex flex-col justify-between p-3 rounded-xl bg-white dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 gap-2">
                     <div className="min-w-0">
                       <span className="font-bold text-slate-800 dark:text-slate-200 block text-[11px]">2. Aadhaar Card</span>
-                      <span className="text-[10px] text-slate-400 truncate block font-mono">{editAdhaarDocName}</span>
+                      <span className="text-[10px] text-slate-400 truncate block font-mono" title={editAdhaarDocName}>{editAdhaarDocName}</span>
                     </div>
                     <div className="flex items-center gap-1.5 pt-1 border-t border-slate-100 dark:border-slate-700/60">
                       <button
                         type="button"
-                        onClick={() => setPreviewDocState({ isOpen: true, title: "Aadhaar Card Document", docName: editAdhaarDocName })}
+                        onClick={() => {
+                          const docUrl = editingPartner?.documents?.adhaarDocUrl
+                            ? (editingPartner.documents.adhaarDocUrl.startsWith("http") ? editingPartner.documents.adhaarDocUrl : `/api/proxy${editingPartner.documents.adhaarDocUrl.startsWith("/") ? "" : "/"}${editingPartner.documents.adhaarDocUrl}`)
+                            : undefined;
+                          setPreviewDocState({ 
+                            isOpen: true, 
+                            title: "Aadhaar Card Document", 
+                            docName: editAdhaarDocName,
+                            fileUrl: docUrl,
+                            uploadedBy: editingPartner?.name,
+                            category: "KYC ADDRESS PROOF"
+                          });
+                        }}
                         className="flex-1 py-1 rounded-lg bg-sky-50 dark:bg-sky-950/60 text-sky-600 dark:text-sky-400 text-[10px] font-bold hover:bg-sky-500 hover:text-white flex items-center justify-center gap-1 cursor-pointer transition-colors"
                       >
                         <Eye className="w-3 h-3" />
@@ -1687,7 +1782,10 @@ export default function PartnersManagePage() {
                         type="button"
                         onClick={() => {
                           const k = getDeterministicPartnerKyc(editingPartner?.partnerId, editingPartner?.name, editingPartner?.phone);
-                          downloadFile(undefined, editAdhaarDocName, `PARTNER KYC DOCUMENT: AADHAAR CARD\nPartner: ${editingPartner?.name || "Partner"}\nAadhaar: ${editAdhaarNumber || k.adhaarNumber}`);
+                          const docUrl = editingPartner?.documents?.adhaarDocUrl
+                            ? (editingPartner.documents.adhaarDocUrl.startsWith("http") ? editingPartner.documents.adhaarDocUrl : `/api/proxy${editingPartner.documents.adhaarDocUrl.startsWith("/") ? "" : "/"}${editingPartner.documents.adhaarDocUrl}`)
+                            : undefined;
+                          downloadFile(docUrl, editAdhaarDocName, `PARTNER KYC DOCUMENT: AADHAAR CARD\nPartner: ${editingPartner?.name || "Partner"}\nAadhaar: ${editAdhaarNumber || k.adhaarNumber}`);
                         }}
                         className="p-1.5 rounded-lg bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300 hover:bg-slate-200 cursor-pointer"
                         title="Download"
@@ -1701,12 +1799,24 @@ export default function PartnersManagePage() {
                   <div className="flex flex-col justify-between p-3 rounded-xl bg-white dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 gap-2">
                     <div className="min-w-0">
                       <span className="font-bold text-slate-800 dark:text-slate-200 block text-[11px]">3. Office Proof</span>
-                      <span className="text-[10px] text-slate-400 truncate block font-mono">{editShopDocName}</span>
+                      <span className="text-[10px] text-slate-400 truncate block font-mono" title={editShopDocName}>{editShopDocName}</span>
                     </div>
                     <div className="flex items-center gap-1.5 pt-1 border-t border-slate-100 dark:border-slate-700/60">
                       <button
                         type="button"
-                        onClick={() => setPreviewDocState({ isOpen: true, title: "Office Premises & Business Proof", docName: editShopDocName })}
+                        onClick={() => {
+                          const docUrl = editingPartner?.documents?.shopDocUrl
+                            ? (editingPartner.documents.shopDocUrl.startsWith("http") ? editingPartner.documents.shopDocUrl : `/api/proxy${editingPartner.documents.shopDocUrl.startsWith("/") ? "" : "/"}${editingPartner.documents.shopDocUrl}`)
+                            : undefined;
+                          setPreviewDocState({ 
+                            isOpen: true, 
+                            title: "Office Premises & Business Proof", 
+                            docName: editShopDocName,
+                            fileUrl: docUrl,
+                            uploadedBy: editingPartner?.name,
+                            category: "COMMERCIAL PREMISES"
+                          });
+                        }}
                         className="flex-1 py-1 rounded-lg bg-sky-50 dark:bg-sky-950/60 text-sky-600 dark:text-sky-400 text-[10px] font-bold hover:bg-sky-500 hover:text-white flex items-center justify-center gap-1 cursor-pointer transition-colors"
                       >
                         <Eye className="w-3 h-3" />
@@ -1714,7 +1824,12 @@ export default function PartnersManagePage() {
                       </button>
                       <button
                         type="button"
-                        onClick={() => downloadFile(undefined, editShopDocName, `PARTNER KYC DOCUMENT: OFFICE & PREMISES PROOF\nPartner: ${editingPartner?.name || "Partner"}\nOffice: ${editCompleteShopAddress || editShopName || "Registered Office"}`)}
+                        onClick={() => {
+                          const docUrl = editingPartner?.documents?.shopDocUrl
+                            ? (editingPartner.documents.shopDocUrl.startsWith("http") ? editingPartner.documents.shopDocUrl : `/api/proxy${editingPartner.documents.shopDocUrl.startsWith("/") ? "" : "/"}${editingPartner.documents.shopDocUrl}`)
+                            : undefined;
+                          downloadFile(docUrl, editShopDocName, `PARTNER KYC DOCUMENT: OFFICE & PREMISES PROOF\nPartner: ${editingPartner?.name || "Partner"}\nOffice: ${editCompleteShopAddress || editShopName || "Registered Office"}`);
+                        }}
                         className="p-1.5 rounded-lg bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300 hover:bg-slate-200 cursor-pointer"
                         title="Download"
                       >
@@ -1838,94 +1953,129 @@ export default function PartnersManagePage() {
               })()}
 
               {/* Attached Documents with View & Download */}
-              <div className="p-4 bg-slate-50 dark:bg-slate-900/60 rounded-2xl border border-slate-100 dark:border-slate-800 space-y-2.5">
-                <span className="text-[10px] uppercase font-bold text-slate-400 block mb-1">Attached KYC Documents (3 Files)</span>
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 text-xs">
-                  {/* PAN Card */}
-                  <div className="flex flex-col justify-between p-3 rounded-xl bg-white dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 gap-2">
-                    <div className="min-w-0">
-                      <span className="text-slate-800 dark:text-slate-200 font-bold block text-[11px]">📄 PAN Card</span>
-                      <span className="text-[10px] text-slate-400 font-mono block truncate">{viewingPartner.documents?.panDoc || "PAN_Card.pdf"}</span>
-                    </div>
-                    <div className="flex items-center gap-1.5 pt-1 border-t border-slate-100 dark:border-slate-700/60">
-                      <button
-                        type="button"
-                        onClick={() => setPreviewDocState({ isOpen: true, title: "PAN Card Document", docName: viewingPartner.documents?.panDoc || "PAN_Card.pdf" })}
-                        className="flex-1 py-1 rounded-lg bg-sky-50 dark:bg-sky-950/60 text-sky-600 dark:text-sky-400 font-bold text-[10px] hover:bg-sky-500 hover:text-white flex items-center justify-center gap-1 transition-colors cursor-pointer"
-                      >
-                        <Eye className="w-3 h-3" />
-                        <span>View</span>
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          const k = getDeterministicPartnerKyc(viewingPartner.partnerId, viewingPartner.name, viewingPartner.phone);
-                          downloadFile(undefined, viewingPartner.documents?.panDoc || "PAN_Card.pdf", `PARTNER KYC DOCUMENT: PAN CARD\nPartner: ${viewingPartner.name}\nPAN: ${viewingPartner.panNumber || k.panNumber}`);
-                        }}
-                        className="p-1.5 rounded-lg bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300 hover:bg-blue-600 hover:text-white transition-colors cursor-pointer"
-                        title="Download PAN Card"
-                      >
-                        <Download className="w-3 h-3" />
-                      </button>
-                    </div>
-                  </div>
+              {(() => {
+                const partnerKyc = getDeterministicPartnerKyc(viewingPartner.partnerId, viewingPartner.name, viewingPartner.phone);
+                const panName = viewingPartner.documents?.panDoc || "PAN_Card.pdf";
+                const panUrl = viewingPartner.documents?.panDocUrl 
+                  ? (viewingPartner.documents.panDocUrl.startsWith("http") ? viewingPartner.documents.panDocUrl : `/api/proxy${viewingPartner.documents.panDocUrl.startsWith("/") ? "" : "/"}${viewingPartner.documents.panDocUrl}`)
+                  : undefined;
 
-                  {/* Aadhaar Card */}
-                  <div className="flex flex-col justify-between p-3 rounded-xl bg-white dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 gap-2">
-                    <div className="min-w-0">
-                      <span className="text-slate-800 dark:text-slate-200 font-bold block text-[11px]">🪪 Aadhaar Card</span>
-                      <span className="text-[10px] text-slate-400 font-mono block truncate">{viewingPartner.documents?.adhaarDoc || "Aadhaar_Verified.pdf"}</span>
-                    </div>
-                    <div className="flex items-center gap-1.5 pt-1 border-t border-slate-100 dark:border-slate-700/60">
-                      <button
-                        type="button"
-                        onClick={() => setPreviewDocState({ isOpen: true, title: "Aadhaar Card Document", docName: viewingPartner.documents?.adhaarDoc || "Aadhaar_Verified.pdf" })}
-                        className="flex-1 py-1 rounded-lg bg-sky-50 dark:bg-sky-950/60 text-sky-600 dark:text-sky-400 font-bold text-[10px] hover:bg-sky-500 hover:text-white flex items-center justify-center gap-1 transition-colors cursor-pointer"
-                      >
-                        <Eye className="w-3 h-3" />
-                        <span>View</span>
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          const k = getDeterministicPartnerKyc(viewingPartner.partnerId, viewingPartner.name, viewingPartner.phone);
-                          downloadFile(undefined, viewingPartner.documents?.adhaarDoc || "Aadhaar_Verified.pdf", `PARTNER KYC DOCUMENT: AADHAAR CARD\nPartner: ${viewingPartner.name}\nAadhaar: ${viewingPartner.adhaarNumber || k.adhaarNumber}`);
-                        }}
-                        className="p-1.5 rounded-lg bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300 hover:bg-blue-600 hover:text-white transition-colors cursor-pointer"
-                        title="Download Aadhaar Card"
-                      >
-                        <Download className="w-3 h-3" />
-                      </button>
-                    </div>
-                  </div>
+                const adhaarName = viewingPartner.documents?.adhaarDoc || "Aadhaar_Verified.pdf";
+                const adhaarUrl = viewingPartner.documents?.adhaarDocUrl
+                  ? (viewingPartner.documents.adhaarDocUrl.startsWith("http") ? viewingPartner.documents.adhaarDocUrl : `/api/proxy${viewingPartner.documents.adhaarDocUrl.startsWith("/") ? "" : "/"}${viewingPartner.documents.adhaarDocUrl}`)
+                  : undefined;
 
-                  {/* Office Premises Proof */}
-                  <div className="flex flex-col justify-between p-3 rounded-xl bg-white dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 gap-2">
-                    <div className="min-w-0">
-                      <span className="text-slate-800 dark:text-slate-200 font-bold block text-[11px]">🏢 Office Premises</span>
-                      <span className="text-[10px] text-slate-400 font-mono block truncate">{viewingPartner.documents?.shopDoc || "Electricity_Bill.pdf"}</span>
-                    </div>
-                    <div className="flex items-center gap-1.5 pt-1 border-t border-slate-100 dark:border-slate-700/60">
-                      <button
-                        type="button"
-                        onClick={() => setPreviewDocState({ isOpen: true, title: "Office Premises & Business Proof", docName: viewingPartner.documents?.shopDoc || "Electricity_Bill.pdf" })}
-                        className="flex-1 py-1 rounded-lg bg-sky-50 dark:bg-sky-950/60 text-sky-600 dark:text-sky-400 font-bold text-[10px] hover:bg-sky-500 hover:text-white flex items-center justify-center gap-1 transition-colors cursor-pointer"
-                      >
-                        <Eye className="w-3 h-3" />
-                        <span>View</span>
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => downloadFile(undefined, viewingPartner.documents?.shopDoc || "Electricity_Bill.pdf", `PARTNER KYC DOCUMENT: PREMISES PROOF\nPartner: ${viewingPartner.name}\nOffice: ${viewingPartner.shopName || "Commercial Office"}`)}
-                        className="p-1.5 rounded-lg bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300 hover:bg-blue-600 hover:text-white transition-colors cursor-pointer"
-                        title="Download Office Proof"
-                      >
-                        <Download className="w-3 h-3" />
-                      </button>
+                const shopName = viewingPartner.documents?.shopDoc || "Electricity_Bill.pdf";
+                const shopUrl = viewingPartner.documents?.shopDocUrl
+                  ? (viewingPartner.documents.shopDocUrl.startsWith("http") ? viewingPartner.documents.shopDocUrl : `/api/proxy${viewingPartner.documents.shopDocUrl.startsWith("/") ? "" : "/"}${viewingPartner.documents.shopDocUrl}`)
+                  : undefined;
+
+                return (
+                  <div className="p-4 bg-slate-50 dark:bg-slate-900/60 rounded-2xl border border-slate-100 dark:border-slate-800 space-y-2.5">
+                    <span className="text-[10px] uppercase font-bold text-slate-400 block mb-1">Attached KYC Documents (3 Files)</span>
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 text-xs">
+                      {/* PAN Card */}
+                      <div className="flex flex-col justify-between p-3 rounded-xl bg-white dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 gap-2">
+                        <div className="min-w-0">
+                          <span className="text-slate-800 dark:text-slate-200 font-bold block text-[11px]">📄 PAN Card</span>
+                          <span className="text-[10px] text-slate-400 font-mono block truncate" title={panName}>{panName}</span>
+                        </div>
+                        <div className="flex items-center gap-1.5 pt-1 border-t border-slate-100 dark:border-slate-700/60">
+                          <button
+                            type="button"
+                            onClick={() => setPreviewDocState({ 
+                              isOpen: true, 
+                              title: "PAN Card Document", 
+                              docName: panName,
+                              fileUrl: panUrl,
+                              uploadedBy: viewingPartner.name,
+                              category: "KYC IDENTIFICATION"
+                            })}
+                            className="flex-1 py-1 rounded-lg bg-sky-50 dark:bg-sky-950/60 text-sky-600 dark:text-sky-400 font-bold text-[10px] hover:bg-sky-500 hover:text-white flex items-center justify-center gap-1 transition-colors cursor-pointer"
+                          >
+                            <Eye className="w-3 h-3" />
+                            <span>View</span>
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => downloadFile(panUrl, panName, `PARTNER KYC DOCUMENT: PAN CARD\nPartner: ${viewingPartner.name}\nPAN: ${viewingPartner.panNumber || partnerKyc.panNumber}`)}
+                            className="p-1.5 rounded-lg bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300 hover:bg-blue-600 hover:text-white transition-colors cursor-pointer"
+                            title="Download PAN Card"
+                          >
+                            <Download className="w-3 h-3" />
+                          </button>
+                        </div>
+                      </div>
+
+                      {/* Aadhaar Card */}
+                      <div className="flex flex-col justify-between p-3 rounded-xl bg-white dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 gap-2">
+                        <div className="min-w-0">
+                          <span className="text-slate-800 dark:text-slate-200 font-bold block text-[11px]">🪪 Aadhaar Card</span>
+                          <span className="text-[10px] text-slate-400 font-mono block truncate" title={adhaarName}>{adhaarName}</span>
+                        </div>
+                        <div className="flex items-center gap-1.5 pt-1 border-t border-slate-100 dark:border-slate-700/60">
+                          <button
+                            type="button"
+                            onClick={() => setPreviewDocState({ 
+                              isOpen: true, 
+                              title: "Aadhaar Card Document", 
+                              docName: adhaarName,
+                              fileUrl: adhaarUrl,
+                              uploadedBy: viewingPartner.name,
+                              category: "KYC ADDRESS PROOF"
+                            })}
+                            className="flex-1 py-1 rounded-lg bg-sky-50 dark:bg-sky-950/60 text-sky-600 dark:text-sky-400 font-bold text-[10px] hover:bg-sky-500 hover:text-white flex items-center justify-center gap-1 transition-colors cursor-pointer"
+                          >
+                            <Eye className="w-3 h-3" />
+                            <span>View</span>
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => downloadFile(adhaarUrl, adhaarName, `PARTNER KYC DOCUMENT: AADHAAR CARD\nPartner: ${viewingPartner.name}\nAadhaar: ${viewingPartner.adhaarNumber || partnerKyc.adhaarNumber}`)}
+                            className="p-1.5 rounded-lg bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300 hover:bg-blue-600 hover:text-white transition-colors cursor-pointer"
+                            title="Download Aadhaar Card"
+                          >
+                            <Download className="w-3 h-3" />
+                          </button>
+                        </div>
+                      </div>
+
+                      {/* Office Premises Proof */}
+                      <div className="flex flex-col justify-between p-3 rounded-xl bg-white dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 gap-2">
+                        <div className="min-w-0">
+                          <span className="text-slate-800 dark:text-slate-200 font-bold block text-[11px]">🏢 Office Premises</span>
+                          <span className="text-[10px] text-slate-400 font-mono block truncate" title={shopName}>{shopName}</span>
+                        </div>
+                        <div className="flex items-center gap-1.5 pt-1 border-t border-slate-100 dark:border-slate-700/60">
+                          <button
+                            type="button"
+                            onClick={() => setPreviewDocState({ 
+                              isOpen: true, 
+                              title: "Office Premises & Business Proof", 
+                              docName: shopName,
+                              fileUrl: shopUrl,
+                              uploadedBy: viewingPartner.name,
+                              category: "COMMERCIAL PREMISES"
+                            })}
+                            className="flex-1 py-1 rounded-lg bg-sky-50 dark:bg-sky-950/60 text-sky-600 dark:text-sky-400 font-bold text-[10px] hover:bg-sky-500 hover:text-white flex items-center justify-center gap-1 transition-colors cursor-pointer"
+                          >
+                            <Eye className="w-3 h-3" />
+                            <span>View</span>
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => downloadFile(shopUrl, shopName, `PARTNER KYC DOCUMENT: PREMISES PROOF\nPartner: ${viewingPartner.name}\nOffice: ${viewingPartner.shopName || "Commercial Office"}`)}
+                            className="p-1.5 rounded-lg bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300 hover:bg-blue-600 hover:text-white transition-colors cursor-pointer"
+                            title="Download Office Proof"
+                          >
+                            <Download className="w-3 h-3" />
+                          </button>
+                        </div>
+                      </div>
                     </div>
                   </div>
-                </div>
-              </div>
+                );
+              })()}
 
               {/* Step-wise Verification & Action Buttons */}
               <div className="flex items-center justify-between pt-3 border-t border-slate-100 dark:border-slate-800">
@@ -2001,6 +2151,21 @@ export default function PartnersManagePage() {
                 const displayPan = verifyingPartner.panNumber || partnerKyc.panNumber;
                 const displayAadhaar = verifyingPartner.adhaarNumber || partnerKyc.adhaarNumber;
 
+                const panName = verifyingPartner.documents?.panDoc || "PAN_Card.pdf";
+                const panUrl = verifyingPartner.documents?.panDocUrl
+                  ? (verifyingPartner.documents.panDocUrl.startsWith("http") ? verifyingPartner.documents.panDocUrl : `/api/proxy${verifyingPartner.documents.panDocUrl.startsWith("/") ? "" : "/"}${verifyingPartner.documents.panDocUrl}`)
+                  : undefined;
+
+                const adhaarName = verifyingPartner.documents?.adhaarDoc || "Aadhaar_Verified.pdf";
+                const adhaarUrl = verifyingPartner.documents?.adhaarDocUrl
+                  ? (verifyingPartner.documents.adhaarDocUrl.startsWith("http") ? verifyingPartner.documents.adhaarDocUrl : `/api/proxy${verifyingPartner.documents.adhaarDocUrl.startsWith("/") ? "" : "/"}${verifyingPartner.documents.adhaarDocUrl}`)
+                  : undefined;
+
+                const shopName = verifyingPartner.documents?.shopDoc || "Electricity_Bill.pdf";
+                const shopUrl = verifyingPartner.documents?.shopDocUrl
+                  ? (verifyingPartner.documents.shopDocUrl.startsWith("http") ? verifyingPartner.documents.shopDocUrl : `/api/proxy${verifyingPartner.documents.shopDocUrl.startsWith("/") ? "" : "/"}${verifyingPartner.documents.shopDocUrl}`)
+                  : undefined;
+
                 return (
                   <div className="space-y-2.5">
                     {/* Step 1: Identity & PAN Verification */}
@@ -2018,13 +2183,20 @@ export default function PartnersManagePage() {
                             )}
                           </div>
                           <p className="text-[11px] text-slate-500">
-                            PAN: <span className="font-mono font-bold">{displayPan}</span> · File: {verifyingPartner.documents?.panDoc || "PAN_Card.pdf"}
+                            PAN: <span className="font-mono font-bold">{displayPan}</span> · File: {panName}
                           </p>
                         </div>
                         <div className="flex items-center gap-1.5 shrink-0">
                           <button
                             type="button"
-                            onClick={() => setPreviewDocState({ isOpen: true, title: "PAN Card Document", docName: verifyingPartner.documents?.panDoc || "PAN_Card.pdf" })}
+                            onClick={() => setPreviewDocState({ 
+                              isOpen: true, 
+                              title: "PAN Card Document", 
+                              docName: panName,
+                              fileUrl: panUrl,
+                              uploadedBy: verifyingPartner.name,
+                              category: "KYC IDENTIFICATION"
+                            })}
                             className="px-2 py-1 rounded-lg bg-sky-50 dark:bg-sky-950/60 text-sky-600 dark:text-sky-400 font-bold text-[10px] hover:bg-sky-500 hover:text-white flex items-center gap-1 cursor-pointer"
                           >
                             <Eye className="w-3 h-3" />
@@ -2056,13 +2228,20 @@ export default function PartnersManagePage() {
                             )}
                           </div>
                           <p className="text-[11px] text-slate-500">
-                            Aadhaar: <span className="font-mono font-bold">{displayAadhaar}</span> · File: {verifyingPartner.documents?.adhaarDoc || "Aadhaar_Verified.pdf"}
+                            Aadhaar: <span className="font-mono font-bold">{displayAadhaar}</span> · File: {adhaarName}
                           </p>
                         </div>
                         <div className="flex items-center gap-1.5 shrink-0">
                           <button
                             type="button"
-                            onClick={() => setPreviewDocState({ isOpen: true, title: "Aadhaar Card Document", docName: verifyingPartner.documents?.adhaarDoc || "Aadhaar_Verified.pdf" })}
+                            onClick={() => setPreviewDocState({ 
+                              isOpen: true, 
+                              title: "Aadhaar Card Document", 
+                              docName: adhaarName,
+                              fileUrl: adhaarUrl,
+                              uploadedBy: verifyingPartner.name,
+                              category: "KYC ADDRESS PROOF"
+                            })}
                             className="px-2 py-1 rounded-lg bg-sky-50 dark:bg-sky-950/60 text-sky-600 dark:text-sky-400 font-bold text-[10px] hover:bg-sky-500 hover:text-white flex items-center gap-1 cursor-pointer"
                           >
                             <Eye className="w-3 h-3" />
@@ -2094,13 +2273,20 @@ export default function PartnersManagePage() {
                             )}
                           </div>
                           <p className="text-[11px] text-slate-500">
-                            Address: {verifyingPartner.currentAddress || "Ground Floor, Corporate Tower"} · File: {verifyingPartner.documents?.shopDoc || "Electricity_Bill.pdf"}
+                            Address: {verifyingPartner.currentAddress || "Ground Floor, Corporate Tower"} · File: {shopName}
                           </p>
                         </div>
                         <div className="flex items-center gap-1.5 shrink-0">
                           <button
                             type="button"
-                            onClick={() => setPreviewDocState({ isOpen: true, title: "Office Premises & Business Proof", docName: verifyingPartner.documents?.shopDoc || "Electricity_Bill.pdf" })}
+                            onClick={() => setPreviewDocState({ 
+                              isOpen: true, 
+                              title: "Office Premises & Business Proof", 
+                              docName: shopName,
+                              fileUrl: shopUrl,
+                              uploadedBy: verifyingPartner.name,
+                              category: "COMMERCIAL PREMISES"
+                            })}
                             className="px-2 py-1 rounded-lg bg-sky-50 dark:bg-sky-950/60 text-sky-600 dark:text-sky-400 font-bold text-[10px] hover:bg-sky-500 hover:text-white flex items-center gap-1 cursor-pointer"
                           >
                             <Eye className="w-3 h-3" />

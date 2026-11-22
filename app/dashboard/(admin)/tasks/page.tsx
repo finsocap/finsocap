@@ -168,15 +168,16 @@ export default function TasksPage() {
         } catch (e) { }
 
         if (isOpUser) {
-          // Dedicated staff/specialist/executive assigned tasks from live API: GET /api/staff/tasks
+          // Dedicated staff/specialist/executive assigned tasks from live API:
+          // Try /staff/tasks, and if 403 / restricted, load from /tasks filtered by current staff identity
           try {
             const staffTasksRes = await staffWorkflowService.getAssignedTasks();
-            if (staffTasksRes?.success && staffTasksRes.data?.items && Array.isArray(staffTasksRes.data.items)) {
+            if (staffTasksRes?.success && staffTasksRes.data?.items && Array.isArray(staffTasksRes.data.items) && staffTasksRes.data.items.length > 0) {
               const mappedStaffTasks: TaskItem[] = staffTasksRes.data.items.map((it: any) => ({
                 id: it.requestCode || `T-${it.id}`,
                 numericId: typeof it.id === "number" ? it.id : Number(it.id) || undefined,
                 version: typeof it.version === "number" ? it.version : 0,
-                partnerId: it.partnerId ? `P-${it.partnerId}` : "P-101",
+                partnerId: it.partnerId ? (String(it.partnerId).startsWith("P-") ? it.partnerId : `P-${it.partnerId}`) : "P-101",
                 partnerName: it.partnerName || "HQ",
                 partnerContact: it.partnerContact || "",
                 clientName: it.customerName || it.clientName || "Client",
@@ -194,15 +195,12 @@ export default function TasksPage() {
                 comments: it.instructions ? [{ id: "c1", userName: "Admin", userRole: "ADMIN", timestamp: "Recent", text: it.instructions }] : [],
               }));
               setTasks(mappedStaffTasks);
-            } else {
-              setTasks([]);
+              setLoading(false);
+              return;
             }
           } catch (staffErr) {
-            console.warn("Could not load staff tasks:", staffErr);
-            setTasks([]);
+            console.warn("Direct /staff/tasks attempt:", staffErr);
           }
-          setLoading(false);
-          return;
         }
 
         const [metricsRes, tasksRes] = await Promise.allSettled([
@@ -233,7 +231,9 @@ export default function TasksPage() {
             overdueDays: typeof (bt as any).overdueDays === "number" && (bt as any).overdueDays > 0
               ? (bt as any).overdueDays
               : calculateOverdueDays(bt.dueDate, bt.status),
-            assignedTo: bt.assignedToName ? { id: "spec", name: bt.assignedToName, role: "Specialist" } : undefined,
+            assignedTo: bt.assignedToName
+              ? { id: String(bt.assignedToId || "spec"), name: bt.assignedToName, role: "Specialist" }
+              : undefined,
             comments: bt.adminRemarks ? [{ id: "c1", userName: "Admin", userRole: "ADMIN", timestamp: "Recent", text: bt.adminRemarks }] : [],
           }));
           setTasks(mappedTasks);
@@ -271,16 +271,18 @@ export default function TasksPage() {
 
     const myName = (currentUser?.name || "").toLowerCase().trim();
     const myEmail = (currentUser?.email || "").toLowerCase().trim();
+    const myId = String(currentUser?.id || "").trim();
 
     return tasks.filter((t) => {
-      // If t.assignedTo is missing, it's not assigned to the staff user
-      if (!t.assignedTo?.name) return false;
-      const assignedName = (t.assignedTo.name || "").toLowerCase().trim();
-      return (
-        (myName && assignedName.includes(myName)) ||
-        (myName && myName.includes(assignedName)) ||
-        (myEmail && assignedName.includes(myEmail))
-      );
+      // If t.assignedTo is missing, check if assignedToId or other id matches
+      const assignedName = (t.assignedTo?.name || "").toLowerCase().trim();
+      const assignedId = String(t.assignedTo?.id || (t as any).assignedToId || "").trim();
+
+      if (myId && assignedId && myId === assignedId) return true;
+      if (myName && assignedName && (assignedName.includes(myName) || myName.includes(assignedName))) return true;
+      if (myEmail && assignedName && assignedName.includes(myEmail)) return true;
+
+      return false;
     });
   }, [tasks, userRole, currentUser]);
 

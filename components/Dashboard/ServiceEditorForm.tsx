@@ -28,6 +28,20 @@ export default function ServiceEditorForm({ initialData, isEditMode = false }: S
   const router = useRouter();
   const { config } = useTheme();
 
+  // Guard: Staff / Specialist / Executive members are strictly view-only and cannot create or edit services
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem("finsocap_user_session");
+      if (raw) {
+        const sess = JSON.parse(raw);
+        const role = (sess?.user?.role || sess?.role || "ADMIN").toUpperCase().trim();
+        if (["STAFF", "SPECIALIST", "EXECUTIVE"].includes(role)) {
+          router.replace("/dashboard/services");
+        }
+      }
+    } catch {}
+  }, [router]);
+
   // Form State
   const [name, setName] = useState(initialData?.name || "");
   const [category, setCategory] = useState(initialData?.category || "LICENSES");

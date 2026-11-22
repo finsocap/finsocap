@@ -150,6 +150,39 @@ async function handleProxy(
     }
   }
 
+  // 3. Direct handler for uploaded static assets / documents: /api/proxy/uploads/...
+  if (subpath.startsWith("uploads/")) {
+    const adminToken = await getValidAdminToken();
+    const serverBase = API_ROOT.replace(/\/api\/?$/, "");
+    const directUploadUrl = `${serverBase}/${subpath}`;
+
+    try {
+      const upRes = await fetch(directUploadUrl, {
+        headers: {
+          authorization: `Bearer ${adminToken}`,
+        },
+        cache: "no-store",
+      });
+
+      if (upRes.ok) {
+        const fileBuffer = await upRes.arrayBuffer();
+        const contentType = upRes.headers.get("content-type") || "application/octet-stream";
+        const disposition = upRes.headers.get("content-disposition") || `inline; filename="${subpath.split("/").pop()}"`;
+
+        return new NextResponse(fileBuffer, {
+          status: 200,
+          headers: {
+            "Content-Type": contentType,
+            "Content-Disposition": disposition,
+            "Cache-Control": "public, max-age=3600",
+          },
+        });
+      }
+    } catch (e) {
+      console.warn("[Proxy uploads forward error]:", e);
+    }
+  }
+
   // Normalize subpath to prevent double "admin/admin/" prefixes
   let normalizedSubpath = subpath;
   if (normalizedSubpath.startsWith("admin/")) {
@@ -162,6 +195,8 @@ async function handleProxy(
     normalizedSubpath.startsWith("partners/enroll") ||
     normalizedSubpath.startsWith("partners/metrics") ||
     normalizedSubpath.includes("/toggle-status") ||
+    normalizedSubpath.includes("/reject") ||
+    normalizedSubpath.includes("/approve") ||
     normalizedSubpath.includes("/details") ||
     subpath.startsWith("admin/tutorials")
   ) {

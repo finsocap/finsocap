@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import { ServiceItem } from "@/types";
 import { serviceCatalogService } from "@/lib/api/serviceCatalogService";
 import { serviceCatalog } from "@/lib/services/serviceCatalog";
@@ -8,8 +9,23 @@ import ServiceEditorForm from "@/components/Dashboard/ServiceEditorForm";
 import { Loader2 } from "lucide-react";
 
 export default function EditServiceClient({ id }: { id: string }) {
+  const router = useRouter();
   const [service, setService] = useState<ServiceItem | null>(null);
   const [loading, setLoading] = useState(true);
+
+  // Role guard: Staff cannot edit services
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem("finsocap_user_session");
+      if (raw) {
+        const sess = JSON.parse(raw);
+        const role = (sess?.user?.role || sess?.role || "ADMIN").toUpperCase().trim();
+        if (["STAFF", "SPECIALIST", "EXECUTIVE"].includes(role)) {
+          router.replace("/dashboard/services");
+        }
+      }
+    } catch {}
+  }, [router]);
 
   useEffect(() => {
     let isMounted = true;

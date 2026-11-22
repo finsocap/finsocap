@@ -73,5 +73,32 @@ export const partnerService = {
       { status, reason }
     );
   },
+
+  /**
+   * PUT /api/admin/partners/{id}/reject
+   * Rejects partner onboarding application with specified rejection reason note.
+   */
+  rejectPartner: async (
+    id: number | string,
+    rejectionReason: string
+  ): Promise<ApiResponse<any>> => {
+    return apiClient.put<ApiResponse<any>>(
+      `/admin/partners/${id}/reject`,
+      { rejectionReason, reason: rejectionReason }
+    );
+  },
+
+  /**
+   * PUT /api/admin/partners/{id}/approve
+   * Approves partner onboarding application and activates franchise account.
+   */
+  approvePartner: async (
+    id: number | string
+  ): Promise<ApiResponse<any>> => {
+    return apiClient.put<ApiResponse<any>>(
+      `/admin/partners/${id}/approve`,
+      {}
+    );
+  },
 };
 

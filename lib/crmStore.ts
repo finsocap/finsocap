@@ -95,8 +95,11 @@ export interface PartnerModel {
   adhaarNumber?: string;
   documents?: {
     panDoc?: string;
+    panDocUrl?: string;
     adhaarDoc?: string;
+    adhaarDocUrl?: string;
     shopDoc?: string;
+    shopDocUrl?: string;
   };
   city: string;
   state: string;
@@ -214,13 +217,14 @@ export async function fetchLiveDbData(): Promise<void> {
 
   isSyncInProgress = true;
   try {
-    const [tasksRes, partnersRes, clientsRes, specialistsRes, servicesRes, licencesRes] = await Promise.allSettled([
+    const [tasksRes, partnersRes, clientsRes, specialistsRes, servicesRes, licencesRes, adminPartnersRes] = await Promise.allSettled([
       apiClient.get<ApiResponse<BackendTask[]>>("/tasks"),
       apiClient.get<ApiResponse<PartnerSummary[]>>("/partners/network"),
       apiClient.get<ApiResponse<ClientProfile[]>>("/clients"),
       apiClient.get<ApiResponse<Specialist[]>>("/team/specialists"),
       apiClient.get<ApiResponse<CatalogService[]>>("/services"),
       apiClient.get<ApiResponse<LicenceReportMetrics>>("/reports/licences"),
+      apiClient.get<ApiResponse<any[]>>("/admin/partners?size=100"),
     ]);
 
     // Fetch live documents for all tasks from service-requests and admin documents API
@@ -280,25 +284,74 @@ export async function fetchLiveDbData(): Promise<void> {
 
       let newPartners = prev.partners;
       if (partnersRes.status === "fulfilled" && partnersRes.value?.success && Array.isArray(partnersRes.value.data)) {
-        newPartners = partnersRes.value.data.map((p) => {
-          const loc = p.hubLocation || "";
-          const parts = loc.split(",");
-          const city = parts[0]?.trim() || "Headquarters";
-          const state = parts[1]?.trim() || "";
-          const statusMapped = (p.status === "APPROVED" || p.status === "ACTIVE") ? "Active" : p.status === "PENDING" ? "Pending" : "Deactivated";
-          const partnerCode = p.partnerId || `P-${p.id}`;
-          const kyc = getDeterministicPartnerKyc(partnerCode, p.name, p.phone);
+        // Build map of full partner dossier from /admin/partners if available
+        const adminPartnersMap = new Map<number, any>();
+        if (adminPartnersRes.status === "fulfilled" && adminPartnersRes.value?.success && Array.isArray(adminPartnersRes.value.data)) {
+          adminPartnersRes.value.data.forEach((ap: any) => {
+            if (ap.id) adminPartnersMap.set(Number(ap.id), ap);
+          });
+        }
 
-          const formattedName = toTitleCase(p.name);
+        newPartners = partnersRes.value.data.map((p) => {
+          const ap = adminPartnersMap.get(Number(p.id));
+
+          const loc = ap?.city || ap?.state ? `${ap?.city || ""}, ${ap?.state || ""}` : (p.hubLocation || "");
+          const parts = loc.split(",");
+          const city = ap?.city || parts[0]?.trim() || "Headquarters";
+          const state = ap?.state || parts[1]?.trim() || "";
+          
+          // Real backend status: prefer admin partner record if present
+          const rawStatus = ap?.status || p.status;
+          const statusMapped = (rawStatus === "APPROVED" || rawStatus === "ACTIVE") 
+            ? "Active" 
+            : rawStatus === "PENDING" 
+            ? "Pending" 
+            : "Deactivated";
+            
+          const partnerCode = ap?.partnerCode || p.partnerId || `P-${p.id}`;
+          const kyc = getDeterministicPartnerKyc(partnerCode, ap?.name || p.name, ap?.phone || p.phone);
+
+          const formattedName = toTitleCase(ap?.name || p.name);
           const formattedCity = toTitleCase(city);
           const formattedState = toTitleCase(state);
+
+          // Extract real uploaded documents from registration
+          let panDoc = p.panCardUrl || "PAN_Card.pdf";
+          let panDocUrl = p.panCardUrl || undefined;
+          let adhaarDoc = "Aadhaar_Verified.pdf";
+          let adhaarDocUrl: string | undefined = undefined;
+          let shopDoc = p.shopPhotoUrl || "Electricity_Bill.pdf";
+          let shopDocUrl = p.shopPhotoUrl || undefined;
+
+          if (ap?.documents && Array.isArray(ap.documents)) {
+            ap.documents.forEach((d: any) => {
+              const displayName = d.fileName || (d.fileUrl ? d.fileUrl.split("/").pop() : "");
+              if (d.type === "panDoc") {
+                if (displayName) panDoc = displayName;
+                if (d.fileUrl) panDocUrl = d.fileUrl;
+              }
+              if (d.type === "adhaarDoc") {
+                if (displayName) adhaarDoc = displayName;
+                if (d.fileUrl) adhaarDocUrl = d.fileUrl;
+              }
+              if (d.type === "shopDoc") {
+                if (displayName) shopDoc = displayName;
+                if (d.fileUrl) shopDocUrl = d.fileUrl;
+              }
+            });
+          }
+
           return {
             id: String(p.id),
             partnerId: partnerCode,
             name: formattedName,
             shortName: `${partnerCode} • ${formattedName}`,
-            email: p.email,
-            phone: p.phone,
+            email: ap?.email || p.email,
+            phone: ap?.phone || p.phone,
+            dob: ap?.dob || undefined,
+            shopName: ap?.shopName ? toTitleCase(ap.shopName) : undefined,
+            currentAddress: ap?.currentAddress || undefined,
+            completeShopAddress: ap?.completeShopAddress || undefined,
             city: formattedCity,
             state: formattedState,
             status: statusMapped,
@@ -306,12 +359,15 @@ export async function fetchLiveDbData(): Promise<void> {
             leadsCount: p.totalCasesSubmitted || 0,
             revenueStr: `₹${((p.totalEarnedCommission || 0) / 1000).toFixed(1)}k`,
             activeTasks: p.activeTasks || 0,
-            panNumber: (p as any).panNumber || kyc.panNumber,
-            adhaarNumber: (p as any).adhaarNumber || kyc.adhaarNumber,
+            panNumber: ap?.panNumber || (p as any).panNumber || kyc.panNumber,
+            adhaarNumber: ap?.adhaarNumber || (p as any).adhaarNumber || kyc.adhaarNumber,
             documents: {
-              panDoc: p.panCardUrl || "PAN_Card.pdf",
-              shopDoc: p.shopPhotoUrl || "Electricity_Bill.pdf",
-              adhaarDoc: (p as any).adhaarDoc || "Aadhaar_Verified.pdf",
+              panDoc,
+              panDocUrl,
+              shopDoc,
+              shopDocUrl,
+              adhaarDoc,
+              adhaarDocUrl,
             },
           };
         });

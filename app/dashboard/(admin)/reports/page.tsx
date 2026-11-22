@@ -532,11 +532,18 @@ function ReportsPageContent() {
     const isOp = ["STAFF", "SPECIALIST", "EXECUTIVE"].includes(userRole.toUpperCase());
     
     // For operational roles (Staff/Specialist/Executive), restrict reporting to their own employee record
-    if (isOp && currentUser?.name) {
-      const myName = currentUser.name.toLowerCase().trim();
-      const myRow = dynamicServiceRows.filter((row) => 
-        row.name.toLowerCase().includes(myName) || myName.includes(row.name.toLowerCase())
-      );
+    if (isOp && (currentUser?.name || currentUser?.id || currentUser?.email)) {
+      const myName = (currentUser?.name || "").toLowerCase().trim();
+      const myEmail = (currentUser?.email || "").toLowerCase().trim();
+      const myId = String(currentUser?.id || "").trim();
+
+      const myRow = dynamicServiceRows.filter((row) => {
+        const rowIdNum = row.id.replace(/\D/g, "");
+        if (myId && rowIdNum && myId === rowIdNum) return true;
+        if (myName && (row.name.toLowerCase().includes(myName) || myName.includes(row.name.toLowerCase()))) return true;
+        if (myEmail && row.name.toLowerCase().includes(myEmail)) return true;
+        return false;
+      });
       if (myRow.length > 0) return myRow;
     }
 

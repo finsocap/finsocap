@@ -680,7 +680,7 @@ export default function ServicesPage() {
                       <button
                         type="button"
                         onClick={openAddModal}
-                        className={`mt-2 btn-primary-vibrant text-xs py-2 px-4 cursor-pointer inline-flex items-center gap-1.5 shadow-md shadow-blue-500/20 ${userRole === "STAFF" ? "hidden" : ""}`}
+                        className={`mt-2 btn-primary-vibrant text-xs py-2 px-4 cursor-pointer inline-flex items-center gap-1.5 shadow-md shadow-blue-500/20 ${["STAFF", "SPECIALIST", "EXECUTIVE"].includes(userRole.toUpperCase()) ? "hidden" : ""}`}
                       >
                         <Plus className="w-4 h-4" />
                         <span>Add New Service</span>

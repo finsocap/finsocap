@@ -103,10 +103,13 @@ export default function ClientsPage() {
 
     const userName = (currentUser?.name || "").toLowerCase().trim();
     const userEmail = (currentUser?.email || "").toLowerCase().trim();
+    const userId = String(currentUser?.id || "").trim();
 
     return tasks.filter((t) => {
       const taskAssignee = (t.assignee || "").toLowerCase().trim();
+      const taskAssigneeId = String(t.assigneeId || "").trim();
       return (
+        (userId && taskAssigneeId && userId === taskAssigneeId) ||
         (userName && taskAssignee.includes(userName)) ||
         (userEmail && taskAssignee.includes(userEmail)) ||
         (userName && userName.includes(taskAssignee))
@@ -120,16 +123,46 @@ export default function ClientsPage() {
     if (!isOp) return allClients;
 
     const userClientNames = new Set<string>();
+    const userClientPhones = new Set<string>();
+    const directTaskClients: ClientModel[] = [];
+
     scopedTasks.forEach((t) => {
       if (t.client) {
         userClientNames.add(t.client.toLowerCase().trim());
       }
+      if (t.phone) {
+        userClientPhones.add(t.phone.trim());
+      }
     });
 
-    return allClients.filter((c) => {
+    // 1. Match from allClients list
+    const matchedFromAll = allClients.filter((c) => {
       const cName = (c.name || "").toLowerCase().trim();
-      return userClientNames.has(cName);
+      const cPhone = (c.phone || "").trim();
+      return userClientNames.has(cName) || (cPhone && userClientPhones.has(cPhone));
     });
+
+    const seenIds = new Set(matchedFromAll.map(c => c.name.toLowerCase()));
+
+    // 2. Synthesize clients directly from scoped tasks if not present in allClients
+    scopedTasks.forEach((t) => {
+      const key = (t.client || "").toLowerCase().trim();
+      if (key && !seenIds.has(key)) {
+        seenIds.add(key);
+        directTaskClients.push({
+          id: `task-client-${t.id}`,
+          name: t.client,
+          phone: t.phone || "",
+          business: t.business || t.client,
+          partner: t.partner || "Direct",
+          tasks: 1,
+          last: t.date || "Active",
+          status: t.status === "Completed" ? "Completed" : "Active",
+        });
+      }
+    });
+
+    return [...matchedFromAll, ...directTaskClients];
   }, [allClients, scopedTasks, userRole]);
 
   // KPIs - Strictly calculated on scopedTasks / scopedClients for current staff user

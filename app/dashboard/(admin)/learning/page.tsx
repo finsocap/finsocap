@@ -215,6 +215,20 @@ function formatDate(dateStr?: string | null) {
 
 export default function PartnerLearningCentrePage() {
   const toast = useToast();
+  const [userRole, setUserRole] = useState("ADMIN");
+
+  useEffect(() => {
+    try {
+      const sess = localStorage.getItem("finsocap_user_session");
+      if (sess) {
+        const p = JSON.parse(sess);
+        const r = (p?.user?.role || p?.role || "ADMIN").toUpperCase();
+        setUserRole(r);
+      }
+    } catch (e) {}
+  }, []);
+
+  const isRestrictedRole = ["STAFF", "SPECIALIST", "EXECUTIVE"].includes(userRole);
 
   // Tutorials State
   const [tutorials, setTutorials] = useState<TutorialItem[]>([]);
@@ -563,18 +577,20 @@ export default function PartnerLearningCentrePage() {
             >
               <RefreshCw className={`w-4 h-4 ${isLoading ? "animate-spin text-blue-600" : ""}`} />
             </button>
-            <button
-              onClick={() => {
-                setFormTitle("");
-                setFormFile(null);
-                setFormError(null);
-                setIsUploadModalOpen(true);
-              }}
-              className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold shadow-md shadow-blue-500/20 transition-all cursor-pointer active:scale-95"
-            >
-              <Plus className="w-4 h-4" />
-              <span>Add New Tutorial</span>
-            </button>
+            {!isRestrictedRole && (
+              <button
+                onClick={() => {
+                  setFormTitle("");
+                  setFormFile(null);
+                  setFormError(null);
+                  setIsUploadModalOpen(true);
+                }}
+                className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold shadow-md shadow-blue-500/20 transition-all cursor-pointer active:scale-95"
+              >
+                <Plus className="w-4 h-4" />
+                <span>Add New Tutorial</span>
+              </button>
+            )}
           </div>
         </div>
 
@@ -750,33 +766,37 @@ export default function PartnerLearningCentrePage() {
                           <Download className="w-4 h-4" />
                         </button>
 
-                        {/* Edit Button */}
-                        <button
-                          onClick={() => {
-                            setSelectedTutorial(tut);
-                            const parsed = parseTutorialTitle(tut.title);
-                            setFormTitle(parsed.displayTitle);
-                            setFormLink(parsed.linkUrl || "");
-                            setFormFile(null);
-                            setFormError(null);
-                            setIsEditModalOpen(true);
-                          }}
-                          disabled={actionInProgressId === tut.id}
-                          title="Edit Tutorial"
-                          className="p-1.5 rounded-lg text-slate-500 hover:text-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-950/40 transition-colors cursor-pointer"
-                        >
-                          <Edit3 className="w-4 h-4" />
-                        </button>
+                        {/* Edit Button: Admin Only */}
+                        {!isRestrictedRole && (
+                          <button
+                            onClick={() => {
+                              setSelectedTutorial(tut);
+                              const parsed = parseTutorialTitle(tut.title);
+                              setFormTitle(parsed.displayTitle);
+                              setFormLink(parsed.linkUrl || "");
+                              setFormFile(null);
+                              setFormError(null);
+                              setIsEditModalOpen(true);
+                            }}
+                            disabled={actionInProgressId === tut.id}
+                            title="Edit Tutorial"
+                            className="p-1.5 rounded-lg text-slate-500 hover:text-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-950/40 transition-colors cursor-pointer"
+                          >
+                            <Edit3 className="w-4 h-4" />
+                          </button>
+                        )}
 
-                        {/* Delete Button */}
-                        <button
-                          onClick={() => setDeleteConfirmationId(tut.id)}
-                          disabled={actionInProgressId === tut.id}
-                          title="Delete Tutorial"
-                          className="p-1.5 rounded-lg text-slate-500 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-950/40 transition-colors cursor-pointer"
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </button>
+                        {/* Delete Button: Admin Only */}
+                        {!isRestrictedRole && (
+                          <button
+                            onClick={() => setDeleteConfirmationId(tut.id)}
+                            disabled={actionInProgressId === tut.id}
+                            title="Delete Tutorial"
+                            className="p-1.5 rounded-lg text-slate-500 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-950/40 transition-colors cursor-pointer"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        )}
                       </div>
                     </td>
                   </tr>
