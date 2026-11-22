@@ -113,11 +113,27 @@ export const taskService = {
         } catch (e) {}
       }
 
+      // If id is numeric and still no apiTask, try direct staff task lookup /api/proxy/staff/tasks/{numericId}
+      if (!apiTask) {
+        const rawNum = id.replace(/\D/g, "");
+        if (rawNum) {
+          try {
+            const directStaffRes = await fetch(`/api/proxy/staff/tasks/${rawNum}`);
+            if (directStaffRes.ok) {
+              const directJson = await directStaffRes.json();
+              if (directJson?.data) {
+                apiTask = directJson.data;
+              }
+            }
+          } catch (e) {}
+        }
+      }
+
       if (apiTask) {
-        // Fetch detailed service-request to obtain live history & audit trail and application documents for this specific request
-        let serviceRequestHistory: any[] = [];
+        // Fetch detailed service-request or staff task to obtain live history & audit trail and application documents
+        let serviceRequestHistory: any[] = Array.isArray(apiTask.history) ? apiTask.history : [];
         const numericSrId = typeof apiTask.id === "number" ? apiTask.id : Number(apiTask.id);
-        if (numericSrId > 0) {
+        if (numericSrId > 0 && serviceRequestHistory.length === 0) {
           try {
             const srRes = await fetch(`/api/proxy/service-requests/${numericSrId}`, { cache: "no-store" });
             if (srRes.ok) {
@@ -190,7 +206,10 @@ export const taskService = {
         let liveApiComments: TaskComment[] = [];
         if (numericSrId > 0) {
           try {
-            const msgRes = await fetch(`/api/proxy/admin/service-requests/${numericSrId}/messages?size=100`, { cache: "no-store" });
+            let msgRes = await fetch(`/api/proxy/admin/service-requests/${numericSrId}/messages?size=100`, { cache: "no-store" });
+            if (!msgRes.ok) {
+              msgRes = await fetch(`/api/proxy/staff/tasks/${numericSrId}/messages?size=100`, { cache: "no-store" });
+            }
             if (msgRes.ok) {
               const msgJson = await msgRes.json();
               const items = msgJson?.data?.items || [];
@@ -229,11 +248,15 @@ export const taskService = {
         let staffDeliverables: TaskAttachment[] = [];
         if (numericSrId > 0) {
           try {
-            const docsRes = await fetch(`/api/proxy/admin/service-requests/${numericSrId}/documents`, { cache: "no-store" });
+            let docsRes = await fetch(`/api/proxy/admin/service-requests/${numericSrId}/documents`, { cache: "no-store" });
+            if (!docsRes.ok) {
+              docsRes = await fetch(`/api/proxy/staff/tasks/${numericSrId}/documents`, { cache: "no-store" });
+            }
             if (docsRes.ok) {
               const docsJson = await docsRes.json();
-              if (docsJson?.success && Array.isArray(docsJson.data)) {
-                staffDeliverables = docsJson.data.map((d: any, idx: number) => ({
+              const docItems = docsJson?.data?.items || (Array.isArray(docsJson?.data) ? docsJson.data : []);
+              if (Array.isArray(docItems)) {
+                staffDeliverables = docItems.map((d: any, idx: number) => ({
                   id: `deliverable-${d.id || idx + 1}`,
                   fileName: d.title || d.fileName || "Work_Deliverable.pdf",
                   fileSize: d.sizeBytes

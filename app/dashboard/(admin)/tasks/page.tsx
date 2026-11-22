@@ -480,16 +480,18 @@ export default function TasksPage() {
             }
           } catch (e) {}
 
-          // 2. Direct core task PUT update
-          await fetch(`/api/proxy/tasks/${numericTaskId}`, {
-            method: "PUT",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              status: backendStatus || editingTask.status,
-              dueDate: editDue || null,
-              version: currentLiveVersion,
-            }),
-          }).catch((err) => console.warn("Direct PUT task entity warning:", err));
+          // 2. Direct core task PUT update (admin only, staff is not permitted to PUT /admin/tasks)
+          if (!isStaff) {
+            await fetch(`/api/proxy/tasks/${numericTaskId}`, {
+              method: "PUT",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                status: backendStatus || editingTask.status,
+                dueDate: editDue || null,
+                version: currentLiveVersion,
+              }),
+            }).catch((err) => console.warn("Direct PUT task entity warning:", err));
+          }
 
           // 3. Status transition workflow endpoint
           if (statusChanged && backendStatus) {
@@ -934,17 +936,25 @@ export default function TasksPage() {
                       {t.taskDate}
                     </td>
 
-                    {/* Actions -> Edit (Admin Only) + Open */}
+                    {/* Actions -> Edit (Admin/Staff) + Open */}
                     <td className="py-3 px-3.5 text-right">
                       <div className="inline-flex items-center gap-1.5">
-                        {!["STAFF", "SPECIALIST", "EXECUTIVE"].includes(userRole) && (
+                        <button
+                          type="button"
+                          onClick={() => openEditTask(t)}
+                          className="btn-glass-modern text-xs py-1 px-2.5 cursor-pointer inline-flex items-center gap-1 hover:text-blue-600 transition-all"
+                        >
+                          <Edit3 className="w-3 h-3" />
+                          <span>Edit</span>
+                        </button>
+                        {["STAFF", "SPECIALIST", "EXECUTIVE"].includes(userRole) && t.status !== "Completed" && (
                           <button
                             type="button"
-                            onClick={() => openEditTask(t)}
-                            className="btn-glass-modern text-xs py-1 px-2.5 cursor-pointer inline-flex items-center gap-1 hover:text-blue-600 transition-all"
+                            onClick={() => setCompleteModalTask(t)}
+                            className="inline-flex items-center gap-1 px-2.5 py-1 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs shadow-xs cursor-pointer transition-all active:scale-95"
                           >
-                            <Edit3 className="w-3 h-3" />
-                            <span>Edit</span>
+                            <CheckCircle2 className="w-3 h-3" />
+                            <span>Complete</span>
                           </button>
                         )}
                         <Link

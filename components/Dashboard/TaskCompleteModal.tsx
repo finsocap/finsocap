@@ -204,15 +204,32 @@ export default function TaskCompleteModal({
       try {
         const numericTaskId = task.numericId || (Number(task.id.replace(/\D/g, "")) || 0);
         if (numericTaskId > 0) {
-          // Fast PUT to core task
-          fetch(`/api/proxy/tasks/${numericTaskId}`, {
-            method: "PUT",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              status: "COMPLETED",
-              version: typeof task.version === "number" ? task.version + 1 : 1,
-            }),
-          }).catch((err) => console.warn("Direct PUT task completion warning:", err));
+          // Resolve current logged in user role from localStorage session
+          let isStaffRole = false;
+          let currentUserName = "Specialist";
+          try {
+            const sess = localStorage.getItem("finsocap_user_session");
+            if (sess) {
+              const p = JSON.parse(sess);
+              const r = (p?.user?.role || p?.role || "").toUpperCase();
+              if (["STAFF", "SPECIALIST", "EXECUTIVE"].includes(r)) isStaffRole = true;
+              if (p?.user?.name || p?.name) currentUserName = p?.user?.name || p?.name;
+            }
+          } catch (e) {}
+
+          const effectiveUploadRole: "ADMIN" | "STAFF" = isStaffRole ? "STAFF" : "ADMIN";
+
+          // Fast PUT to core task (admin only)
+          if (!isStaffRole) {
+            fetch(`/api/proxy/tasks/${numericTaskId}`, {
+              method: "PUT",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                status: "COMPLETED",
+                version: typeof task.version === "number" ? task.version + 1 : 1,
+              }),
+            }).catch((err) => console.warn("Direct PUT task completion warning:", err));
+          }
 
           // 4A. If file attached, upload work document before marking finished
           if (completeAttachmentFile) {
@@ -224,54 +241,66 @@ export default function TaskCompleteModal({
                   title: `${completeServiceName} Official Certificate - ${completeLicenceNumber.trim()}`,
                   documentType: "CERTIFICATE",
                 },
-                "ADMIN"
+                effectiveUploadRole
               );
             } catch (uploadErr) {
               console.warn("Completion attachment upload warning:", uploadErr);
             }
           }
 
-          // 4B. Status transition workflow endpoint with stepwise transition
-          let currentLiveVersion = typeof task.version === "number" ? task.version : 0;
-          try {
-            const verRes = await fetch(`/api/proxy/service-requests/${numericTaskId}`, { cache: "no-store" });
-            if (verRes.ok) {
-              const verJson = await verRes.json();
-              if (typeof verJson?.data?.version === "number") currentLiveVersion = verJson.data.version;
-            }
-          } catch (e) {}
-
-          const currentDbStatus = String(task.status);
-          const transitionHops = getBackendStatusTransitionPath(currentDbStatus, "COMPLETED");
-
-          for (let i = 0; i < transitionHops.length; i++) {
-            const hopStatus = transitionHops[i];
-            const isFinalHop = i === transitionHops.length - 1;
-            const hopNote = isFinalHop
-              ? `Task completed with issued licence / certificate #${completeLicenceNumber.trim()}`
-              : `Automatic stepwise bridge to ${hopStatus}`;
-
+          // 4B. Status transition to COMPLETED
+          if (isStaffRole) {
+            await taskCollaborationService.updateTaskStatus(
+              numericTaskId,
+              {
+                status: "COMPLETED",
+                note: `Task completed with issued licence / certificate #${completeLicenceNumber.trim()} by ${currentUserName}`,
+              },
+              "STAFF"
+            ).catch((err) => console.warn("Staff completion transition warning:", err));
+          } else {
+            // Status transition workflow endpoint with stepwise transition
+            let currentLiveVersion = typeof task.version === "number" ? task.version : 0;
             try {
-              const hopRes = await taskCollaborationService.updateTaskStatus(
-                numericTaskId,
-                {
-                  status: hopStatus,
-                  note: hopNote,
-                  reason: isFinalHop ? `Licence No: ${completeLicenceNumber.trim()} issued. Valid till ${completeExpiryDate}` : hopNote,
-                  decisionNotes: isFinalHop ? `Licence No: ${completeLicenceNumber.trim()} issued. Valid till ${completeExpiryDate}` : hopNote,
-                  expectedVersion: currentLiveVersion,
-                },
-                "ADMIN"
-              );
-              if (hopRes?.data?.version) {
-                currentLiveVersion = hopRes.data.version;
-              } else {
-                currentLiveVersion += 1;
+              const verRes = await fetch(`/api/proxy/service-requests/${numericTaskId}`, { cache: "no-store" });
+              if (verRes.ok) {
+                const verJson = await verRes.json();
+                if (typeof verJson?.data?.version === "number") currentLiveVersion = verJson.data.version;
               }
-            } catch (hopErr: any) {
-              console.warn(`Completion bridge hop ${hopStatus} error:`, hopErr);
-              if (isFinalHop) {
-                toast.error(hopErr?.message || "Status change rejected by server transition rules", "Status Error");
+            } catch (e) {}
+
+            const currentDbStatus = String(task.status);
+            const transitionHops = getBackendStatusTransitionPath(currentDbStatus, "COMPLETED");
+
+            for (let i = 0; i < transitionHops.length; i++) {
+              const hopStatus = transitionHops[i];
+              const isFinalHop = i === transitionHops.length - 1;
+              const hopNote = isFinalHop
+                ? `Task completed with issued licence / certificate #${completeLicenceNumber.trim()}`
+                : `Automatic stepwise bridge to ${hopStatus}`;
+
+              try {
+                const hopRes = await taskCollaborationService.updateTaskStatus(
+                  numericTaskId,
+                  {
+                    status: hopStatus,
+                    note: hopNote,
+                    reason: isFinalHop ? `Licence No: ${completeLicenceNumber.trim()} issued. Valid till ${completeExpiryDate}` : hopNote,
+                    decisionNotes: isFinalHop ? `Licence No: ${completeLicenceNumber.trim()} issued. Valid till ${completeExpiryDate}` : hopNote,
+                    expectedVersion: currentLiveVersion,
+                  },
+                  "ADMIN"
+                );
+                if (hopRes?.data?.version) {
+                  currentLiveVersion = hopRes.data.version;
+                } else {
+                  currentLiveVersion += 1;
+                }
+              } catch (hopErr: any) {
+                console.warn(`Completion bridge hop ${hopStatus} error:`, hopErr);
+                if (isFinalHop) {
+                  toast.error(hopErr?.message || "Status change rejected by server transition rules", "Status Error");
+                }
               }
             }
           }
