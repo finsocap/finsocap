@@ -9,6 +9,8 @@ interface PaginationProps {
   totalItems: number;
   itemsPerPage?: number;
   onPageChange: (page: number) => void;
+  onItemsPerPageChange?: (items: number) => void;
+  pageSizeOptions?: number[];
   className?: string;
   showItemCount?: boolean;
 }
@@ -19,10 +21,13 @@ export default function Pagination({
   totalItems,
   itemsPerPage = 5,
   onPageChange,
+  onItemsPerPageChange,
+  pageSizeOptions = [5, 10, 25, 50],
   className = "",
   showItemCount = true,
 }: PaginationProps) {
-  if (totalPages <= 1 && totalItems <= itemsPerPage) {
+  // If there are no items at all, do not render
+  if (totalItems === 0) {
     return null;
   }
 
@@ -67,13 +72,32 @@ export default function Pagination({
     <div
       className={`p-4 border-t border-slate-100 dark:border-slate-800/80 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs ${className}`}
     >
-      {showItemCount && (
-        <span className="text-slate-500 dark:text-slate-400 font-medium text-[11px]">
-          Showing <span className="font-bold text-slate-800 dark:text-slate-200">{startItem}</span> to{" "}
-          <span className="font-bold text-slate-800 dark:text-slate-200">{endItem}</span> of{" "}
-          <span className="font-bold text-slate-800 dark:text-slate-200">{totalItems}</span> entries
-        </span>
-      )}
+      <div className="flex items-center gap-3">
+        {showItemCount && (
+          <span className="text-slate-500 dark:text-slate-400 font-medium text-[11px]">
+            Showing <span className="font-bold text-slate-800 dark:text-slate-200">{startItem}</span> to{" "}
+            <span className="font-bold text-slate-800 dark:text-slate-200">{endItem}</span> of{" "}
+            <span className="font-bold text-slate-800 dark:text-slate-200">{totalItems}</span> entries
+          </span>
+        )}
+
+        {onItemsPerPageChange && (
+          <div className="flex items-center gap-1.5 text-[11px] text-slate-500 dark:text-slate-400 pl-2 border-l border-slate-200 dark:border-slate-700">
+            <span className="text-slate-400">Rows:</span>
+            <select
+              value={itemsPerPage}
+              onChange={(e) => onItemsPerPageChange(Number(e.target.value))}
+              className="px-2 py-0.5 rounded-lg bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-xs font-bold text-slate-700 dark:text-slate-200 cursor-pointer focus:outline-none"
+            >
+              {pageSizeOptions.map((opt) => (
+                <option key={opt} value={opt}>
+                  {opt}
+                </option>
+              ))}
+            </select>
+          </div>
+        )}
+      </div>
 
       <div className="flex items-center gap-1.5 ml-auto">
         {/* Previous Button */}

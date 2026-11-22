@@ -15,6 +15,7 @@ import { soundEffects } from "@/lib/soundEffects";
 import { useTheme } from "@/components/Providers/ThemeProvider";
 import { useCrmStore } from "@/lib/crmStore";
 import BusinessCalculatorModal from "@/components/Dashboard/BusinessCalculatorModal";
+import BusinessCalendarModal from "@/components/Dashboard/BusinessCalendarModal";
 import PartnerProfileModal from "@/components/Dashboard/PartnerProfileModal";
 import { partnerPortalService, PartnerProfileData } from "@/lib/api/partnerPortalService";
 import { toTitleCase } from "@/lib/formatters";
@@ -42,6 +43,7 @@ export default function Topbar({ user }: { user?: any }) {
   const [isNotifOpen, setIsNotifOpen] = useState(false);
   const [isProfileOpen, setIsProfileOpen] = useState(false);
   const [isCalculatorOpen, setIsCalculatorOpen] = useState(false);
+  const [isCalendarOpen, setIsCalendarOpen] = useState(false);
   const [partnerProfileData, setPartnerProfileData] = useState<PartnerProfileData | null>(null);
   const [isPartnerProfileOpen, setIsPartnerProfileOpen] = useState(false);
   const [notifFilter, setNotifFilter] = useState<"all" | "unread">("all");
@@ -367,7 +369,7 @@ export default function Topbar({ user }: { user?: any }) {
   };
 
   return (
-    <header className="h-[74px] bg-white/80 backdrop-blur-xl border-b border-slate-200/80 flex items-center justify-between px-3.5 sm:px-6 lg:px-8 sticky top-0 z-30 transition-colors">
+    <header className="h-[64px] bg-white/80 backdrop-blur-xl border-b border-slate-200/80 flex items-center justify-between px-3.5 sm:px-6 lg:px-8 sticky top-0 z-30 transition-colors">
       
       {/* 1. LEFT CONTROLS: Mobile Toggle Button + SEARCH BAR */}
       <div className="flex items-center gap-2.5 sm:gap-3 flex-1 max-w-xl mr-2">
@@ -434,6 +436,7 @@ export default function Topbar({ user }: { user?: any }) {
           <button
             onClick={() => {
               setIsCalculatorOpen(!isCalculatorOpen);
+              setIsCalendarOpen(false);
               setIsNotifOpen(false);
               setIsProfileOpen(false);
             }}
@@ -461,6 +464,34 @@ export default function Topbar({ user }: { user?: any }) {
               {/* Bottom-Right: = (Orange) */}
               <div className="rounded-full bg-gradient-to-br from-[#ff9f0a] to-[#f47c00] flex items-center justify-center text-[8px] font-black text-white leading-none shadow-[0_1px_2px_rgba(244,124,0,0.5)]">
                 =
+              </div>
+            </div>
+          </button>
+        </div>
+
+        {/* Business & Statutory Calendar Button (Global Header Popup) */}
+        <div className="relative">
+          <button
+            onClick={() => {
+              setIsCalendarOpen(!isCalendarOpen);
+              setIsCalculatorOpen(false);
+              setIsNotifOpen(false);
+              setIsProfileOpen(false);
+            }}
+            className={`relative p-2 rounded-2xl border transition-all cursor-pointer active:scale-95 flex items-center justify-center ${
+              isCalendarOpen
+                ? "bg-slate-900 border-slate-900 shadow-md shadow-slate-900/30 ring-2 ring-blue-500/40 text-white"
+                : "bg-slate-100 dark:bg-slate-800/80 hover:bg-slate-200/80 dark:hover:bg-slate-700 border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300"
+            }`}
+            title="Business & Compliance Calendar"
+          >
+            {/* iOS-style Calendar Icon Badge */}
+            <div className="w-[22px] h-[22px] rounded-[7px] bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-600 flex flex-col items-center overflow-hidden shadow-xs select-none">
+              <div className="w-full bg-red-600 h-[6.5px] flex items-center justify-center">
+                <div className="w-1.5 h-[1.5px] bg-white/80 rounded-full"></div>
+              </div>
+              <div className="flex-1 flex items-center justify-center text-[10px] font-black leading-none text-slate-900 dark:text-white tabular-nums">
+                {currentDateTime ? currentDateTime.date.split(" ")[0] : new Date().getDate()}
               </div>
             </div>
           </button>
@@ -770,6 +801,12 @@ export default function Topbar({ user }: { user?: any }) {
       <BusinessCalculatorModal
         isOpen={isCalculatorOpen}
         onClose={() => setIsCalculatorOpen(false)}
+      />
+
+      {/* Finsocap Business & Compliance Calendar Modal */}
+      <BusinessCalendarModal
+        isOpen={isCalendarOpen}
+        onClose={() => setIsCalendarOpen(false)}
       />
 
       {/* Partner Profile & KYC Modal (Op 04) */}

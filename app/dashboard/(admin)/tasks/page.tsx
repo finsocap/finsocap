@@ -69,7 +69,7 @@ export default function TasksPage() {
   const [searchQuery, setSearchQuery] = useState<string>("");
   const [dateRange, setDateRange] = useState<string>(() => getCurrentMonthRangeLabel());
   const [currentPage, setCurrentPage] = useState<number>(1);
-  const itemsPerPage = 5;
+  const [itemsPerPage, setItemsPerPage] = useState<number>(5);
 
   // Modals & Feedback
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
@@ -961,13 +961,18 @@ export default function TasksPage() {
           </table>
         </div>
 
-        {/* Dynamic 5-Items Pagination */}
+        {/* Dynamic Items Pagination with Rows Per Page Control */}
         <Pagination
           currentPage={currentPage}
           totalPages={totalPages}
           totalItems={filteredTasks.length}
           itemsPerPage={itemsPerPage}
           onPageChange={setCurrentPage}
+          onItemsPerPageChange={(newSize) => {
+            setItemsPerPage(newSize);
+            setCurrentPage(1);
+          }}
+          pageSizeOptions={[5, 10, 25, 50]}
         />
       </div>
 

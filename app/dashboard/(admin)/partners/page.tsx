@@ -86,7 +86,7 @@ export default function PartnersManagePage() {
   const [selectedTier, setSelectedTier] = useState<string>("ALL");
   const [kpiFilter, setKpiFilter] = useState<"ALL" | "ACTIVE" | "DEACTIVATED" | "ACTIVE_TASKS">("ALL");
   const [currentPage, setCurrentPage] = useState(1);
-  const itemsPerPage = 5;
+  const [itemsPerPage, setItemsPerPage] = useState(5);
 
   // Add Partner Modal State (2-Step Flow)
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
@@ -940,13 +940,18 @@ export default function PartnersManagePage() {
           </table>
         </div>
 
-        {/* Dynamic 5-Items Pagination */}
+        {/* Dynamic Items Pagination with Rows Per Page Control */}
         <Pagination
           currentPage={currentPage}
           totalPages={totalPages}
           totalItems={filteredPartners.length}
           itemsPerPage={itemsPerPage}
           onPageChange={setCurrentPage}
+          onItemsPerPageChange={(newSize) => {
+            setItemsPerPage(newSize);
+            setCurrentPage(1);
+          }}
+          pageSizeOptions={[5, 10, 25, 50]}
         />
       </div>
 

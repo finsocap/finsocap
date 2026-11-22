@@ -5,17 +5,17 @@ import Link from "next/link";
 import Image from "next/image";
 import { getAssetUrl } from "@/lib/brandConfig";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { 
-  Home, 
+import {
+  Home,
   Boxes,
   ClipboardList,
-  Users, 
-  BarChart3, 
-  UserCheck, 
-  Award, 
-  KeyRound, 
-  Settings, 
-  ChevronLeft, 
+  Users,
+  BarChart3,
+  UserCheck,
+  Award,
+  KeyRound,
+  Settings,
+  ChevronLeft,
   ChevronRight,
   ChevronDown,
   Plus,
@@ -71,7 +71,7 @@ export default function Sidebar({ userRole = "ADMIN" }: { userRole?: string }) {
           setCurrentUser(parsed.user);
         }
       }
-    } catch (e) {}
+    } catch (e) { }
   }, []);
 
   const isOperational = isOperationalRole(activeRole);
@@ -90,7 +90,7 @@ export default function Sidebar({ userRole = "ADMIN" }: { userRole?: string }) {
   }, [tasks, isOperational, currentUser]);
 
   const unassignedTasksCount = tasks.filter(t => !t.assignee && t.status !== "Completed").length;
-  
+
   // Track active report tab with fallback to URL query param
   const [activeReportTab, setActiveReportTab] = useState<string>(() => {
     if (typeof window !== "undefined") {
@@ -211,14 +211,14 @@ export default function Sidebar({ userRole = "ADMIN" }: { userRole?: string }) {
 
   const coreNavItems = isPartner
     ? [
-        { label: "Dashboard", href: "/dashboard", icon: Home },
-        { label: "Products / Services", href: "/dashboard/services", icon: Boxes },
-        { label: "Tasks & Filings", href: "/dashboard/tasks", icon: ClipboardList, badge: openTasksCount > 0 ? `${openTasksCount}` : undefined },
-        { label: "Clients", href: "/dashboard/clients", icon: Users },
-        { label: "Partner Learning Centre", href: "/dashboard/learning", icon: GraduationCap },
-      ]
+      { label: "Dashboard", href: "/dashboard", icon: Home },
+      { label: "Products / Services", href: "/dashboard/services", icon: Boxes },
+      { label: "Tasks & Filings", href: "/dashboard/tasks", icon: ClipboardList, badge: openTasksCount > 0 ? `${openTasksCount}` : undefined },
+      { label: "Clients", href: "/dashboard/clients", icon: Users },
+      { label: "Partner Learning Centre", href: "/dashboard/learning", icon: GraduationCap },
+    ]
     : isOperational
-    ? [
+      ? [
         { label: "Dashboard", href: "/dashboard", icon: Home },
         { label: "My Assigned Tasks", href: "/dashboard/tasks", icon: ClipboardList, badge: openTasksCount > 0 ? `${openTasksCount}` : undefined },
         { label: "Products / Services", href: "/dashboard/services", icon: Boxes },
@@ -227,7 +227,7 @@ export default function Sidebar({ userRole = "ADMIN" }: { userRole?: string }) {
         { label: "Partners", href: "/dashboard/partners", icon: Handshake },
         { label: "Partner Learning Centre", href: "/dashboard/learning", icon: GraduationCap },
       ]
-    : [
+      : [
         { label: "Dashboard", href: "/dashboard", icon: Home },
         { label: "Products / Services", href: "/dashboard/services", icon: Boxes },
         { label: "Tasks", href: "/dashboard/tasks", icon: ClipboardList, badge: openTasksCount > 0 ? `${openTasksCount}` : undefined },
@@ -240,13 +240,13 @@ export default function Sidebar({ userRole = "ADMIN" }: { userRole?: string }) {
 
   const reportNavItems = isPartner
     ? [
-        { label: "Licence Report", href: "/dashboard/reports?tab=licence", icon: KeyRound },
-      ]
+      { label: "Licence Report", href: "/dashboard/reports?tab=licence", icon: KeyRound },
+    ]
     : isOperational
-    ? [
+      ? [
         { label: "Service Team Report", href: "/dashboard/reports?tab=service", icon: Award },
       ]
-    : [
+      : [
         { label: "Service Team Report", href: "/dashboard/reports?tab=service", icon: Award },
         { label: "Franchise Partner Report", href: "/dashboard/reports?tab=sales", icon: TrendingUp },
         { label: "Licence Report", href: "/dashboard/reports?tab=licence", icon: KeyRound },
@@ -264,15 +264,13 @@ export default function Sidebar({ userRole = "ADMIN" }: { userRole?: string }) {
         />
       )}
 
-      <aside 
-        className={`fixed lg:sticky top-0 h-screen z-50 flex flex-col bg-white/85 backdrop-blur-xl border-r border-slate-200/80 text-slate-700 shadow-xl lg:shadow-xs transition-all duration-300 ease-in-out ${
-          isCollapsed ? "lg:w-20" : "lg:w-64"
-        } w-72 max-w-[85vw] ${
-          isMobileOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0"
-        }`}
+      <aside
+        className={`fixed lg:sticky top-0 h-screen z-50 flex flex-col bg-white/85 backdrop-blur-xl border-r border-slate-200/80 text-slate-700 shadow-xl lg:shadow-xs transition-all duration-300 ease-in-out ${isCollapsed ? "lg:w-20" : "lg:w-64"
+          } w-72 max-w-[85vw] ${isMobileOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0"
+          }`}
       >
         {/* Collapse Toggle Button - Visible only on Desktop (lg:) */}
-        <button 
+        <button
           onClick={() => setIsCollapsed(!isCollapsed)}
           aria-label="Toggle Sidebar"
           className="hidden lg:flex absolute -right-3 top-[25px] w-6 h-6 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 shadow-md hover:bg-blue-50 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-200 rounded-full items-center justify-center transition-all z-[60] cursor-pointer hover:scale-110 active:scale-95"
@@ -281,7 +279,7 @@ export default function Sidebar({ userRole = "ADMIN" }: { userRole?: string }) {
         </button>
 
         {/* Brand Header with Finsocap Favicon & Mobile Close Button */}
-        <div className={`flex items-center justify-between h-[64px] border-b border-slate-100 dark:border-slate-800/80 ${isCollapsed ? "lg:justify-center px-4 lg:px-2" : "px-5"}`}>
+        <div className={`flex items-center justify-between h-[64px] border-b border-slate-100 dark:border-slate-800/80 ${isCollapsed ? "lg:justify-center px-4 lg:px-2" : "px-4.5"}`}>
           {/* Mobile Close Button (<lg screens) */}
           <button
             type="button"
@@ -291,186 +289,181 @@ export default function Sidebar({ userRole = "ADMIN" }: { userRole?: string }) {
           >
             <X className="w-4 h-4" />
           </button>
-        {isCollapsed ? (
-          <Link href="/dashboard" className="flex items-center justify-center group" title="Finsocap Financial Services">
-            <div className="w-10 h-10 rounded-xl overflow-hidden bg-white dark:bg-slate-800 border border-slate-200/80 dark:border-slate-700 shadow-xs flex items-center justify-center p-1 group-hover:scale-105 transition-transform">
-              <img 
-                src={getAssetUrl("/apple-touch-icon.png")} 
-                alt="Finsocap Favicon" 
-                width={36} 
-                height={36} 
-                className="w-full h-full object-contain"
+          {isCollapsed ? (
+            <Link href="/dashboard" className="flex items-center justify-center group" title="Finsocap Financial Services">
+              <div className="w-10 h-10 rounded-xl overflow-hidden bg-white dark:bg-slate-800 border border-slate-200/80 dark:border-slate-700 shadow-xs flex items-center justify-center p-1 group-hover:scale-105 transition-transform">
+                <img
+                  src={getAssetUrl("/apple-touch-icon.png")}
+                  alt="Finsocap Favicon"
+                  width={36}
+                  height={36}
+                  className="w-full h-full object-contain"
+                  onError={(e) => {
+                    (e.target as HTMLImageElement).src = getAssetUrl("/Finsocap_logo.png");
+                  }}
+                />
+              </div>
+            </Link>
+          ) : (
+            <Link href="/dashboard" className="flex items-center overflow-hidden group py-1 px-1">
+              {/* Real Full Finsocap Logo (Slightly bigger, perfectly aligned) */}
+              <img
+                src={getAssetUrl("/Finsocap_logo.png")}
+                alt="Finsocap"
+                className="h-10 w-auto max-w-[195px] object-contain group-hover:scale-105 transition-transform"
                 onError={(e) => {
-                  (e.target as HTMLImageElement).src = getAssetUrl("/Finsocap_logo.png");
+                  (e.target as HTMLImageElement).src = getAssetUrl("/apple-touch-icon.png");
                 }}
               />
-            </div>
-          </Link>
-        ) : (
-          <Link href="/dashboard" className="flex items-center overflow-hidden group py-1 px-1">
-            {/* Real Full Finsocap Logo (No text, pure brand logo) */}
-            <img 
-              src={getAssetUrl("/Finsocap_logo.png")} 
-              alt="Finsocap" 
-              className="h-8.5 w-auto max-w-[180px] object-contain group-hover:scale-105 transition-transform"
-              onError={(e) => {
-                (e.target as HTMLImageElement).src = getAssetUrl("/apple-touch-icon.png");
-              }}
-            />
-          </Link>
-        )}
-      </div>
-
-      {/* Navigation */}
-      <nav className={`flex-1 px-3 flex flex-col overflow-y-auto custom-slim-scrollbar py-1.5 ${isCollapsed ? "px-2" : ""}`}>
-        {/* Top Section: Nav Items */}
-        <div className="space-y-1 2xl:space-y-1.5">
-          {/* Core Operations Section */}
-          {!isCollapsed && (
-            <div className="pt-2 pb-1 px-3.5 sidebar-section-core">
-              <span className="text-[10px] font-black uppercase tracking-wider text-slate-400 dark:text-slate-500">
-                Core Operations
-              </span>
-            </div>
+            </Link>
           )}
+        </div>
 
-          {coreNavItems.map((item) => {
-            const Icon = item.icon;
-            const active = isItemActive(item.href);
+        {/* Navigation */}
+        <nav className={`flex-1 px-3 flex flex-col overflow-y-auto custom-slim-scrollbar py-1.5 ${isCollapsed ? "px-2" : ""}`}>
+          {/* Top Section: Nav Items */}
+          <div className="space-y-1 2xl:space-y-1.5">
+            {/* Core Operations Section */}
+            {!isCollapsed && (
+              <div className="pt-2 pb-1 px-3.5 sidebar-section-core">
+                <span className="text-[10px] font-black uppercase tracking-wider text-slate-400 dark:text-slate-500">
+                  Core Operations
+                </span>
+              </div>
+            )}
 
-            return (
-              <Link
-                key={item.label}
-                href={item.href}
-                onClick={() => setOptimisticHref(item.href)}
-                title={isCollapsed ? item.label : ""}
-                className={`flex items-center justify-between py-2.5 rounded-xl transition-all duration-200 cursor-pointer ${
-                  isCollapsed ? "justify-center px-0" : "px-3.5"
-                } ${
-                  active
-                    ? "bg-gradient-to-r from-blue-600 via-indigo-600 to-blue-700 text-white font-bold shadow-xs shadow-blue-500/25 border border-blue-400/20"
-                    : "text-slate-600 dark:text-slate-400 hover:bg-slate-100/80 dark:hover:bg-slate-800/60 hover:text-slate-900 dark:hover:text-white font-semibold"
-                }`}
-              >
-                <div className="flex items-center gap-3">
-                  <Icon className={`w-4 h-4 shrink-0 ${active ? "text-white" : "text-slate-500 dark:text-slate-400"}`} />
-                  {!isCollapsed && <span className="text-xs">{item.label}</span>}
-                </div>
-                {!isCollapsed && item.badge && (
-                  <span className={`text-[10px] font-black px-2 py-0.5 rounded-full ${
-                    active ? "bg-white/20 text-white" : "bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300"
-                  }`}>
-                    {item.badge}
-                  </span>
-                )}
-              </Link>
-            );
-          })}
+            {coreNavItems.map((item) => {
+              const Icon = item.icon;
+              const active = isItemActive(item.href);
 
-          {/* Reports Header */}
+              return (
+                <Link
+                  key={item.label}
+                  href={item.href}
+                  onClick={() => setOptimisticHref(item.href)}
+                  title={isCollapsed ? item.label : ""}
+                  className={`flex items-center justify-between py-2 xl:py-3.5 rounded-xl transition-all duration-200 cursor-pointer ${isCollapsed ? "justify-center px-0" : "px-3.5"
+                    } ${active
+                      ? "bg-gradient-to-r from-blue-600 via-indigo-600 to-blue-700 text-white font-bold shadow-xs shadow-blue-500/25 border border-blue-400/20"
+                      : "text-slate-600 dark:text-slate-400 hover:bg-slate-100/80 dark:hover:bg-slate-800/60 hover:text-slate-900 dark:hover:text-white font-semibold"
+                    }`}
+                >
+                  <div className="flex items-center gap-3">
+                    <Icon className={`w-4 h-4 shrink-0 ${active ? "text-white" : "text-slate-500 dark:text-slate-400"}`} />
+                    {!isCollapsed && <span className="text-xs">{item.label}</span>}
+                  </div>
+                  {!isCollapsed && item.badge && (
+                    <span className={`text-[10px] font-black px-2 py-0.5 rounded-full ${active ? "bg-white/20 text-white" : "bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300"
+                      }`}>
+                      {item.badge}
+                    </span>
+                  )}
+                </Link>
+              );
+            })}
+
+            {/* Reports Header */}
+            {!isCollapsed ? (
+              <div className="pt-3 pb-1 px-3.5">
+                <span className="text-[10px] font-black uppercase tracking-wider text-slate-400 dark:text-slate-500">
+                  Analytics & Reports
+                </span>
+              </div>
+            ) : (
+              <div className="my-2.5 border-t border-slate-200 dark:border-slate-800" />
+            )}
+
+            {reportNavItems.map((item) => {
+              const Icon = item.icon;
+              const active = isItemActive(item.href);
+
+              return (
+                <Link
+                  key={item.label}
+                  href={item.href}
+                  onClick={(e) => {
+                    setOptimisticHref(item.href);
+                    const tab = item.href.includes("tab=sales")
+                      ? "sales"
+                      : item.href.includes("tab=licence")
+                        ? "licence"
+                        : "service";
+                    setActiveReportTab(tab);
+                    window.dispatchEvent(new CustomEvent("finsocap-switch-report-tab", { detail: tab }));
+                    if (normalizePath(pathname) === "/dashboard/reports") {
+                      e.preventDefault();
+                      router.push(item.href);
+                    }
+                  }}
+                  title={isCollapsed ? item.label : ""}
+                  className={`flex items-center justify-between py-2 xl:py-3.5 rounded-xl transition-all duration-200 cursor-pointer ${isCollapsed ? "justify-center px-0" : "px-3.5"
+                    } ${active
+                      ? "bg-gradient-to-r from-blue-600 via-indigo-600 to-blue-700 text-white font-bold shadow-xs shadow-blue-500/25 border border-blue-400/20"
+                      : "text-slate-600 dark:text-slate-400 hover:bg-slate-100/80 dark:hover:bg-slate-800/60 hover:text-slate-900 dark:hover:text-white font-semibold"
+                    }`}
+                >
+                  <div className="flex items-center gap-3">
+                    <Icon className={`w-4 h-4 shrink-0 ${active ? "text-white" : "text-slate-500 dark:text-slate-400"}`} />
+                    {!isCollapsed && <span className="text-xs">{item.label}</span>}
+                  </div>
+                </Link>
+              );
+            })}
+          </div>
+
+          {/* Bottom Section: Live Weather & Forecast Widget pinned neatly above Logout */}
+          <div className={`mt-auto pt-2 pb-1 ${isCollapsed ? "px-1" : ""}`}>
+            <WeatherWidgetCard isCollapsed={isCollapsed} />
+          </div>
+        </nav>
+
+        {/* Bottom: Logout Button */}
+        <div className={`p-2.5 border-t border-slate-200/90 dark:border-slate-800/90 ${isCollapsed ? "px-2" : ""}`}>
           {!isCollapsed ? (
-            <div className="pt-3 pb-1 px-3.5">
-              <span className="text-[10px] font-black uppercase tracking-wider text-slate-400 dark:text-slate-500">
-                Analytics & Reports
-              </span>
-            </div>
+            <button
+              type="button"
+              onClick={() => {
+                try {
+                  sessionStorage.removeItem("finsocap_session_login_logged");
+                  localStorage.removeItem("finsocap_user_session");
+                } catch (e) { }
+                router.push("/dashboard/login");
+              }}
+              className="w-full relative overflow-hidden flex items-center justify-between p-2.5 rounded-xl border border-red-500/30 bg-gradient-to-r from-red-600 via-rose-600 to-red-700 hover:from-red-700 hover:to-rose-800 text-white shadow-md shadow-red-500/20 transition-all duration-300 group cursor-pointer hover:scale-[1.01]"
+            >
+              <div className="flex items-center gap-2.5 relative z-10">
+                <div className="relative w-9 h-9 rounded-xl flex items-center justify-center shrink-0 shadow-sm bg-white/20 text-white ring-2 ring-white/30 transition-transform duration-300 group-hover:scale-105">
+                  <LogOut className="w-4 h-4" />
+                </div>
+                <div className="flex flex-col min-w-0 text-left">
+                  <span className="text-[11px] font-black uppercase tracking-wider leading-tight text-white">
+                    LOGOUT
+                  </span>
+                  <span className="text-[10px] font-bold mt-0.5 truncate text-red-100">
+                    Exit Dashboard Session
+                  </span>
+                </div>
+              </div>
+              <ChevronRight className="w-4 h-4 shrink-0 transition-transform duration-300 group-hover:translate-x-0.5 relative z-10 text-white" />
+            </button>
           ) : (
-            <div className="my-2.5 border-t border-slate-200 dark:border-slate-800" />
+            <button
+              type="button"
+              onClick={() => {
+                try {
+                  sessionStorage.removeItem("finsocap_session_login_logged");
+                  localStorage.removeItem("finsocap_user_session");
+                } catch (e) { }
+                router.push("/dashboard/login");
+              }}
+              title="Logout from Dashboard"
+              className="relative w-10 h-10 mx-auto rounded-xl flex items-center justify-center cursor-pointer transition-all bg-red-600 text-white hover:bg-red-700 shadow-md shadow-red-500/20"
+            >
+              <LogOut className="w-4 h-4" />
+            </button>
           )}
 
-          {reportNavItems.map((item) => {
-            const Icon = item.icon;
-            const active = isItemActive(item.href);
-
-            return (
-              <Link
-                key={item.label}
-                href={item.href}
-                onClick={(e) => {
-                  setOptimisticHref(item.href);
-                  const tab = item.href.includes("tab=sales") 
-                    ? "sales" 
-                    : item.href.includes("tab=licence") 
-                    ? "licence" 
-                    : "service";
-                  setActiveReportTab(tab);
-                  window.dispatchEvent(new CustomEvent("finsocap-switch-report-tab", { detail: tab }));
-                  if (normalizePath(pathname) === "/dashboard/reports") {
-                    e.preventDefault();
-                    router.push(item.href);
-                  }
-                }}
-                title={isCollapsed ? item.label : ""}
-                className={`flex items-center justify-between py-2.5 rounded-xl transition-all duration-200 cursor-pointer ${
-                  isCollapsed ? "justify-center px-0" : "px-3.5"
-                } ${
-                  active
-                    ? "bg-gradient-to-r from-blue-600 via-indigo-600 to-blue-700 text-white font-bold shadow-xs shadow-blue-500/25 border border-blue-400/20"
-                    : "text-slate-600 dark:text-slate-400 hover:bg-slate-100/80 dark:hover:bg-slate-800/60 hover:text-slate-900 dark:hover:text-white font-semibold"
-                }`}
-              >
-                <div className="flex items-center gap-3">
-                  <Icon className={`w-4 h-4 shrink-0 ${active ? "text-white" : "text-slate-500 dark:text-slate-400"}`} />
-                  {!isCollapsed && <span className="text-xs">{item.label}</span>}
-                </div>
-              </Link>
-            );
-          })}
-        </div>
-
-        {/* Bottom Section: Live Weather & Forecast Widget */}
-        <div className={`mt-4 pt-2 pb-1 ${isCollapsed ? "px-1" : ""}`}>
-          <WeatherWidgetCard isCollapsed={isCollapsed} />
-        </div>
-      </nav>
-
-      {/* Bottom: Logout Button */}
-      <div className={`p-2.5 border-t border-slate-200/90 dark:border-slate-800/90 ${isCollapsed ? "px-2" : ""}`}>
-        {!isCollapsed ? (
-          <button
-            type="button"
-            onClick={() => {
-              try {
-                sessionStorage.removeItem("finsocap_session_login_logged");
-                localStorage.removeItem("finsocap_user_session");
-              } catch (e) {}
-              router.push("/dashboard/login");
-            }}
-            className="w-full relative overflow-hidden flex items-center justify-between p-2.5 rounded-xl border border-red-500/30 bg-gradient-to-r from-red-600 via-rose-600 to-red-700 hover:from-red-700 hover:to-rose-800 text-white shadow-md shadow-red-500/20 transition-all duration-300 group cursor-pointer hover:scale-[1.01]"
-          >
-            <div className="flex items-center gap-2.5 relative z-10">
-              <div className="relative w-9 h-9 rounded-xl flex items-center justify-center shrink-0 shadow-sm bg-white/20 text-white ring-2 ring-white/30 transition-transform duration-300 group-hover:scale-105">
-                <LogOut className="w-4 h-4" />
-              </div>
-              <div className="flex flex-col min-w-0 text-left">
-                <span className="text-[11px] font-black uppercase tracking-wider leading-tight text-white">
-                  LOGOUT
-                </span>
-                <span className="text-[10px] font-bold mt-0.5 truncate text-red-100">
-                  Exit Dashboard Session
-                </span>
-              </div>
-            </div>
-            <ChevronRight className="w-4 h-4 shrink-0 transition-transform duration-300 group-hover:translate-x-0.5 relative z-10 text-white" />
-          </button>
-        ) : (
-          <button
-            type="button"
-            onClick={() => {
-              try {
-                sessionStorage.removeItem("finsocap_session_login_logged");
-                localStorage.removeItem("finsocap_user_session");
-              } catch (e) {}
-              router.push("/dashboard/login");
-            }}
-            title="Logout from Dashboard"
-            className="relative w-10 h-10 mx-auto rounded-xl flex items-center justify-center cursor-pointer transition-all bg-red-600 text-white hover:bg-red-700 shadow-md shadow-red-500/20"
-          >
-            <LogOut className="w-4 h-4" />
-          </button>
-        )}
-
-        {/* 
+          {/* 
           ORIGINAL MESSAGE CENTER CODE (HIDDEN AS REQUESTED, PRESERVED FOR FUTURE USE):
           {!isCollapsed ? (
             <Link
@@ -536,8 +529,8 @@ export default function Sidebar({ userRole = "ADMIN" }: { userRole?: string }) {
             </Link>
           )}
         */}
-      </div>
-    </aside>
+        </div>
+      </aside>
     </>
   );
 }
