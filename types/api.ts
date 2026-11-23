@@ -294,6 +294,7 @@ export interface YearWiseFeeItem {
   year: string;
   governmentFee: string | number;
   professionalFee: string | number;
+  partnerProfit?: string | number;
   total: string | number;
 }
 

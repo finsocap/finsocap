@@ -142,11 +142,12 @@ export default function ServiceEditorForm({ initialData, isEditMode = false }: S
       label: `${nextYear} Year${nextYear > 1 ? "s" : ""}`,
       governmentFee: 0,
       professionalFee: 0,
+      partnerProfit: 0,
     };
     setYearFees([...yearFees, newTier]);
   };
 
-  const handleUpdateYearTier = (id: string, field: "year" | "label" | "governmentFee" | "professionalFee", val: any) => {
+  const handleUpdateYearTier = (id: string, field: "year" | "label" | "governmentFee" | "professionalFee" | "partnerProfit", val: any) => {
     setYearFees(
       yearFees.map((y) => {
         if (y.id === id) {
@@ -354,6 +355,7 @@ export default function ServiceEditorForm({ initialData, isEditMode = false }: S
             year: String(yf.year || "1"),
             governmentFee: String(yf.governmentFee ?? 0),
             professionalFee: String(yf.professionalFee ?? 0),
+            partnerProfit: String(yf.partnerProfit ?? 0),
             total: String((Number(yf.governmentFee) || 0) + (Number(yf.professionalFee) || 0)),
           }))
         : [];
@@ -855,6 +857,7 @@ export default function ServiceEditorForm({ initialData, isEditMode = false }: S
                             label: "1 Year",
                             governmentFee: 0,
                             professionalFee: 0,
+                            partnerProfit: 0,
                           },
                         ]);
                       }
@@ -889,7 +892,7 @@ export default function ServiceEditorForm({ initialData, isEditMode = false }: S
                           key={tier.id}
                           className="grid grid-cols-12 gap-2 p-2.5 bg-white dark:bg-slate-800/80 rounded-xl border border-slate-200 dark:border-slate-700/80 items-center text-xs"
                         >
-                          <div className="col-span-3">
+                          <div className="col-span-12 sm:col-span-3 lg:col-span-2">
                             <label className="text-[10px] font-bold text-slate-400 block mb-0.5">
                               Tenure / Year
                             </label>
@@ -908,7 +911,7 @@ export default function ServiceEditorForm({ initialData, isEditMode = false }: S
                             </div>
                           </div>
 
-                          <div className="col-span-3">
+                          <div className="col-span-6 sm:col-span-3 lg:col-span-2">
                             <label className="text-[10px] font-bold text-slate-400 block mb-0.5">
                               Govt Fee (₹)
                             </label>
@@ -922,7 +925,7 @@ export default function ServiceEditorForm({ initialData, isEditMode = false }: S
                             />
                           </div>
 
-                          <div className="col-span-3">
+                          <div className="col-span-6 sm:col-span-3 lg:col-span-3">
                             <label className="text-[10px] font-bold text-slate-400 block mb-0.5">
                               Prof Fee (₹)
                             </label>
@@ -936,14 +939,28 @@ export default function ServiceEditorForm({ initialData, isEditMode = false }: S
                             />
                           </div>
 
-                          <div className="col-span-2 text-right">
+                          <div className="col-span-6 sm:col-span-3 lg:col-span-2">
+                            <label className="text-[10px] font-bold text-emerald-600 dark:text-emerald-400 block mb-0.5">
+                              Partner Profit (₹)
+                            </label>
+                            <input
+                              type="number"
+                              min="0"
+                              value={tier.partnerProfit ?? 0}
+                              onChange={(e) => handleUpdateYearTier(tier.id, "partnerProfit", Number(e.target.value))}
+                              placeholder="350"
+                              className="w-full px-2 py-1 bg-emerald-50/50 dark:bg-emerald-950/20 border border-emerald-200 dark:border-emerald-800/60 rounded-lg font-bold text-emerald-600 dark:text-emerald-400"
+                            />
+                          </div>
+
+                          <div className="col-span-4 sm:col-span-2 lg:col-span-2 text-right">
                             <span className="text-[10px] text-slate-400 block font-bold">Total</span>
                             <span className="font-black text-slate-900 dark:text-white font-mono text-[11px]">
                               ₹{total.toLocaleString("en-IN")}
                             </span>
                           </div>
 
-                          <div className="col-span-1 text-right">
+                          <div className="col-span-2 sm:col-span-1 lg:col-span-1 text-right">
                             <button
                               type="button"
                               onClick={() => handleDeleteYearTier(tier.id)}

@@ -131,6 +131,7 @@ export default function EditServiceClient({ id }: { id: string }) {
                       label: `${yNum} Year${yNum > 1 ? "s" : ""}`,
                       governmentFee: Number(yf.governmentFee) || 0,
                       professionalFee: Number(yf.professionalFee) || 0,
+                      partnerProfit: Number(yf.partnerProfit) || 0,
                     };
                   })
                 : [];

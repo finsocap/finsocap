@@ -164,6 +164,7 @@ export interface ServiceYearFee {
   label?: string; // e.g. "1 Year", "2 Years", "3 Years", "5 Years"
   governmentFee: number;
   professionalFee: number;
+  partnerProfit?: number;
 }
 
 export interface ServiceDocument {
