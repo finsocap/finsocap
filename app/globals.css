@@ -1620,6 +1620,31 @@ html[data-os="windows"] .divide-y span.rounded-md {
   font-weight: 600 !important;
 }
 
+/* Windows Laptop View: Pagination Footer & Rows Per Page dropdown tight calibration */
+html[data-os="windows"] .border-t:has(button[aria-label="Previous Page"]),
+html[data-os="windows"] div:has(> button[aria-label="Previous Page"]) {
+  padding: 0.55rem 0.85rem !important;
+}
+
+html[data-os="windows"] button[aria-label="Previous Page"],
+html[data-os="windows"] button[aria-label="Next Page"],
+html[data-os="windows"] button[aria-label="Previous Page"] ~ button {
+  width: 1.75rem !important;
+  height: 1.75rem !important;
+  min-width: 1.75rem !important;
+  font-size: 0.7rem !important;
+}
+
+html[data-os="windows"] select:has(option[value="50"]),
+html[data-os="windows"] select:has(option[value="25"]) {
+  padding-top: 0.15rem !important;
+  padding-bottom: 0.15rem !important;
+  padding-left: 0.45rem !important;
+  padding-right: 0.45rem !important;
+  font-size: 0.68rem !important;
+  border-radius: 0.375rem !important;
+}
+
 /* Pulsing opacity animation for Task Row Left Status Border */
 @keyframes borderPulseOpacity {
 

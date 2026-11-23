@@ -216,7 +216,7 @@ export default function ServicesPage() {
   const [selectedCategory, setSelectedCategory] = useState("ALL");
   const [selectedStatus, setSelectedStatus] = useState("ALL");
   const [currentPage, setCurrentPage] = useState(1);
-  const itemsPerPage = 5;
+  const [itemsPerPage, setItemsPerPage] = useState(10);
   const [isAddingNewCategory, setIsAddingNewCategory] = useState(false);
   const [newCategoryName, setNewCategoryName] = useState("");
 
@@ -630,7 +630,7 @@ export default function ServicesPage() {
 
       {/* 4. Services Table matching Reference */}
       <div className="card-luxury overflow-hidden">
-        <div className="overflow-x-auto min-h-[360px]">
+        <div className="overflow-x-auto">
           <table className="w-full text-left border-collapse text-xs">
             <thead>
               <tr className="border-b border-slate-100 dark:border-slate-800 text-[11px] font-bold text-slate-400 bg-slate-50/60 dark:bg-slate-900/60">
@@ -783,13 +783,18 @@ export default function ServicesPage() {
           </table>
         </div>
 
-        {/* Dynamic 5-Items Pagination */}
+        {/* Dynamic Items Pagination with Rows Per Page Control */}
         <Pagination
           currentPage={currentPage}
           totalPages={totalPages}
           totalItems={filteredServices.length}
           itemsPerPage={itemsPerPage}
           onPageChange={setCurrentPage}
+          onItemsPerPageChange={(newSize) => {
+            setItemsPerPage(newSize);
+            setCurrentPage(1);
+          }}
+          pageSizeOptions={[5, 10, 25, 50]}
         />
       </div>
 
