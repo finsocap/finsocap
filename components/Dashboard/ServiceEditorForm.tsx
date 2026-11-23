@@ -356,7 +356,11 @@ export default function ServiceEditorForm({ initialData, isEditMode = false }: S
             governmentFee: String(yf.governmentFee ?? 0),
             professionalFee: String(yf.professionalFee ?? 0),
             partnerProfit: String(yf.partnerProfit ?? 0),
-            total: String((Number(yf.governmentFee) || 0) + (Number(yf.professionalFee) || 0)),
+            total: String(
+              (Number(yf.professionalFee) || 0) +
+                (Number(yf.governmentFee) || 0) +
+                (Number(yf.partnerProfit) || 0)
+            ),
           }))
         : [];
 
@@ -886,7 +890,7 @@ export default function ServiceEditorForm({ initialData, isEditMode = false }: S
 
                   <div className="space-y-2">
                     {yearFees.map((tier, idx) => {
-                      const total = (Number(tier.governmentFee) || 0) + (Number(tier.professionalFee) || 0);
+                      const total = (Number(tier.professionalFee) || 0) + (Number(tier.governmentFee) || 0) + (Number(tier.partnerProfit) || 0);
                       return (
                         <div
                           key={tier.id}
@@ -911,6 +915,20 @@ export default function ServiceEditorForm({ initialData, isEditMode = false }: S
                             </div>
                           </div>
 
+                          <div className="col-span-6 sm:col-span-3 lg:col-span-3">
+                            <label className="text-[10px] font-bold text-blue-600 dark:text-sky-400 block mb-0.5">
+                              Client Price (₹)
+                            </label>
+                            <input
+                              type="number"
+                              min="0"
+                              value={tier.professionalFee}
+                              onChange={(e) => handleUpdateYearTier(tier.id, "professionalFee", Number(e.target.value))}
+                              placeholder="1000"
+                              className="w-full px-2 py-1 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg font-bold text-blue-600 dark:text-sky-400"
+                            />
+                          </div>
+
                           <div className="col-span-6 sm:col-span-3 lg:col-span-2">
                             <label className="text-[10px] font-bold text-slate-400 block mb-0.5">
                               Govt Fee (₹)
@@ -922,20 +940,6 @@ export default function ServiceEditorForm({ initialData, isEditMode = false }: S
                               onChange={(e) => handleUpdateYearTier(tier.id, "governmentFee", Number(e.target.value))}
                               placeholder="0"
                               className="w-full px-2 py-1 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg font-bold text-slate-800 dark:text-slate-200"
-                            />
-                          </div>
-
-                          <div className="col-span-6 sm:col-span-3 lg:col-span-3">
-                            <label className="text-[10px] font-bold text-slate-400 block mb-0.5">
-                              Prof Fee (₹)
-                            </label>
-                            <input
-                              type="number"
-                              min="0"
-                              value={tier.professionalFee}
-                              onChange={(e) => handleUpdateYearTier(tier.id, "professionalFee", Number(e.target.value))}
-                              placeholder="1000"
-                              className="w-full px-2 py-1 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg font-bold text-blue-600 dark:text-sky-400"
                             />
                           </div>
 
