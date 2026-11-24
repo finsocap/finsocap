@@ -8,7 +8,7 @@ import {
   IndianRupee, Layers, Check, PowerOff, AlertTriangle, Loader2, ArrowRight,
   FileText, ExternalLink, Video, Download, HelpCircle, ShieldCheck,
   Tag, RefreshCw, Calendar, TrendingUp, Landmark, ChevronDown, ChevronRight, BarChart3,
-  Printer, MapPin, Mail, Phone
+  Printer, MapPin, Mail, Phone, Copy
 } from "lucide-react";
 import { getAssetUrl } from "@/lib/brandConfig";
 import UniversalFilePreviewModal from "@/components/Dashboard/UniversalFilePreviewModal";
@@ -164,7 +164,15 @@ export default function ServicesPage() {
             gov: Number(item.baseGovernmentFee || item.governmentFee || 0),
             time: item.processingTime || (item.estimatedTurnaroundDays ? `${item.estimatedTurnaroundDays} Days` : "3 - 5 Days"),
             status: item.active !== false && item.status !== "Inactive" ? "Active" : "Inactive",
-            description: item.subtitle || item.description || "",
+            description: (() => {
+              if (item.overviewHtml && typeof item.overviewHtml === "string") {
+                const cleanHtml = item.overviewHtml.replace(/<[^>]*>/g, "").trim();
+                if (cleanHtml && cleanHtml.length > (item.subtitle || "").length) {
+                  return cleanHtml;
+                }
+              }
+              return item.subtitle || item.description || "";
+            })(),
             requiredDocuments: Array.isArray(item.requiredDocuments) ? item.requiredDocuments : [],
             keyFeatures: Array.isArray(item.keyFeatures) ? item.keyFeatures : [],
             workflowSteps: Array.isArray(item.workflowSteps) ? item.workflowSteps : [],
@@ -172,7 +180,7 @@ export default function ServicesPage() {
             trainingVideoTutorials: Array.isArray(item.trainingVideoTutorials) ? item.trainingVideoTutorials : [],
             studyMaterials: studyMaterials,
             faqs: faqs,
-            contentDetails: item.contentDetails || item.overviewHtml || "",
+            contentDetails: item.contentDetails || "",
             eligibilityCriteria: item.eligibilityCriteria || "",
             yearWiseFeesEnabled: Boolean(item.yearWiseFeesEnabled),
             yearWiseFees: Array.isArray(item.yearWiseFees) ? item.yearWiseFees : [],
@@ -236,6 +244,7 @@ export default function ServicesPage() {
   const [isAddEditModalOpen, setIsAddEditModalOpen] = useState(false);
   const [editingServiceId, setEditingServiceId] = useState<number | null>(null);
   const [viewingService, setViewingService] = useState<ServiceModel | null>(null);
+  const [duplicatingId, setDuplicatingId] = useState<number | null>(null);
   const [actionMenuOpenId, setActionMenuOpenId] = useState<number | null>(null);
   const [deleteConfirmService, setDeleteConfirmService] = useState<ServiceModel | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
@@ -372,6 +381,66 @@ export default function ServicesPage() {
       setApiServices((prev) =>
         prev.map((s) => (s.id === id ? { ...s, status: s.status === "Active" ? "Inactive" : "Active" } : s))
       );
+    }
+  };
+
+  const handleDuplicateService = async (service: ServiceModel) => {
+    setDuplicatingId(service.id);
+    try {
+      // 1. Fetch full backend service details
+      const fullRes = await serviceCatalogService.getServiceById(service.id);
+      const src: any = fullRes?.data || service;
+
+      // 2. Generate a unique name with (Copy)
+      let copyName = `${src.name || service.name} (Copy)`;
+      const existingNames = apiServices.map((s) => s.name.toLowerCase());
+      let counter = 2;
+      while (existingNames.includes(copyName.toLowerCase())) {
+        copyName = `${src.name || service.name} (Copy ${counter})`;
+        counter++;
+      }
+
+      // 3. Prepare payload for duplicate creation
+      const cleanDesc = (src.overviewHtml ? src.overviewHtml.replace(/<[^>]*>/g, "").trim() : "") || src.subtitle || src.description || "";
+      const safeSubtitle = cleanDesc.length > 250 ? cleanDesc.slice(0, 247) + "..." : cleanDesc;
+
+      const payload = {
+        name: copyName,
+        category: src.category || service.category,
+        categoryId: src.categoryId || 12,
+        subtitle: safeSubtitle,
+        badges: Array.isArray(src.badges) && src.badges.length > 0 ? src.badges : ["Popular"],
+        startingClientPrice: Number(src.startingClientPrice || service.price) || 0,
+        partnerProfit: Number(src.partnerProfit || service.partnerProfit || 0),
+        processingTime: src.processingTime || service.time || "3 - 7 Days",
+        overviewHtml: src.overviewHtml || (cleanDesc ? `<p>${cleanDesc}</p>` : `<p>${copyName}</p>`),
+        eligibilityCriteria: src.eligibilityCriteria || "",
+        keyFeatures: Array.isArray(src.keyFeatures) ? src.keyFeatures : [],
+        workflowSteps: Array.isArray(src.workflowSteps) ? src.workflowSteps : [],
+        requiredDocuments: Array.isArray(src.requiredDocuments) ? src.requiredDocuments : [],
+        officialGovernmentPortalLinks: Array.isArray(src.officialGovernmentPortalLinks) ? src.officialGovernmentPortalLinks : [],
+        trainingVideoTutorials: Array.isArray(src.trainingVideoTutorials) ? src.trainingVideoTutorials : [],
+        studyMaterials: Array.isArray(src.studyMaterials) ? src.studyMaterials : [],
+        faqs: Array.isArray(src.faqs) ? src.faqs : [],
+        contentDetails: src.contentDetails || "",
+        yearWiseFeesEnabled: Boolean(src.yearWiseFeesEnabled),
+        yearWiseFees: Array.isArray(src.yearWiseFees) ? src.yearWiseFees : [],
+        sopsJson: src.sopsJson || null,
+        faqsJson: src.faqsJson || null,
+        pricingTiersJson: src.pricingTiersJson || null,
+        recurring: src.recurring || "NO",
+        frequency: src.frequency || null,
+        baseGovernmentFee: String(src.baseGovernmentFee || service.gov || 0),
+      };
+
+      await serviceCatalogService.createService(payload as any);
+      showToast(`Service cloned successfully as "${copyName}"!`);
+      await fetchServicesFromApi();
+    } catch (err: any) {
+      console.error("Duplicate service failed:", err);
+      toast.error(err?.message || "Could not duplicate service", "Duplicate Failed");
+    } finally {
+      setDuplicatingId(null);
     }
   };
 
@@ -746,12 +815,30 @@ export default function ServicesPage() {
                     <td className="py-3.5 px-4 text-center">
                       <div className="flex items-center justify-center gap-1.5">
                         {!["STAFF", "SPECIALIST", "EXECUTIVE"].includes(userRole.toUpperCase()) && (
-                          <Link
-                            href={`/dashboard/services/${s.id}`}
-                            className="px-2.5 py-1 rounded-lg text-xs font-bold text-blue-600 dark:text-sky-400 bg-blue-50 dark:bg-blue-950/50 hover:bg-blue-100 transition-colors cursor-pointer"
-                          >
-                            Edit
-                          </Link>
+                          <>
+                            <Link
+                              href={`/dashboard/services/${s.id}`}
+                              className="px-2.5 py-1 rounded-lg text-xs font-bold text-blue-600 dark:text-sky-400 bg-blue-50 dark:bg-blue-950/50 hover:bg-blue-100 transition-colors cursor-pointer"
+                              title="Edit Service"
+                            >
+                              Edit
+                            </Link>
+
+                            {/* Duplicate / Clone Service Action Icon */}
+                            <button
+                              type="button"
+                              onClick={() => handleDuplicateService(s)}
+                              disabled={duplicatingId === s.id}
+                              className="p-1.5 rounded-lg text-xs font-bold text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-950/50 hover:bg-indigo-100 dark:hover:bg-indigo-900/50 transition-colors cursor-pointer disabled:opacity-50"
+                              title="Duplicate / Clone Service"
+                            >
+                              {duplicatingId === s.id ? (
+                                <Loader2 className="w-3.5 h-3.5 animate-spin text-indigo-600" />
+                              ) : (
+                                <Copy className="w-3.5 h-3.5" />
+                              )}
+                            </button>
+                          </>
                         )}
                         <button
                           onClick={() => setViewingService(s)}

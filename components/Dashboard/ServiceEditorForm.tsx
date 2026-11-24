@@ -399,7 +399,7 @@ export default function ServiceEditorForm({ initialData, isEditMode = false }: S
         startingClientPrice: Number(price) || 0,
         partnerProfit: Number(partnerProfit) || 0,
         processingTime: processingTime || "3 - 7 Days",
-        overviewHtml: content || `<p>${description || name}</p>`,
+        overviewHtml: trimmedDesc ? `<p>${trimmedDesc}</p>` : (content || `<p>${name}</p>`),
         eligibilityCriteria: eligibility || "",
         keyFeatures: cleanHighlights,
         workflowSteps: cleanSteps,

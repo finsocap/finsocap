@@ -156,7 +156,15 @@ export default function EditServiceClient({ id }: { id: string }) {
                 id: String(itemObj.id),
                 name: itemObj.name || "Untitled Service",
                 category: itemObj.category || "LICENSES",
-                description: itemObj.subtitle || itemObj.description || "",
+                description: (() => {
+                  if (itemObj.overviewHtml && typeof itemObj.overviewHtml === "string") {
+                    const cleanHtml = itemObj.overviewHtml.replace(/<[^>]*>/g, "").trim();
+                    if (cleanHtml && cleanHtml.length > (itemObj.subtitle || "").length) {
+                      return cleanHtml;
+                    }
+                  }
+                  return itemObj.subtitle || itemObj.description || "";
+                })(),
                 recurring: recurringValue,
                 frequency: frequencyValue,
                 price: Number(itemObj.startingClientPrice || itemObj.price || 0),
@@ -166,7 +174,7 @@ export default function EditServiceClient({ id }: { id: string }) {
                 yearFees,
                 processingTime: itemObj.processingTime || "3 - 7 Days",
                 status: itemObj.active !== false ? "Active" : "Inactive",
-                content: itemObj.contentDetails || itemObj.overviewHtml || "",
+                content: itemObj.contentDetails || "",
                 eligibility: itemObj.eligibilityCriteria || "",
                 highlights: Array.isArray(itemObj.keyFeatures) ? itemObj.keyFeatures : [],
                 steps: Array.isArray(itemObj.workflowSteps) ? itemObj.workflowSteps : [],
