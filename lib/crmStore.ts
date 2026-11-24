@@ -418,19 +418,37 @@ export async function fetchLiveDbData(): Promise<void> {
 
       let newUsers = prev.users;
       if (specialistsRes.status === "fulfilled" && specialistsRes.value?.success && Array.isArray(specialistsRes.value.data)) {
-        newUsers = specialistsRes.value.data.map((s) => ({
-          id: s.id,
-          name: toTitleCase(s.fullName),
-          email: s.email,
-          role: toTitleCase(s.designation || "Specialist"),
-          dept: toTitleCase(s.department ? s.department.replace(/_/g, " ") : "Operations"),
-          skill: (s.competencies || []).map((comp) => toTitleCase(comp)).join(", ") || "General",
-          skills: (s.competencies || []).map((comp) => toTitleCase(comp)),
-          phone: s.phone || "",
-          status: "Active",
-          tasks: s.activeTasks || 0,
-          access: s.department === "OPERATIONS" ? "Admin" : "Employee",
-        }));
+        let deactList: string[] = [];
+        try {
+          if (typeof window !== "undefined") {
+            const raw = localStorage.getItem("finsocap_deactivated_accounts");
+            if (raw) deactList = JSON.parse(raw);
+          }
+        } catch (e) {}
+
+        newUsers = specialistsRes.value.data.map((s) => {
+          const isDeactivated =
+            s.active === false ||
+            (s as any).status === "INACTIVE" ||
+            (s as any).status === "DEACTIVATED" ||
+            deactList.includes(String(s.id).trim()) ||
+            deactList.includes(s.fullName.trim().toLowerCase()) ||
+            (s.email ? deactList.includes(s.email.trim().toLowerCase()) : false);
+
+          return {
+            id: s.id,
+            name: toTitleCase(s.fullName),
+            email: s.email,
+            role: toTitleCase(s.designation || "Specialist"),
+            dept: toTitleCase(s.department ? s.department.replace(/_/g, " ") : "Operations"),
+            skill: (s.competencies || []).map((comp) => toTitleCase(comp)).join(", ") || "General",
+            skills: (s.competencies || []).map((comp) => toTitleCase(comp)),
+            phone: s.phone || "",
+            status: isDeactivated ? "Deactivated" : "Active",
+            tasks: s.activeTasks || 0,
+            access: s.department === "OPERATIONS" ? "Admin" : "Employee",
+          };
+        });
       }
 
       let newServices = prev.services;

@@ -34,6 +34,21 @@ export default function DashboardLayout({
         return;
       }
 
+      // Check JWT Token expiration (if token contains exp payload)
+      const token = parsed?.token || parsed?.user?.token;
+      if (token && typeof token === "string" && token.includes(".")) {
+        try {
+          const payload = JSON.parse(atob(token.split(".")[1]));
+          if (payload?.exp && Date.now() >= payload.exp * 1000) {
+            localStorage.removeItem("finsocap_user_session");
+            localStorage.removeItem("finsocap_auth_token");
+            localStorage.removeItem("token");
+            router.replace("/dashboard/login?session_expired=true");
+            return;
+          }
+        } catch {}
+      }
+
       setSession(parsed);
       setCheckingAuth(false);
     } catch (e) {

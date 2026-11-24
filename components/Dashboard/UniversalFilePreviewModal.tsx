@@ -4,6 +4,7 @@ import { X, Download, FileText, CheckCircle2, ExternalLink } from "lucide-react"
 import ModalHeaderBanner from "./ModalHeaderBanner";
 import { downloadFile, createDigitalDocBlobUrl } from "@/lib/fileViewer";
 import { useEffect, useState } from "react";
+import { createPortal } from "react-dom";
 
 interface UniversalFilePreviewModalProps {
   isOpen: boolean;
@@ -26,9 +27,14 @@ export default function UniversalFilePreviewModal({
   uploadDate,
   category,
 }: UniversalFilePreviewModalProps) {
+  const [mounted, setMounted] = useState(false);
   const [activeBlobUrl, setActiveBlobUrl] = useState<string | null>(null);
 
   const [imgError, setImgError] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   useEffect(() => {
     setImgError(false);
@@ -52,8 +58,8 @@ export default function UniversalFilePreviewModal({
   const isRealUrl = Boolean(effectiveUrl && (effectiveUrl.startsWith("http") || effectiveUrl.startsWith("/api") || effectiveUrl.startsWith("blob:")));
   const isImage = (fileName.toLowerCase().endsWith(".png") || fileName.toLowerCase().endsWith(".jpg") || fileName.toLowerCase().endsWith(".jpeg") || fileName.toLowerCase().endsWith(".webp")) && !imgError;
 
-  return (
-    <div className="fixed inset-0 z-[9999] flex items-center justify-center p-3 sm:p-4 bg-slate-900/70 backdrop-blur-xs animate-in fade-in">
+  const modalContent = (
+    <div className="fixed inset-0 z-[999999] flex items-center justify-center p-3 sm:p-4 bg-slate-900/80 backdrop-blur-xs animate-in fade-in">
       <div className="bg-white dark:bg-[#0c1427] border border-slate-200 dark:border-slate-800 rounded-3xl p-5 sm:p-6 w-full max-w-2xl shadow-2xl relative space-y-4">
         <ModalHeaderBanner
           icon={FileText}
@@ -168,5 +174,11 @@ export default function UniversalFilePreviewModal({
       </div>
     </div>
   );
+
+  if (mounted && typeof document !== "undefined") {
+    return createPortal(modalContent, document.body);
+  }
+
+  return modalContent;
 }
 

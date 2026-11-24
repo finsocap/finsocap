@@ -222,6 +222,9 @@ export interface Specialist {
   activeTasks: number;
   maxCapacity: number;
   utilizationPercentage: number;
+  active?: boolean;
+  status?: string;
+  enabled?: boolean;
   competencies: string[];
 }
 

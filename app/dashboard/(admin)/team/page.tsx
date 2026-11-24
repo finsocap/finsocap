@@ -139,7 +139,7 @@ export default function TeamPage() {
   const [formEmail, setFormEmail] = useState("");
   const [formPassword, setFormPassword] = useState("");
   const [formDesignation, setFormDesignation] = useState("");
-  const [formRole, setFormRole] = useState("STAFF");
+  const [formRole, setFormRole] = useState("SPECIALIST");
   const [formDeptId, setFormDeptId] = useState<number>(1);
   const [formDept, setFormDept] = useState("Accounting");
   const [formPhone, setFormPhone] = useState("+91 98765 43210");
@@ -225,8 +225,31 @@ export default function TeamPage() {
     performToggleStatus(userId, name, currentStatus, email);
   };
 
-  const performToggleStatus = (userId: string | number, name: string, currentStatus: string, email?: string) => {
+  const performToggleStatus = async (userId: string | number, name: string, currentStatus: string, email?: string) => {
     toggleUserStatus(userId);
+
+    // Call live API PUT /api/admin/team/specialists/{id} to sync status to backend
+    const numId = Number(userId);
+    if (!isNaN(numId) && numId > 0) {
+      try {
+        const isDeactivating = currentStatus === "Active";
+        const targetSpec = apiSpecialists.find((s) => s.id === numId);
+        await apiClient.put(`/team/specialists/${numId}`, {
+          fullName: targetSpec?.fullName || name,
+          designation: targetSpec?.designation || "Specialist",
+          departmentId: targetSpec?.departmentId || 1,
+          department: targetSpec?.department || "GENERAL",
+          email: targetSpec?.email || email || "",
+          phone: targetSpec?.phone || "",
+          serviceIds: targetSpec?.serviceIds || [],
+          active: !isDeactivating,
+          status: isDeactivating ? "INACTIVE" : "ACTIVE",
+          enabled: !isDeactivating,
+        });
+      } catch (backendErr) {
+        console.warn("[Team] Specialist status update API warning:", backendErr);
+      }
+    }
 
     // Sync to cross-tab storage for immediate lockout
     if (typeof window !== "undefined") {
@@ -445,7 +468,7 @@ export default function TeamPage() {
     setFormEmail("");
     setFormPassword("");
     setFormDesignation("");
-    setFormRole("STAFF");
+    setFormRole("SPECIALIST");
     setFormDeptId(1);
     setFormDept("Accounting");
     setFormPhone("+91 98765 43210");
@@ -895,9 +918,7 @@ export default function TeamPage() {
                     onChange={(e) => setFormRole(e.target.value)}
                     className="w-full px-3.5 py-2 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-semibold focus:outline-none cursor-pointer"
                   >
-                    <option value="STAFF">Staff</option>
                     <option value="SPECIALIST">Specialist</option>
-                    <option value="EXECUTIVE">Executive</option>
                     <option value="ADMIN">Admin</option>
                   </select>
                 </div>

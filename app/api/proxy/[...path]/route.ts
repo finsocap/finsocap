@@ -222,20 +222,13 @@ async function handleProxy(
   const headers: Record<string, string> = {};
   const auth = request.headers.get("authorization");
 
-  // CRITICAL FIX: If client passes a valid Bearer token, forward the client's token.
-  // Exception: For safe read-only catalog/reporting routes (/services, /reports/service-team, /tutorials/pdf)
-  // where backend requires admin privileges, automatically elevate with adminToken for staff/specialists
-  const isCatalogOrReportingRead = request.method === "GET" && (
-    normalizedSubpath === "services" ||
-    normalizedSubpath.startsWith("services/") ||
-    normalizedSubpath.startsWith("reports/service-team") ||
-    normalizedSubpath === "team/specialists" ||
-    normalizedSubpath.startsWith("team/")
-  );
-
-  if (auth && auth.trim().startsWith("Bearer ") && auth.trim().length > 20 && !isCatalogOrReportingRead) {
+  // If client passes a valid Bearer token from their live login session, ALWAYS forward it directly.
+  // This ensures that Admin, Staff, and Partner sessions use their own dynamic JWT tokens,
+  // making the proxy 100% resilient to future admin password changes!
+  if (auth && auth.trim().startsWith("Bearer ") && auth.trim().length > 20) {
     headers["authorization"] = auth.trim();
   } else {
+    // Fallback: only if no client session token exists (e.g. unauthenticated background server tasks)
     const adminToken = await getValidAdminToken();
     if (adminToken) {
       headers["authorization"] = `Bearer ${adminToken}`;

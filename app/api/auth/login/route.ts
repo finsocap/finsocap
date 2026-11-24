@@ -1,15 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 
 const API_ROOT = (process.env.NEXT_PUBLIC_API_BASE_URL || "https://finsocap.cloud/api").replace(/\/+$/, "");
-const MASTER_EMAIL = process.env.BACKEND_ADMIN_EMAIL || "admin@gmail.com";
-const MASTER_PASSWORD = process.env.BACKEND_ADMIN_PASSWORD || "*Finsocap2026@sam#aarav";
-
-const ACCEPTED_PASSWORDS = [
-  "*Finsocap2026@sam#aarav",
-  "Welc0me@shubham12",
-  process.env.SHUBHAM_ADMIN_PASSWORD,
-  process.env.BACKEND_ADMIN_PASSWORD,
-].filter(Boolean) as string[];
 
 export async function POST(request: NextRequest) {
   try {
@@ -24,44 +15,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // 1. Check for provisioned admin: shubham@finsocap.com or shubham admin
-    if (
-      (email === "shubham@finsocap.com" || email === (process.env.SHUBHAM_ADMIN_EMAIL || "").toLowerCase()) &&
-      ACCEPTED_PASSWORDS.includes(password)
-    ) {
-      try {
-        const masterRes = await fetch(`${API_ROOT.replace(/\/+$/, "")}/admin/login`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ email: MASTER_EMAIL, password: MASTER_PASSWORD }),
-          cache: "no-store",
-        });
-
-        if (masterRes.ok) {
-          const masterData = await masterRes.json();
-          const masterToken = masterData?.data?.token || masterData?.token;
-          if (masterToken) {
-            return NextResponse.json({
-              success: true,
-              message: "Admin authentication successful",
-              data: {
-                id: 9,
-                name: "Shubham Jha",
-                email: "shubham@finsocap.com",
-                role: "ADMIN",
-                status: "ACTIVE",
-                token: masterToken,
-                tokenType: "Bearer",
-              },
-            });
-          }
-        }
-      } catch (e) {
-        console.error("[Auth API] Master token bridge error:", e);
-      }
-    }
-
-    // 2. Standard Admin Login to backend
+    // 1. Direct dynamic authentication against backend admin login with exact user credentials
     const adminRes = await fetch(`${API_ROOT.replace(/\/+$/, "")}/admin/login`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -97,7 +51,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json(adminData);
     }
 
-    // 3. Fallback to Partner Login (Op 03: POST /api/partners/login)
+    // 2. Fallback to Partner Login (Op 03: POST /api/partners/login) with exact user credentials
     try {
       const partnerRes = await fetch(`${API_ROOT.replace(/\/+$/, "")}/partners/login`, {
         method: "POST",
@@ -116,7 +70,7 @@ export async function POST(request: NextRequest) {
       console.warn("[Auth API] Partner login attempt:", e);
     }
 
-    // 4. Fallback to Staff Login
+    // 3. Fallback to Staff Login with exact user credentials
     if (adminRes.status === 403 || adminData?.message?.includes("not an Administrator")) {
       const staffRes = await fetch(`${API_ROOT.replace(/\/+$/, "")}/staff/login`, {
         method: "POST",

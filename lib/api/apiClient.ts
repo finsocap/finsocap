@@ -235,28 +235,13 @@ async function request<T = any>(endpoint: string, config: RequestConfig = {}): P
     }
 
     if (!response.ok) {
-      // 401 Unauthorized: clear session and redirect to login ONLY if on a direct auth route or session is genuinely invalid
+      // 401 Unauthorized: clear session and redirect to login when session is genuinely expired or invalid
       if (response.status === 401 && typeof window !== "undefined") {
         const path = window.location.pathname;
         const isAuthRoute = path.includes("/login") || path.includes("/register");
         
-        // Check if current user is non-admin (STAFF / PARTNER) who simply tried an admin-restricted endpoint
-        let isNonAdmin = false;
-        try {
-          const sessStr = localStorage.getItem("finsocap_user_session");
-          if (sessStr) {
-            const sess = JSON.parse(sessStr);
-            const role = (sess?.user?.role || sess?.role || "").toUpperCase();
-            if (["STAFF", "SPECIALIST", "EXECUTIVE", "PARTNER", "CLIENT"].includes(role)) {
-              isNonAdmin = true;
-            }
-          }
-        } catch (e) {}
-
-        // SAFE MODE: Do NOT aggressively kick the user out on background sync 401s
-        // Only redirect if the user has NO stored session or token at all
-        const hasSession = !!localStorage.getItem("finsocap_user_session");
-        if (!hasSession && !isAuthRoute) {
+        // If 401 happens on any protected dashboard route, clear storage and push to login
+        if (!isAuthRoute) {
           clearAuthToken();
           window.location.href = "/dashboard/login?session_expired=true";
         }
