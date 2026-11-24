@@ -549,23 +549,8 @@ export function useCrmStore() {
 
     if (!crmStoreIntervalStarted) {
       crmStoreIntervalStarted = true;
-      // Auto background poll every 45 seconds when browser tab is active/visible
-      // Pauses when tab is hidden or laptop is locked to save bandwidth and prevent quota exhaustion
-      setInterval(() => {
-        if (typeof document !== "undefined" && document.visibilityState === "hidden") {
-          return;
-        }
-        fetchLiveDbData();
-      }, 45000);
-
-      // Instantly sync fresh data as soon as user switches back to this tab
-      if (typeof window !== "undefined") {
-        document.addEventListener("visibilitychange", () => {
-          if (document.visibilityState === "visible") {
-            fetchLiveDbData();
-          }
-        });
-      }
+      // Auto background poll every 15 seconds so data stays 100% in sync without throttling the UI
+      setInterval(fetchLiveDbData, 15000);
     }
   }, []);
 

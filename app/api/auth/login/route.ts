@@ -1,10 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 
 const API_ROOT = (process.env.NEXT_PUBLIC_API_BASE_URL || "https://finsocap.cloud/api").replace(/\/+$/, "");
-const MASTER_EMAIL = "admin@gmail.com";
-const MASTER_PASSWORD = "Welc0me@shubham12";
+const MASTER_EMAIL = process.env.BACKEND_ADMIN_EMAIL || "admin@gmail.com";
+const MASTER_PASSWORD = process.env.BACKEND_ADMIN_PASSWORD || "*Finsocap2026@sam#aarav";
 
 const ACCEPTED_PASSWORDS = [
+  "*Finsocap2026@sam#aarav",
   "Welc0me@shubham12",
   process.env.SHUBHAM_ADMIN_PASSWORD,
   process.env.BACKEND_ADMIN_PASSWORD,
