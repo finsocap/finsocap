@@ -245,6 +245,7 @@ export default function ServicesPage() {
   const [editingServiceId, setEditingServiceId] = useState<number | null>(null);
   const [viewingService, setViewingService] = useState<ServiceModel | null>(null);
   const [duplicatingId, setDuplicatingId] = useState<number | null>(null);
+  const [highlightedServiceId, setHighlightedServiceId] = useState<number | null>(null);
   const [actionMenuOpenId, setActionMenuOpenId] = useState<number | null>(null);
   const [deleteConfirmService, setDeleteConfirmService] = useState<ServiceModel | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
@@ -433,9 +434,18 @@ export default function ServicesPage() {
         baseGovernmentFee: String(src.baseGovernmentFee || service.gov || 0),
       };
 
-      await serviceCatalogService.createService(payload as any);
+      const createdRes = await serviceCatalogService.createService(payload as any);
+      const newServiceId = createdRes?.data?.id || (createdRes as any)?.id;
       showToast(`Service cloned successfully as "${copyName}"!`);
       await fetchServicesFromApi();
+
+      // Highlight and animate newly created duplicated service for 2.5 - 3 seconds
+      if (newServiceId) {
+        setHighlightedServiceId(Number(newServiceId));
+        setTimeout(() => {
+          setHighlightedServiceId(null);
+        }, 3000);
+      }
     } catch (err: any) {
       console.error("Duplicate service failed:", err);
       toast.error(err?.message || "Could not duplicate service", "Duplicate Failed");
@@ -759,9 +769,18 @@ export default function ServicesPage() {
                   </td>
                 </tr>
               ) : (
-                paginatedServices.map((s, i) => (
-                  <tr key={s.id} className="hover:bg-slate-50/80 dark:hover:bg-slate-800/50 transition-colors">
-                    <td className="py-3.5 px-4 text-center font-bold text-slate-400">
+                paginatedServices.map((s, i) => {
+                  const isNewlyDuplicated = highlightedServiceId === s.id;
+                  return (
+                    <tr
+                      key={s.id}
+                      className={`transition-all duration-300 ${
+                        isNewlyDuplicated
+                          ? "bg-indigo-50/90 dark:bg-indigo-950/60 ring-2 ring-indigo-500 shadow-md animate-pulse scale-[1.002]"
+                          : "hover:bg-slate-50/80 dark:hover:bg-slate-800/50"
+                      }`}
+                    >
+                      <td className="py-3.5 px-4 text-center font-bold text-slate-400">
                       {(currentPage - 1) * itemsPerPage + i + 1}
                     </td>
                     <td className="py-3.5 px-4 font-bold text-slate-900 dark:text-white">
@@ -864,7 +883,8 @@ export default function ServicesPage() {
                       </div>
                     </td>
                   </tr>
-                ))
+                );
+              })
               )}
             </tbody>
           </table>
