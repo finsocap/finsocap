@@ -60,10 +60,13 @@ export default function PartnerChatDrawer({
     fetchMessages(true);
   }, [fetchMessages]);
 
-  // Poll every 5 seconds if not closed
+  // Poll every 5 seconds if not closed and tab is visible
   React.useEffect(() => {
     if (isClosed) return;
     const interval = setInterval(() => {
+      if (typeof document !== "undefined" && document.visibilityState === "hidden") {
+        return;
+      }
       fetchMessages(false);
     }, 5000);
     return () => clearInterval(interval);
