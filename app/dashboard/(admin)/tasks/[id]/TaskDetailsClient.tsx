@@ -1505,6 +1505,15 @@ export default function TaskDetailsClient({ id }: { id: string }) {
         </div>
 
         {/* SECTION 2: Staff & Admin Work Deliverables / Attachments - 50% width, exact equal height */}
+        {(() => {
+          const staffWorkDeliverables = (task.attachments || []).filter((a) => {
+            if (a.source !== "STAFF_ADMIN") return false;
+            const docType = String((a as any).documentType || a.category || "").trim().toUpperCase();
+            const src = String(a.source || "").trim().toUpperCase();
+            const role = String(a.uploadedBy || "").trim().toUpperCase();
+            return docType !== "CHAT" && src !== "CHAT" && role !== "PARTNER";
+          });
+          return (
         <div className="card-luxury p-6 flex flex-col h-[280px] border-l-4 border-l-indigo-500">
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 border-b border-slate-100 dark:border-slate-800/80 pb-3 shrink-0">
             <div className="min-w-0 pr-2">
@@ -1512,7 +1521,7 @@ export default function TaskDetailsClient({ id }: { id: string }) {
                 <FileCheck className="w-4 h-4 text-indigo-500 shrink-0" />
                 <span>Staff &amp; Admin Work Deliverables</span>
                 <span className="px-2 py-0.5 rounded-full text-[10px] font-black bg-indigo-50 text-indigo-600 dark:bg-indigo-950/60 dark:text-indigo-300 border border-indigo-200/60 dark:border-indigo-800/60 shrink-0">
-                  {((task.attachments || []).filter((a) => a.source === "STAFF_ADMIN")).length} Files
+                  {staffWorkDeliverables.length} Files
                 </span>
               </h3>
               <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">
@@ -1548,7 +1557,7 @@ export default function TaskDetailsClient({ id }: { id: string }) {
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100 dark:divide-slate-800/60 font-medium">
-                {((task.attachments || []).filter((a) => a.source === "STAFF_ADMIN")).length === 0 ? (
+                {staffWorkDeliverables.length === 0 ? (
                   <tr>
                     <td colSpan={5} className="py-4 text-center text-slate-400">
                       <FileCheck className="w-5 h-5 mx-auto mb-1 text-slate-300 dark:text-slate-700" />
@@ -1557,8 +1566,7 @@ export default function TaskDetailsClient({ id }: { id: string }) {
                     </td>
                   </tr>
                 ) : (
-                  (task.attachments || [])
-                    .filter((a) => a.source === "STAFF_ADMIN")
+                  staffWorkDeliverables
                     .map((att, idx) => (
                       <tr key={att.id ? `${att.id}-${idx}` : `staff-att-${idx}`} className="hover:bg-slate-50/60 dark:hover:bg-slate-800/40 transition-colors">
                         <td className="py-2.5 px-2 font-bold text-slate-400">{idx + 1}</td>
@@ -1626,6 +1634,8 @@ export default function TaskDetailsClient({ id }: { id: string }) {
             </table>
           </div>
         </div>
+          );
+        })()}
       </div>
 
       {/* 4. Comments (50%) & Status History (50%) Side by Side with EXACT EQUAL HEIGHT */}

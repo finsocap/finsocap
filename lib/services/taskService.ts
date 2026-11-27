@@ -256,7 +256,14 @@ export const taskService = {
               const docsJson = await docsRes.json();
               const docItems = docsJson?.data?.items || (Array.isArray(docsJson?.data) ? docsJson.data : []);
               if (Array.isArray(docItems)) {
-                staffDeliverables = docItems.map((d: any, idx: number) => ({
+                staffDeliverables = docItems
+                  .filter((d: any) => {
+                    const docType = String(d?.documentType || "").trim().toUpperCase();
+                    const src = String(d?.source || "").trim().toUpperCase();
+                    const role = String(d?.uploadedByRole || "").trim().toUpperCase();
+                    return docType !== "CHAT" && src !== "CHAT" && role !== "PARTNER";
+                  })
+                  .map((d: any, idx: number) => ({
                   id: `deliverable-${d.id || idx + 1}`,
                   fileName: d.title || d.fileName || "Work_Deliverable.pdf",
                   fileSize: d.sizeBytes
@@ -341,7 +348,7 @@ export const taskService = {
           partnerContact: apiTask.partnerContact || "",
           clientName: apiTask.clientName || apiTask.customerName || "Client",
           clientContact: apiTask.contactNumber || "",
-          nameOfBusiness: apiTask.nameOfBusiness || apiTask.clientName || apiTask.customerName || "—",
+          nameOfBusiness: apiTask.nameOfBusiness || apiTask.businessName || "—",
           taskCategory: apiTask.taskCategory || "Compliance",
           serviceName: apiTask.serviceName || "Service",
           status: mapBackendTaskStatus(apiTask.status) as TaskStatus,
