@@ -261,8 +261,8 @@ export const ALLOWED_STATUS_TRANSITIONS: Record<TaskStatus, TaskStatus[]> = {
 
 export function canTransitionStatus(currentStatus: TaskStatus, targetStatus: TaskStatus): boolean {
   if (currentStatus === targetStatus) return true;
-  const allowed = ALLOWED_STATUS_TRANSITIONS[currentStatus];
-  return Array.isArray(allowed) ? allowed.includes(targetStatus) : false;
+  if (currentStatus === "Completed" || currentStatus === "Cancelled") return false;
+  return getBackendStatusTransitionPath(currentStatus, targetStatus).length > 0;
 }
 
 /**
@@ -288,7 +288,7 @@ export function getBackendStatusTransitionPath(currentStatus: string, targetStat
 
   const GRAPH: Record<string, string[]> = {
     PENDING: ["IN_PROGRESS", "CANCELLED"],
-    IN_PROGRESS: ["SENT_FOR_REVIEW", "PENDING_FROM_CLIENT", "PENDING_FROM_DEPARTMENT", "CANCELLED"],
+    IN_PROGRESS: ["COMPLETED", "SENT_FOR_REVIEW", "PENDING_FROM_CLIENT", "PENDING_FROM_DEPARTMENT", "CANCELLED"],
     PENDING_FROM_CLIENT: ["IN_PROGRESS", "CANCELLED"],
     PENDING_FROM_DEPARTMENT: ["IN_PROGRESS", "CANCELLED"],
     SENT_FOR_REVIEW: ["IN_PROGRESS", "COMPLETED", "CANCELLED"],

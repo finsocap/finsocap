@@ -10,6 +10,7 @@
 
 import { apiClient } from "./apiClient";
 import { ApiResponse } from "@/types/api";
+import { getBackendStatusTransitionPath } from "@/types";
 
 export interface TaskDocumentItem {
   id: number;
@@ -215,6 +216,110 @@ export const taskCollaborationService = {
           expectedVersion: typeof payload.expectedVersion === "number" ? payload.expectedVersion : 0,
         };
     return apiClient.patch<ApiResponse<any>>(`${basePath}/status`, body);
+  },
+
+  /**
+   * Executes a validated stepwise status transition for either ADMIN or STAFF,
+   * tracking live expectedVersion across hops and surfacing any backend rejection.
+   */
+  transitionTaskStatusStepwise: async (
+    taskId: number | string,
+    options: {
+      currentStatus: string;
+      targetStatus: string;
+      note: string;
+      reason?: string;
+      decisionNotes?: string;
+      initialVersion?: number;
+    },
+    role: "ADMIN" | "STAFF" = "ADMIN"
+  ): Promise<void> => {
+    const hops = getBackendStatusTransitionPath(options.currentStatus, options.targetStatus);
+    if (hops.length === 0) return;
+
+    if (role === "STAFF") {
+      try {
+        await taskCollaborationService.updateTaskStatus(
+          taskId,
+          { status: options.targetStatus, note: options.note },
+          "STAFF"
+        );
+        return;
+      } catch (directErr: any) {
+        // Build fallback hop sequence: try shortest path first, and for COMPLETED also try via SENT_FOR_REVIEW if needed
+        const tryHops = async (hopList: string[]) => {
+          for (let i = 0; i < hopList.length; i++) {
+            const hopStatus = hopList[i];
+            const isFinalHop = i === hopList.length - 1;
+            await taskCollaborationService.updateTaskStatus(
+              taskId,
+              {
+                status: hopStatus,
+                note: isFinalHop ? options.note : `Automatic stepwise bridge to ${hopStatus}`,
+              },
+              "STAFF"
+            );
+          }
+        };
+
+        try {
+          if (hops.length > 1) {
+            await tryHops(hops);
+            return;
+          }
+          if (options.targetStatus === "COMPLETED" && !hops.includes("SENT_FOR_REVIEW")) {
+            await tryHops(["SENT_FOR_REVIEW", "COMPLETED"]);
+            return;
+          }
+          throw directErr;
+        } catch (hopErr: any) {
+          if (
+            options.targetStatus === "COMPLETED" &&
+            !hops.includes("SENT_FOR_REVIEW") &&
+            hops.length > 1
+          ) {
+            await tryHops([...hops.slice(0, -1), "SENT_FOR_REVIEW", "COMPLETED"]);
+            return;
+          }
+          throw hopErr;
+        }
+      }
+    }
+
+    // ADMIN: Fetch live version from backend first to prevent 409 stale expectedVersion
+    let currentLiveVersion = typeof options.initialVersion === "number" ? options.initialVersion : 0;
+    try {
+      const liveRes = await apiClient.get<ApiResponse<any>>(`/service-requests/${taskId}`);
+      if (typeof liveRes?.data?.version === "number") {
+        currentLiveVersion = liveRes.data.version;
+      }
+    } catch {
+      // Fall back to initialVersion if version lookup fails
+    }
+
+    for (let i = 0; i < hops.length; i++) {
+      const hopStatus = hops[i];
+      const isFinalHop = i === hops.length - 1;
+      const hopNote = isFinalHop ? options.note : `Automatic stepwise bridge to ${hopStatus}`;
+
+      const hopRes = await taskCollaborationService.updateTaskStatus(
+        taskId,
+        {
+          status: hopStatus,
+          note: hopNote,
+          reason: isFinalHop ? (options.reason || hopNote) : hopNote,
+          decisionNotes: isFinalHop ? (options.decisionNotes || hopNote) : hopNote,
+          expectedVersion: currentLiveVersion,
+        },
+        "ADMIN"
+      );
+
+      if (typeof hopRes?.data?.version === "number") {
+        currentLiveVersion = hopRes.data.version;
+      } else {
+        currentLiveVersion += 1;
+      }
+    }
   },
 };
 

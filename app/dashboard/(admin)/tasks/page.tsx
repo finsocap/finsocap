@@ -9,13 +9,13 @@ import {
   X, Paperclip, Send, Download, ShieldAlert, XCircle, Loader2,
   Calendar, ChevronDown, Eye, ArrowUpDown, Edit3, Save
 } from "lucide-react";
-import { TaskItem, TaskStatus, ALLOWED_STATUS_TRANSITIONS, canTransitionStatus, getBackendStatusTransitionPath } from "@/types";
+import { TaskItem, TaskStatus, ALLOWED_STATUS_TRANSITIONS, canTransitionStatus } from "@/types";
 import { taskService } from "@/lib/services/taskService";
 import { taskApiService } from "@/lib/api/taskService";
 import { taskCollaborationService } from "@/lib/api/taskCollaborationService";
 import { staffWorkflowService } from "@/lib/api/staffWorkflowService";
 import { TaskMetrics } from "@/types/api";
-import { useCrmStore } from "@/lib/crmStore";
+import { useCrmStore, fetchLiveDbData } from "@/lib/crmStore";
 import { initialTasks } from "@/lib/tasksData";
 import AnimatedCounter from "@/components/Global/AnimatedCounter";
 import PageBanner from "@/components/Dashboard/PageBanner";
@@ -470,84 +470,40 @@ export default function TasksPage() {
 
         if (numericTaskId && numericTaskId > 0) {
           const isStaff = ["STAFF", "SPECIALIST", "EXECUTIVE"].includes(userRole.toUpperCase());
+          const effectiveRole: "ADMIN" | "STAFF" = isStaff ? "STAFF" : "ADMIN";
 
-          // 1. Fetch live version from server to prevent 409 stale version conflict
-          let currentLiveVersion = typeof editingTask.version === "number" ? editingTask.version : 0;
-          try {
-            const verRes = await fetch(`/api/proxy/tasks/${numericTaskId}`, { cache: "no-store" });
-            if (verRes.ok) {
-              const verJson = await verRes.json();
-              if (typeof verJson?.data?.version === "number") currentLiveVersion = verJson.data.version;
-            }
-          } catch (e) {}
-
-          // 2. Direct core task PUT update (admin only, staff is not permitted to PUT /admin/tasks)
-          if (!isStaff) {
+          // 1. Update dueDate only when dueDate changed (avoid racing PUT status against PATCH status)
+          if (!isStaff && editDue !== editingTask.dueDate) {
             await fetch(`/api/proxy/tasks/${numericTaskId}`, {
               method: "PUT",
               headers: { "Content-Type": "application/json" },
               body: JSON.stringify({
-                status: backendStatus || editingTask.status,
                 dueDate: editDue || null,
-                version: currentLiveVersion,
+                version: typeof editingTask.version === "number" ? editingTask.version : 0,
               }),
             }).catch((err) => console.warn("Direct PUT task entity warning:", err));
           }
 
-          // 3. Status transition workflow endpoint
+          // 2. Status transition workflow endpoint (surfaces any backend rejection)
           if (statusChanged && backendStatus) {
-            if (isStaff) {
-              await taskCollaborationService.updateTaskStatus(
-                numericTaskId,
-                {
-                  status: backendStatus,
-                  note: `Status updated to ${editStatus} from Task Editor`,
-                },
-                "STAFF"
-              ).catch((err) => console.warn("Staff status transition warning:", err));
-            } else {
-              // Universal Automated Stepwise Transition Bridge:
-              // Backend enforces strict parent-child transitions. If jumping across branches,
-              // bridge through the intermediate valid states automatically.
-              const currentDbStatus = String(editingTask.status);
-              const transitionHops = getBackendStatusTransitionPath(currentDbStatus, backendStatus);
-
-              for (let i = 0; i < transitionHops.length; i++) {
-                const hopStatus = transitionHops[i];
-                const isFinalHop = i === transitionHops.length - 1;
-                const hopNote = isFinalHop
-                  ? `Status updated to ${editStatus} from Task Editor`
-                  : `Automatic stepwise bridge to ${hopStatus}`;
-
-                try {
-                  const hopRes = await taskCollaborationService.updateTaskStatus(
-                    numericTaskId,
-                    {
-                      status: hopStatus,
-                      note: hopNote,
-                      reason: hopNote,
-                      decisionNotes: hopNote,
-                      expectedVersion: currentLiveVersion,
-                    },
-                    "ADMIN"
-                  );
-                  if (hopRes?.data?.version) {
-                    currentLiveVersion = hopRes.data.version;
-                  } else {
-                    currentLiveVersion += 1;
-                  }
-                } catch (bridgeErr: any) {
-                  console.warn(`Admin bridge hop ${hopStatus} error:`, bridgeErr);
-                  if (isFinalHop) {
-                    toast.error(bridgeErr?.message || "Status change rejected by server transition rules", "Status Error");
-                  }
-                }
-              }
-            }
+            await taskCollaborationService.transitionTaskStatusStepwise(
+              numericTaskId,
+              {
+                currentStatus: String(editingTask.status),
+                targetStatus: backendStatus,
+                note: `Status updated to ${editStatus} from Task Editor`,
+                reason: `Status updated to ${editStatus} from Task Editor`,
+                decisionNotes: `Status updated to ${editStatus} from Task Editor`,
+                initialVersion: typeof editingTask.version === "number" ? editingTask.version : 0,
+              },
+              effectiveRole
+            );
           }
         }
-      } catch (syncErr) {
-        console.warn("Backend status sync warning:", syncErr);
+      } catch (syncErr: any) {
+        console.error("Backend status sync error:", syncErr);
+        toast.error(syncErr?.message || "Status change rejected by server transition rules", "Status Error");
+        return;
       }
     }
 
@@ -566,6 +522,7 @@ export default function TasksPage() {
 
     if (updated) {
       setTasks(tasks.map((t) => (t.id === updated.id ? updated : t)));
+      fetchLiveDbData().catch(() => {});
       showToast(`Task ${updated.id} updated successfully!`);
     }
     setEditingTask(null);

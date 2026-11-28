@@ -9,11 +9,11 @@ import {
   User, Building2, Briefcase, FileCheck, Loader2, Sparkles,
   ChevronDown, X, ShieldCheck, ShieldAlert, Award, Eye, EyeOff, FileText, QrCode, Check, Edit3, Copy, ArrowRight
 } from "lucide-react";
-import { TaskItem, TaskStatus, TaskComment, TaskAttachment, CommentAttachment, TaskCertificate, ALLOWED_STATUS_TRANSITIONS, canTransitionStatus, getBackendStatusTransitionPath } from "@/types";
+import { TaskItem, TaskStatus, TaskComment, TaskAttachment, CommentAttachment, TaskCertificate } from "@/types";
 import { taskService } from "@/lib/services/taskService";
 import { useTheme } from "@/components/Providers/ThemeProvider";
 import { useToast } from "@/components/Global/ToastNotification";
-import { useCrmStore } from "@/lib/crmStore";
+import { useCrmStore, fetchLiveDbData } from "@/lib/crmStore";
 import { teamService } from "@/lib/api/teamService";
 import ModalHeaderBanner from "@/components/Dashboard/ModalHeaderBanner";
 import { formatName, formatIndianPhoneNumber, normalizePhoneForBackend, toTitleCase } from "@/lib/formatters";
@@ -468,7 +468,7 @@ export default function TaskDetailsClient({ id }: { id: string }) {
     });
   };
 
-  // Confirmed status execution with live backend sync & optimistic audit trail
+  // Confirmed status execution with live backend sync & fresh re-fetch
   const executeConfirmedStatusChange = async () => {
     if (!task || !confirmStatusModal) return;
 
@@ -476,32 +476,6 @@ export default function TaskDetailsClient({ id }: { id: string }) {
     const userNote = confirmStatusModal.note.trim();
     setIsUpdatingStatus(true);
 
-    // 1. Optimistic UI update immediately so UI never lags or ignores user click
-    const updatedStatusHistory = [
-      {
-        id: `sh-${Date.now()}`,
-        status: newStatus,
-        title: userNote ? `Status changed to ${newStatus}: ${userNote}` : `Status changed to ${newStatus}`,
-        timestamp: new Date().toLocaleDateString("en-GB", {
-          day: "2-digit",
-          month: "short",
-          year: "numeric",
-          hour: "2-digit",
-          minute: "2-digit",
-        }),
-        updatedBy: currentUser?.name || "Admin",
-      },
-      ...(task.statusHistory || []),
-    ];
-
-    setTask({
-      ...task,
-      status: newStatus,
-      statusHistory: updatedStatusHistory,
-    });
-    showToast(`Status updated to "${newStatus}"`);
-
-    // 2. Live Backend Dual-Sync: Immediate, Fast & Reliable
     try {
       let numericTaskId = task.numericId;
       if (!numericTaskId && task.id) {
@@ -513,7 +487,7 @@ export default function TaskDetailsClient({ id }: { id: string }) {
       }
 
       if (numericTaskId && numericTaskId > 0) {
-        const statusMap: Record<string, any> = {
+        const statusMap: Record<string, string> = {
           "Pending": "PENDING",
           "In Progress": "IN_PROGRESS",
           "Pending from Client": "PENDING_FROM_CLIENT",
@@ -525,87 +499,40 @@ export default function TaskDetailsClient({ id }: { id: string }) {
         const backendStatus = statusMap[newStatus];
         if (backendStatus) {
           const isStaffRole = ["STAFF", "SPECIALIST", "EXECUTIVE"].includes(userRole.toUpperCase());
+          const effectiveRole: "ADMIN" | "STAFF" = isStaffRole ? "STAFF" : "ADMIN";
+          const noteText =
+            userNote ||
+            `Status updated to ${newStatus} by ${currentUser?.name || (isStaffRole ? "Specialist" : "Operations Team")}`;
 
-          // 2A. Fetch live version to avoid 409 stale version conflict
-          let currentLiveVersion = typeof task.version === "number" ? task.version : 0;
-          try {
-            const verRes = await fetch(`/api/proxy/service-requests/${numericTaskId}`, { cache: "no-store" });
-            if (verRes.ok) {
-              const verJson = await verRes.json();
-              if (typeof verJson?.data?.version === "number") {
-                currentLiveVersion = verJson.data.version;
-              }
-            }
-          } catch (e) { }
-
-          // 2B. Status transition workflow endpoint
-          if (isStaffRole) {
-            await taskCollaborationService.updateTaskStatus(
-              numericTaskId,
-              {
-                status: backendStatus,
-                note: userNote || `Status updated to ${newStatus} by ${currentUser?.name || "Specialist"}`,
-              },
-              "STAFF"
-            ).catch((err) => console.warn("Staff status transition warning:", err));
-          } else {
-            // Universal Automated Stepwise Transition Bridge:
-            // Backend rejects direct jumps when intermediate steps are mandatory (e.g.
-            // PENDING_FROM_CLIENT -> PENDING_FROM_DEPARTMENT, SENT_FOR_REVIEW -> PENDING_FROM_CLIENT, etc.)
-            // Calculate the shortest valid path and execute any intermediate hops automatically!
-            const currentDbStatus = String(task.status);
-            const transitionHops = getBackendStatusTransitionPath(currentDbStatus, backendStatus);
-
-            for (let i = 0; i < transitionHops.length; i++) {
-              const hopStatus = transitionHops[i];
-              const isFinalHop = i === transitionHops.length - 1;
-              const hopNote = isFinalHop
-                ? (userNote || `Status updated to ${newStatus} by ${currentUser?.name || "Operations Team"}`)
-                : `Automatic stepwise bridge to ${hopStatus}`;
-
-              try {
-                const hopRes = await taskCollaborationService.updateTaskStatus(
-                  numericTaskId,
-                  {
-                    status: hopStatus,
-                    note: hopNote,
-                    reason: hopNote,
-                    decisionNotes: hopNote,
-                    expectedVersion: currentLiveVersion,
-                  },
-                  "ADMIN"
-                );
-                if (hopRes?.data?.version) {
-                  currentLiveVersion = hopRes.data.version;
-                } else {
-                  currentLiveVersion += 1;
-                }
-              } catch (hopErr: any) {
-                console.warn(`Bridge hop ${hopStatus} error:`, hopErr);
-                if (isFinalHop) {
-                  toast.error(hopErr?.message || "Status change rejected by server transition rules", "Status Error");
-                }
-              }
-            }
-          }
+          await taskCollaborationService.transitionTaskStatusStepwise(
+            numericTaskId,
+            {
+              currentStatus: String(task.status),
+              targetStatus: backendStatus,
+              note: noteText,
+              reason: noteText,
+              decisionNotes: noteText,
+              initialVersion: typeof task.version === "number" ? task.version : 0,
+            },
+            effectiveRole
+          );
         }
       }
-    } catch (apiErr) {
-      console.warn("Backend status PATCH warning:", apiErr);
-    }
 
-    // 3. Persist to taskService & reload full fresh task with live audit trail
-    try {
+      // Persist to local taskService & reload full fresh task with live audit trail & version
       await taskService.updateStatus(task.id, newStatus, currentUser?.name || "Admin");
       const freshTask = await taskService.getById(task.id);
       if (freshTask) {
         setTask(freshTask);
       }
-    } catch (err) {
-      console.warn("TaskService persist warning:", err);
+      fetchLiveDbData().catch(() => {});
+      showToast(`Status updated to "${newStatus}"`);
+      setConfirmStatusModal(null);
+    } catch (apiErr: any) {
+      console.error("Status transition error:", apiErr);
+      toast.error(apiErr?.message || "Status change rejected by server transition rules", "Status Error");
     } finally {
       setIsUpdatingStatus(false);
-      setConfirmStatusModal(null);
     }
   };
 
@@ -645,107 +572,13 @@ export default function TaskDetailsClient({ id }: { id: string }) {
     setIsCompletingTask(true);
 
     try {
-
-    const fileName = completeAttachments[0] || `${completeServiceName.replace(/\s+/g, "_")}_Official_Licence.pdf`;
-
-    // 1. Update taskService
-    const updatedTask = await taskService.completeTaskWithLicence(task.id, {
-      licenceType,
-      category: completeCategory,
-      service: completeServiceName,
-      licenceNumber: completeLicenceNumber.trim(),
-      issueDate: completeIssueDate,
-      expiryDate: completeExpiryDate,
-      userId: completeUserId.trim(),
-      password: completePassword.trim(),
-      fileName,
-      completedBy: currentUser?.name ? `${currentUser.name} (${currentUser.role || "Staff"})` : "Staff Executive",
-    });
-
-    // 2. Persist directly to crmStore for Licence Report (Requirement: Submitting this restores data into Licence Report)
-    const submittedPassword = completePassword.trim() || "Abc@1234";
-    const submittedLicenceNumber = completeLicenceNumber.trim();
-
-    // Save portal credentials in in-memory / session store instead of exposing in permanent local storage
-    if (typeof window !== "undefined") {
-      try {
-        const rawMap = sessionStorage.getItem("finsocap_licence_passwords") || "{}";
-        const map = JSON.parse(rawMap);
-        map[submittedLicenceNumber] = submittedPassword;
-        if (task.id) map[task.id] = submittedPassword;
-        sessionStorage.setItem("finsocap_licence_passwords", JSON.stringify(map));
-      } catch (e) {
-        console.warn("Save password to session storage failed:", e);
-      }
-    }
-
-    completeTaskInStore(task.id, {
-      type: licenceType,
-      category: completeCategory,
-      service: completeServiceName,
-      number: submittedLicenceNumber,
-      issue: completeIssueDate,
-      expiry: completeExpiryDate,
-      user: completeUserId.trim(),
-      password: submittedPassword,
-      filesCount: completeAttachments.length > 0 ? completeAttachments.length : 1,
-      partner: completePartnerName,
-      partnerPhone: completePartnerNumber,
-      client: completeClientName,
-      phone: completeClientNumber,
-    });
-
-    // 3. Sync to Live Reports API: POST /api/admin/reports/licences
-    try {
-      const rawCat = (completeCategory || task.taskCategory || "").toUpperCase();
-      const validBackendCategory =
-        rawCat.includes("FOOD") || rawCat.includes("FSSAI")
-          ? "FOOD_BEVERAGE"
-          : rawCat.includes("LEGAL") || rawCat.includes("IP") || rawCat.includes("TRADEMARK")
-            ? "LEGAL_IP"
-            : rawCat.includes("TAX") || rawCat.includes("GST") || rawCat.includes("INCOME")
-              ? "TAXATION"
-              : rawCat.includes("COMPANY") || rawCat.includes("REG") || rawCat.includes("INCORPORATION")
-                ? "COMPANY_REG"
-                : "LICENSES";
-
-      await reportsService.registerLicence({
-        taskId: task.id,
-        partnerName: completePartnerName || task.partnerName,
-        clientName: completeClientName || task.clientName,
-        serviceCategory: validBackendCategory,
-        governmentPortalUrl: "https://finsocap.cloud",
-        portalUserId: completeUserId.trim() || "UPFSSAI123",
-        portalPassword: completePassword.trim() || "Abc@1234",
-        licenceNumber: completeLicenceNumber.trim(),
-        issueDate: completeIssueDate,
-        expiryDate: completeExpiryDate,
-      });
-    } catch (licSyncErr) {
-      console.warn("Live reports licence registration sync warning:", licSyncErr);
-    }
-
-    // 4. Live Backend Status Sync to COMPLETED with Certificate Attachment Upload
-    try {
       const numericTaskId = task.numericId || (Number(task.id.replace(/\D/g, "")) || 0);
+      const isStaffRole = ["STAFF", "SPECIALIST", "EXECUTIVE"].includes(userRole.toUpperCase());
+      const effectiveRole: "ADMIN" | "STAFF" = isStaffRole ? "STAFF" : "ADMIN";
+
       if (numericTaskId > 0) {
-        const isStaffRole = ["STAFF", "SPECIALIST", "EXECUTIVE"].includes(userRole.toUpperCase());
-        const effectiveUploadRole: "ADMIN" | "STAFF" = isStaffRole ? "STAFF" : "ADMIN";
-
-        // Fast PUT to core task (admin only)
-        if (!isStaffRole) {
-          fetch(`/api/proxy/tasks/${numericTaskId}`, {
-            method: "PUT",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              status: "COMPLETED",
-              version: typeof task.version === "number" ? task.version + 1 : 1,
-            }),
-          }).catch((err) => console.warn("Direct PUT task completion warning:", err));
-        }
-
-        // 4A. If user attached an actual file in the completion modal, upload it to task collaboration documents BEFORE closing the task!
-        // Once a task is closed, the server marks it read-only.
+        // 1. Upload deliverable certificate FIRST before calling COMPLETED status PATCH
+        // (Server marks closed tasks read-only and may require a deliverable before COMPLETED)
         if (completeAttachmentFile) {
           try {
             await taskCollaborationService.uploadWorkDocument(
@@ -755,89 +588,133 @@ export default function TaskDetailsClient({ id }: { id: string }) {
                 title: `${completeServiceName} Official Certificate - ${completeLicenceNumber.trim()}`,
                 documentType: "CERTIFICATE",
               },
-              effectiveUploadRole
+              effectiveRole
             );
-          } catch (uploadErr) {
-            console.warn("Completion attachment upload warning:", uploadErr);
+          } catch (uploadErr: any) {
+            toast.error(uploadErr?.message || "Failed to upload deliverable document", "Upload Error");
+            return;
           }
         }
 
-        // 4B. Status transition workflow endpoint to COMPLETED
-        if (isStaffRole) {
-          await taskCollaborationService.updateTaskStatus(
+        // 2. Transition backend task status to COMPLETED (surfaces any backend rejection immediately)
+        try {
+          const completionNote = `Task completed with issued licence / certificate #${completeLicenceNumber.trim()} by ${currentUser?.name || (isStaffRole ? "Specialist" : "Admin")}`;
+          const completionReason = `Licence No: ${completeLicenceNumber.trim()} issued. Valid till ${completeExpiryDate}`;
+          await taskCollaborationService.transitionTaskStatusStepwise(
             numericTaskId,
             {
-              status: "COMPLETED",
-              note: `Task completed with issued licence / certificate #${completeLicenceNumber.trim()} by ${currentUser?.name || "Specialist"}`,
+              currentStatus: String(task.status),
+              targetStatus: "COMPLETED",
+              note: completionNote,
+              reason: completionReason,
+              decisionNotes: completionReason,
+              initialVersion: typeof task.version === "number" ? task.version : 0,
             },
-            "STAFF"
-          ).catch((err) => console.warn("Staff completion transition warning:", err));
-        } else {
-          // Admin workflow status transition to COMPLETED via Universal Stepwise Planner
-          let currentLiveVersion = typeof task.version === "number" ? task.version : 0;
-          try {
-            const verRes = await fetch(`/api/proxy/service-requests/${numericTaskId}`, { cache: "no-store" });
-            if (verRes.ok) {
-              const verJson = await verRes.json();
-              if (typeof verJson?.data?.version === "number") currentLiveVersion = verJson.data.version;
-            }
-          } catch (e) { }
-
-          const currentDbStatus = String(task.status);
-          const transitionHops = getBackendStatusTransitionPath(currentDbStatus, "COMPLETED");
-
-          for (let i = 0; i < transitionHops.length; i++) {
-            const hopStatus = transitionHops[i];
-            const isFinalHop = i === transitionHops.length - 1;
-            const hopNote = isFinalHop
-              ? `Task completed with issued licence / certificate #${completeLicenceNumber.trim()}`
-              : `Automatic stepwise bridge to ${hopStatus}`;
-
-            try {
-              const hopRes = await taskCollaborationService.updateTaskStatus(
-                numericTaskId,
-                {
-                  status: hopStatus,
-                  note: hopNote,
-                  reason: isFinalHop ? `Licence No: ${completeLicenceNumber.trim()} issued. Valid till ${completeExpiryDate}` : hopNote,
-                  decisionNotes: isFinalHop ? `Licence No: ${completeLicenceNumber.trim()} issued. Valid till ${completeExpiryDate}` : hopNote,
-                  expectedVersion: currentLiveVersion,
-                },
-                "ADMIN"
-              );
-              if (hopRes?.data?.version) {
-                currentLiveVersion = hopRes.data.version;
-              } else {
-                currentLiveVersion += 1;
-              }
-            } catch (hopErr: any) {
-              console.warn(`Completion bridge hop ${hopStatus} error:`, hopErr);
-              if (isFinalHop) {
-                toast.error(hopErr?.message || "Status change rejected by server transition rules", "Status Error");
-              }
-            }
-          }
+            effectiveRole
+          );
+        } catch (statusErr: any) {
+          toast.error(statusErr?.message || "Status change rejected by server transition rules", "Completion Failed");
+          return;
         }
       }
-    } catch (e) {
-      console.warn("Complete status backend sync warning:", e);
-    }
 
-    if (updatedTask) {
-      setTask({ ...updatedTask });
-    } else {
-      setTask((prev) => prev ? { ...prev, status: "Completed", license: completeLicenceNumber.trim() } : null);
-    }
+      const fileName = completeAttachments[0] || `${completeServiceName.replace(/\s+/g, "_")}_Official_Licence.pdf`;
 
-    setIsCompleteModalOpen(false);
-    showToast(`Task ${task.id} marked as Completed & licence saved to Licence Report!`);
-  } catch (completeErr: any) {
-    console.error("Task completion error:", completeErr);
-    showToast(completeErr?.message || "Failed to complete task");
-  } finally {
-    isCompletingTaskRef.current = false;
-    setIsCompletingTask(false);
-  }
+      // 3. Persist local taskService & crmStore after confirmed backend 200 OK
+      const updatedTask = await taskService.completeTaskWithLicence(task.id, {
+        licenceType,
+        category: completeCategory,
+        service: completeServiceName,
+        licenceNumber: completeLicenceNumber.trim(),
+        issueDate: completeIssueDate,
+        expiryDate: completeExpiryDate,
+        userId: completeUserId.trim(),
+        password: completePassword.trim(),
+        fileName,
+        completedBy: currentUser?.name ? `${currentUser.name} (${currentUser.role || "Staff"})` : "Staff Executive",
+      });
+
+      const submittedPassword = completePassword.trim() || "Abc@1234";
+      const submittedLicenceNumber = completeLicenceNumber.trim();
+
+      if (typeof window !== "undefined") {
+        try {
+          const rawMap = sessionStorage.getItem("finsocap_licence_passwords") || "{}";
+          const map = JSON.parse(rawMap);
+          map[submittedLicenceNumber] = submittedPassword;
+          if (task.id) map[task.id] = submittedPassword;
+          sessionStorage.setItem("finsocap_licence_passwords", JSON.stringify(map));
+        } catch (e) {
+          console.warn("Save password to session storage failed:", e);
+        }
+      }
+
+      completeTaskInStore(task.id, {
+        type: licenceType,
+        category: completeCategory,
+        service: completeServiceName,
+        number: submittedLicenceNumber,
+        issue: completeIssueDate,
+        expiry: completeExpiryDate,
+        user: completeUserId.trim(),
+        password: submittedPassword,
+        filesCount: completeAttachments.length > 0 ? completeAttachments.length : 1,
+        partner: completePartnerName,
+        partnerPhone: completePartnerNumber,
+        client: completeClientName,
+        phone: completeClientNumber,
+      });
+
+      // 4. Sync to Live Reports API: POST /api/admin/reports/licences
+      try {
+        const rawCat = (completeCategory || task.taskCategory || "").toUpperCase();
+        const validBackendCategory =
+          rawCat.includes("FOOD") || rawCat.includes("FSSAI")
+            ? "FOOD_BEVERAGE"
+            : rawCat.includes("LEGAL") || rawCat.includes("IP") || rawCat.includes("TRADEMARK")
+              ? "LEGAL_IP"
+              : rawCat.includes("TAX") || rawCat.includes("GST") || rawCat.includes("INCOME")
+                ? "TAXATION"
+                : rawCat.includes("COMPANY") || rawCat.includes("REG") || rawCat.includes("INCORPORATION")
+                  ? "COMPANY_REG"
+                  : "LICENSES";
+
+        await reportsService.registerLicence({
+          taskId: task.id,
+          partnerName: completePartnerName || task.partnerName,
+          clientName: completeClientName || task.clientName,
+          serviceCategory: validBackendCategory,
+          governmentPortalUrl: "https://finsocap.cloud",
+          portalUserId: completeUserId.trim() || "UPFSSAI123",
+          portalPassword: completePassword.trim() || "Abc@1234",
+          licenceNumber: completeLicenceNumber.trim(),
+          issueDate: completeIssueDate,
+          expiryDate: completeExpiryDate,
+        });
+      } catch (licSyncErr) {
+        console.warn("Live reports licence registration sync warning:", licSyncErr);
+      }
+
+      // 5. Mandatory live re-fetch & global crmStore sync after confirmed 200 OK
+      const freshTask = await taskService.getById(task.id);
+      if (freshTask) {
+        setTask(freshTask);
+      } else if (updatedTask) {
+        setTask({ ...updatedTask });
+      } else {
+        setTask((prev) => prev ? { ...prev, status: "Completed", license: completeLicenceNumber.trim() } : null);
+      }
+      fetchLiveDbData().catch(() => {});
+
+      setIsCompleteModalOpen(false);
+      showToast(`Task ${task.id} marked as Completed & licence saved to Licence Report!`);
+    } catch (completeErr: any) {
+      console.error("Task completion error:", completeErr);
+      toast.error(completeErr?.message || "Failed to complete task", "Completion Failed");
+    } finally {
+      isCompletingTaskRef.current = false;
+      setIsCompletingTask(false);
+    }
 };
 
   // Handle comment file selection
